@@ -1,0 +1,17 @@
+{
+  "name": "bit-structures",
+  "type": "module",
+  "version": "0.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "tap": "tap",
+    "test": "tap"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "tead": "^0.6.0"
+  }
+}
