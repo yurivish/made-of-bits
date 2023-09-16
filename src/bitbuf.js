@@ -1,13 +1,18 @@
 import { DEBUG, assert, assertSafeInteger } from './assert.js';
 import { BLOCK_BITS, blockBitOffset, blockIndex } from './bits.js';
 
-// todo: class docstring
-
+/**
+ * Fixed-size bit buffer. Designed to be written once and read many times.
+ * 
+ */
 export class BitBuf {
   /**
+   * Construct a new `BitBuf` containing all 0-bits.
    * @param {number} lengthInBits
    */
   constructor(lengthInBits) {
+    assertSafeInteger(lengthInBits);
+    assert(lengthInBits >= 0);
     const numBlocks = Math.ceil(lengthInBits / BLOCK_BITS);
     this.blocks = new Uint32Array(numBlocks);
     this.lengthInBits = lengthInBits;
@@ -25,6 +30,7 @@ export class BitBuf {
   }
 
   /**
+   * Set the bit at index `bitIndex` to a 1-bit.
    * @param {number} bitIndex
    */
   set(bitIndex) {

@@ -1,13 +1,12 @@
 import { DEBUG, assert, assertInteger, assertSafeInteger } from "./assert.js";
 import * as bits from './bits.js';
 
-// note: writes proceed contiguously; more of a push operation.
-// todo: class docstring
-// An IntVec represents a fixed length vector of fixed width integers.
-// A newly constructed IntVec will have the specified length and all elements will be initialized to 0.
-// Elements can be added by pushing them onto the vector, which will add that element from the front at the lowest available index.
-// In typical use, the vector will be initialized and and then precisely `length` elements will be pushed.
-
+/**
+* An IntVec represents a fixed length vector of fixed width integers.
+* A newly constructed IntVec will have the specified length and all elements will be initialized to zero.
+* Elements can be added by pushing them onto the vector, which will add that element from the front at the lowest available index.
+* In typical use, the vector will be initialized and and then precisely `length` elements will be pushed.
+*/
 export class IntVec {
   /**
    * @param {number} length - the length of the IntVec (in elements)
@@ -45,8 +44,6 @@ export class IntVec {
     DEBUG && assert(value < 2 ** this.bitWidth, 'value does not fit the bit width');
     DEBUG && assert(value >= 0, 'value must be positive');
 
-    // todo: how should we handle pushing more than the expected number
-    // of elements to a bitWidth===0 vector?
     // If we have zero bit width, only allow writing zeros (and there's no need to write them!)
     if (this.bitWidth == 0) {
       assert(value == 0, 'value must be zero if the bit width is zero');
