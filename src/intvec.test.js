@@ -1,94 +1,62 @@
+import { describe, expect, it, test } from 'vitest';
+import * as bits from './bits.js';
 import { IntVec } from "./intvec.js";
 
-// todo:
-// - check that the various error conditions behave correctly (pushing value < 0, pushing beyond end, ...)
+describe('IntVec', () => { 
+  it('should disallow getting an element from an empty IntVec', () => {
+    expect(() => new IntVec(0, 0).get(0)).toThrow();
+  });
 
-// todo: assert this errors
-// new IntVec(0, 0).get(0) 
+  it('should return zero elements before anything is pushed', () => {
+    const xs = new IntVec(3, 7);
+    for (let i = 0; i < 3; i++) {
+      expect(xs.get(i)).toBe(0);
+    }
+  });
 
-/** @type {Record<string, any>} */
-const tests = {};
+  it('should throw on out-of-bounds indices (in debug mode)', () => {
+    const xs = new IntVec(3, 7);
+    expect(() => xs.get(-1)).toThrow();
+    expect(() => xs.get(4)).toThrow();
+    expect(() => xs.get(5)).toThrow();
+  });
 
-{
-  /** @type {Record<string, any>} */
-  const test = {};
+  it('should allow writing and reading elements', () => {
+    const tests = [
+      { bitWidth: 0, values: [0, 0, 0] },
+      { bitWidth: 1, values: [1, 0, 1, 0] },
+      { bitWidth: 5, values: [1, 0, 1, 0] },
+      { bitWidth: 32, values: [10, 0, 31, 2 ** 32 - 1] },
+    ];
 
-  const ints = new IntVec(4, 0);
-  const values = [0, 0, 0, 0];
+    for (const { bitWidth, values } of tests) {
+      const xs = new IntVec(values.length, bitWidth);
 
-  // todo: assert pushing values > 0 errors
+      // test value too small
+      expect(() => xs.push(-1)).toThrow();
+      // test value too large
+      expect(() => xs.push(2 ** bitWidth)).toThrow();
 
-  for (let i = 0; i < values.length; i++) {
-    const value = values[i];
-    ints.push(value);
-    test[`ints[${i}] = ${value}`] = [value, ints.get(i)];
-  }
+      for (let i = 0; i < values.length; i++) {
+        const value = values[i];
+        // test the value before writing
+        expect(xs.get(i)).toBe(0);
+        // push the value
+        xs.push(value);
+        // test the value has been pushed
+        expect(xs.get(i)).toBe(value);
+      }
 
-  tests['zero-bit IntVec'] = test;
-}
+      // it should disallow getting beyond the end
+      expect(() => xs.get(xs.length)).toThrow();
 
-
-{
-  /** @type {Record<string, any>} */
-  const test = {};
-
-  const ints = new IntVec(4, 1);
-  const values = [1, 0, 1, 0];
-
-  // todo: assert pushing values > 0 errors
-
-  for (let i = 0; i < values.length; i++) {
-    const value = values[i];
-    ints.push(value);
-    test[`ints[${i}] = ${value}`] = [value, ints.get(i)];
-  }
-
-  tests['one-bit IntVec'] = test;
-}
-
-
-{
-  /** @type {Record<string, any>} */
-  const test = {};
-
-  const ints = new IntVec(4, 5);
-  const values = [10, 0, 31, 20];
-
-  for (let i = 0; i < values.length; i++) {
-    const value = values[i];
-    ints.push(value);
-    test[`ints[${i}] = ${value}`] = [value, ints.get(i)];
-  }
-
-  tests['5-bit IntVec'] = test;
-}
-
-
-{
-  /** @type {Record<string, any>} */
-  const test = {};
-
-  const ints = new IntVec(5, 32);
-  const values = [10, 0, 31, 20, 2 ** 32 - 1];
-
-  for (let i = 0; i < values.length; i++) {
-    const value = values[i];
-    ints.push(value);
-    test[`ints[${i}] = ${value}`] = [value, ints.get(i)];
-  }
-
-  tests['32-bit IntVec'] = test;
-}
-
-
-// todo: assert this errors
-// ints.push(-1); // too small
-
-// todo: assert this errors
-// ints.push(40);  // too large
-
-
-
-// todo: test error behavior for all assertions
-
-export default tests;
+      // it should disallow pushing beyond the end, unless
+      // the bit width is zero.
+      if (bitWidth > 0) {
+        expect(() => xs.push(0)).toThrow();
+      } else {
+        expect(() => xs.push(0)).not.toThrow();
+      }
+    }
+  });
+});

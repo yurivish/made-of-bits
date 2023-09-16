@@ -35,20 +35,26 @@ export class IntVec {
   }
 
   /**
+   * Push a value into the IntVec.
+   * Will throw an error if there is no room to store the value. 
+   * Note that as a special case, this means that any number of
+   * zeros can be pushed to a IntVec with bitWidth zero.
    * @param {number} value
    */
   push(value) {
     DEBUG && assertSafeInteger(value);
-    DEBUG && assert(value < 2 ** this.bitWidth, `value does not fit the bit width`);
+    DEBUG && assert(value < 2 ** this.bitWidth, 'value does not fit the bit width');
+    DEBUG && assert(value >= 0, 'value must be positive');
 
+    // todo: how should we handle pushing more than the expected number
+    // of elements to a bitWidth===0 vector?
     // If we have zero bit width, only allow writing zeros (and there's no need to write them!)
     if (this.bitWidth == 0) {
-      assert(value == 0, `value must be zero if the bit width is zero`);
+      assert(value == 0, 'value must be zero if the bit width is zero');
       return;
     }
-
-    assert(this.writeCursor < this.lengthInBits, `cannot push into a full IntVec`);
-
+    console.log(this.writeCursor, this.lengthInBits);
+    assert(this.writeCursor < this.lengthInBits, 'cannot push into a full IntVec');
 
     const index = bits.blockIndex(this.writeCursor);
     const offset = bits.blockBitOffset(this.writeCursor);
@@ -72,7 +78,7 @@ export class IntVec {
    * @param {number} index
    */
   get(index) {
-    DEBUG && assert(0 <= index && index < this.length, `index must be in bounds`);
+    DEBUG && assert(0 <= index && index < this.length, 'index must be in bounds');
 
     // If the bit width is zero, our vector is entirely full of zeros.
     if (this.bitWidth === 0) {

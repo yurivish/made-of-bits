@@ -6,16 +6,15 @@ import { DEBUG, assert } from "./assert.js";
 export const BLOCK_BITS = 32;
 export const BLOCK_BITS_LOG2 = Math.log2(BLOCK_BITS);
 
-// todo: I want to better understand when it's necessary to use an 
-// unsigned right shift to turn a number into 32-bit number and
-// when it's okay not to do that.
 /**
- * Coerce x to an unsigned 32-bit integer.
+ * Coerces x to an unsigned 32-bit unsigned integer. This is provided as
+ * a convenience function on top of unsigned shift that does some sanity
+ * checks in debug mode.
  * @param {number} x
  */
 export function u32(x) { 
   DEBUG && assert(Number.isInteger(x));
-  DEBUG && assert(x < 2 ** 32);
+  DEBUG && assert(x >= 0 && x < 2 ** 32);
   return x >>> 0;
 }
 
@@ -36,11 +35,12 @@ export function blockIndex(x) {
 }
 
 /**
+ * Returns an unsigned 32-bit integer with its bottom `n` bits set.
  * @param {number} n
  */
 export function oneMask(n) {
   DEBUG && assert(Number.isInteger(n));
-  DEBUG && assert(n <= 32, `oneMask can only create masks for 32-bit integers`);
+  DEBUG && assert(n >= 0 && n <= 32, 'oneMask can only create masks for 32-bit integers');
   if (n === 0) return 0 >>> 0;
   return 0xffffffff >>> (32 - n);
 }
