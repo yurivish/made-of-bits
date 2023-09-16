@@ -80,3 +80,25 @@ export function trailing0(x) {
   if (x & 0x55555555) c -= 1;
   return c;
 }
+
+// Return the position of the k-th least significant set bit.
+// Assumes that x has at least k set bits.
+// E.g. select1(0b00001100, 0) == 3 and select1(0b00001100, 1) == 4
+//
+// As an aside, if we're interested in potentially more efficient approaches,
+// there is a broadword select1 implementation in the `succinct` package by
+// Jesse A. Tov, provided under an MIT license: https://github.com/tov/succinct-rs
+//
+// An updated version of the paper is here: https://vigna.di.unimi.it/ftp/papers/Broadword.pdf
+// If we use this, here are some items for future work:
+// - Benchmark comparisons with the iterative select1 nelobelow
+// - Use simd128 to accelerate u_le8, le8, and u_nz8
+// - Implement 32-bit, 16-bit, and 8-bit select1
+// - Write my own tests (the original file had tests, but I'd like to practice writing my own)
+// pub fn select1<T: BitBlock>(mut x: T, k: u32) -> u32 {
+//     // Unset the k-1 preceding 1-bits
+//     for _ in 0..k {
+//         x &= x - T::one();
+//     }
+//     x.trailing_zeros()
+// }

@@ -1,3 +1,15 @@
+# To do
+[] look through package.json and understand the meaning & purpose of every field. Some were just copied from https://vitejs.dev/guide/build.html#library-mode...
+
+# Creating a Live Development Experience
+## Removing friction'
+
+[] figure out how to jump from an error in the JS console in Chrome all the way to the file in my code editor. [google search to start](https://www.google.com/search?q=chrome+dev+tools+open+local+code+source+)
+[x] code on left, tests on right, auto re-running on save and showing the relevant test file. (thanks, vitest)
+[] try using a terminal inside subline so I can do the above with 2 tabs (trying [Terminus](https://github.com/randy3k/Terminus))
+[] try copilot
+
+
 # Testing
 
 [] test bits.popcount

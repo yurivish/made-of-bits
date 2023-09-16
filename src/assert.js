@@ -15,7 +15,7 @@ export const DEBUG = true;
  * @param {string} [message]
  */
 export function assert(condition, message) {
-  const prefix = `assertion error`;
+  const prefix = 'assertion error';
   if (!condition) throw new Error(message === undefined ? prefix : `${prefix}: ${message}`);
 };
 
