@@ -1,4 +1,11 @@
-import { DEBUG, assert } from "./assert.js";
+// Dense bit vector with rank and select, based on the ideas described
+// in the paper "Fast, Small, Simple Rank/Select on Bitmaps".
+// We use an additional level of blocks provided by BitVec, but the ideas are the same.
+
+// todo:
+// - transfer more comments from the rust code
+
+import { DEBUG, assert, assertSafeInteger } from "./assert.js";
 import { BitBuf } from './bitbuf.js';
 import * as bits from './bits.js';
 
@@ -9,6 +16,11 @@ class DenseBitVec {
    * @param {number} ssPow2 - power of 2 of the select sample rate
    */
   constructor(data, srPow2, ssPow2) {
+    // todo: 
+    // - Accept s0Pow2, s1Pow2 instead of ssPow2 in order to control the space usage; 
+    //   the s0 index only matters for select0, while select1 helps speed up rank1 and rank0.
+    assertSafeInteger(srPow2); 
+    assertSafeInteger(ssPow2);
     assert(srPow2 >= bits.BLOCK_BITS_LOG2, 'sr must be a positive multiple of the block size');
     assert(ssPow2 >= bits.BLOCK_BITS_LOG2, 'ss must be a positive multiple of the block size');
 
@@ -28,7 +40,7 @@ class DenseBitVec {
     const blocks = data.blocks;
     for (let i = 0; i < blocks.length; i += sr) {
       r.push(cumulativeOnes);
-      // iterate `j` through 0..sr and treat it as an index offset:
+      // iterate `j` through 0..<sr and treat it as an index offset:
       // in the loop below, `i + j` is the index of the current block
       for (let j = 0; j < sr; i + j < blocks.length) {
         const block = blocks[i + j];
@@ -69,8 +81,36 @@ class DenseBitVec {
       }
     }
 
+    /** @readonly */
     this.data = data;
+
+    /** @readonly */
     this.srPow2 = srPow2;
+
+    /** @readonly */
     this.ssPow2 = ssPow2;
+
+    /** @readonly */
+    this.r = r;
+
+    /** @readonly */
+    this.s0 = s0;
+
+    /** @readonly */
+    this.s1 = s1;
+
+    /** @readonly */
+    this.numOnes = cumulativeOnes;
   }
+
+  // next:
+  // - fn to decode a select block
+  // - select1
+  // - select0
+  // - rank1
+  // - rank0
+  // - get
+  // - numOnes
+  // - universeSize
+  // - get
 }

@@ -14,22 +14,34 @@ export class IntVec {
    */
   constructor(length, bitWidth) {
     assertInteger(bitWidth);
-    // The bit width cannot exceed 32 bits because JavaScript's bit operations will
-    // truncate to 32 bits before performing the operation. The bit width also cannot
-    // exceed 2 * bits.BLOCK_BITS, but since BLOCK_BITS is 32 that condition is redundant.
+    // The bit width cannot exceed 32 bits because JavaScript's bit operations 
+    // will truncate to 32 bits before performing the operation, and we use bit ops
+    // to shift by the bit width. The bit width also cannot exceed 2 * bits.BLOCK_BITS,
+    // since then a single value would span more than two contiguous blocks and our 
+    // algorithms assume this cannot happen. But since BLOCK_BITS caps the bit width at
+    // 32 that condition is redundant.
     assert(bitWidth <= 32);
     assertInteger(length);
 
     const lengthInBits = length * bitWidth;
     const numBlocks = Math.ceil(lengthInBits / bits.BLOCK_BITS);
+
+    /** @readonly */
     this.data = new Uint32Array(numBlocks);
 
+    /** @readonly */
     this.bitWidth = bitWidth;
+
+    /** @readonly */
     this.length = length;
 
+    /** @readonly */
     this.lengthInBits = lengthInBits;
-    this.writeCursor = 0; // in bits (todo: should that be in the variable name?)
+
+    /** @readonly */
     this.lowBitMask = bits.oneMask(bitWidth);
+
+    this.writeCursor = 0; // in bits
   }
 
   /**

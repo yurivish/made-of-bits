@@ -14,7 +14,11 @@ export class BitBuf {
     assertSafeInteger(lengthInBits);
     assert(lengthInBits >= 0);
     const numBlocks = Math.ceil(lengthInBits / BLOCK_BITS);
+    
+    /** @readonly */
     this.blocks = new Uint32Array(numBlocks);
+
+    /** @readonly */
     this.lengthInBits = lengthInBits;
   }
 
