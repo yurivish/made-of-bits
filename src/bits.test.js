@@ -1,6 +1,10 @@
 import { describe, expect, it, test } from 'vitest';
 import * as bits from './bits.js';
 
+// todo
+// - test popcount
+// - test trailing0
+
 describe('BLOCK_BITS', () => {
   it('is a power of two', () => {
     expect(Number.isInteger(Math.log2(bits.BLOCK_BITS))).toBe(true);

@@ -31,6 +31,51 @@ class DenseBitVec {
     let blockSamplingRate = sr >> bits.BLOCK_BITS_LOG2;
     // ^ was raw_block_sr (todo: remove this comment)
 
+    const blocks = data.blocks; // todo
+
+    // Iterate one rank block at a time for convenient rank sampling
+    for (let i = 0; i < blocks.length; i += sr) {
+      r.push(cumulativeOnes);
+      // iterate `j` through 0..sr and treat it as an index offset:
+      // in the loop below, `i + j` is the index of the current block
+      for (let j = 0; j < sr; i + j < blocks.length) {
+        const block = blocks[i + j];
+
+        // Sample 1-bits for the select1 index
+        const blockOnes = bits.popcount(block);
+        if (cumulativeOnes + blockOnes > onesThreshold) {
+          // Take a select1 sample, which consists of two parts:
+          // 1. The cumulative bits preceding this raw block
+          const high = cumulativeBits;
+          // 2. The number of 1-bits before the (ss * i + 1)-th 1-bit within this raw block
+          const low = onesThreshold - cumulativeOnes;
+          // High is a multiple of the raw block size so these
+          // two values should never overlap in their bit ranges.
+          DEBUG && assert((high & low) === 0);
+          // Add the select sample and bump the onesThreshold.
+          s1.push(high + low);
+          onesThreshold += ss;
+        }
+
+        // Sample 0-bits for the select0 index.
+        // This has the same shape as the code above for select1.
+        const blockZeros = bits.BLOCK_BITS;
+        const cumulativeZeros = cumulativeBits - cumulativeOnes;
+        if (cumulativeZeros + blockZeros > zerosThreshold) {
+          // Take a select0 sample, which consists of two parts:
+          // 1. The cumulative bits preceding this raw block
+          const high = cumulativeBits;
+          // 2. The number of 0-bits before (ss * i + 1)-th 0-bit within this raw block
+          const low = zerosThreshold - cumulativeZeros;
+          // High is a multiple of the raw block size so these
+          // two values should never overlap in their bit ranges.
+          DEBUG && assert((high & low) === 0);
+          // Add the select sample and bump the zerosThreshold.
+          s0.push(high + low);
+          zerosThreshold += ss;
+        }
+      }
+    }
 
     this.data = data;
     this.srPow2 = srPow2;
