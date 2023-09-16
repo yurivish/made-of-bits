@@ -1,5 +1,4 @@
 import { DEBUG, assert, assertInteger, assertSafeInteger } from "./assert.js";
-import { BitBuf } from './bitbuf.js';
 import * as bits from './bits.js';
 
 // note: writes proceed contiguously; more of a push operation.
@@ -53,7 +52,6 @@ export class IntVec {
       assert(value == 0, 'value must be zero if the bit width is zero');
       return;
     }
-    console.log(this.writeCursor, this.lengthInBits);
     assert(this.writeCursor < this.lengthInBits, 'cannot push into a full IntVec');
 
     const index = bits.blockIndex(this.writeCursor);
