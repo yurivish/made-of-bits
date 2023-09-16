@@ -1,5 +1,9 @@
 # Testing
 
+[] test bits.popcount
+[] test bits.trailing0
+[] test `DenseBitVec`
+
 [] Investigate whether there is a way to force parentheses for ambiguous arithmetic expressions.
 
 [] We should consider switching to [node-tap](https://node-tap.org/) once version 18 is out because it appears to be a more mature tool.

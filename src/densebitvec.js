@@ -15,9 +15,6 @@ class DenseBitVec {
     const ss = 1 << ssPow2; // Select sampling rate: sample every `ss` 1-bits
     const sr = 1 << srPow2; // Rank sampling rate: sample every `sr` bits
 
-    // Raw::BITS is bits.BLOCK_BITS
-    // Raw::BIT_WIDTH is bits.BLOCK_BITS_LOG2
-
     const r = []; // rank samples
     const s0 = []; // select0 samples
     const s1 = []; // select1 samples
@@ -27,13 +24,8 @@ class DenseBitVec {
     let zerosThreshold = 0; // take a select0 sample at the (zerosThreshold+1)th 1-bit
     let onesThreshold = 0; // take a select1 sample at the (onesThreshold+1)th 1-bit
 
-    // Blocks per rank sample
-    let blockSamplingRate = sr >> bits.BLOCK_BITS_LOG2;
-    // ^ was raw_block_sr (todo: remove this comment)
-
-    const blocks = data.blocks; // todo
-
     // Iterate one rank block at a time for convenient rank sampling
+    const blocks = data.blocks;
     for (let i = 0; i < blocks.length; i += sr) {
       r.push(cumulativeOnes);
       // iterate `j` through 0..sr and treat it as an index offset:
