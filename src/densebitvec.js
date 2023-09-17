@@ -7,7 +7,7 @@
 // - is it weird that all the "BLOCK_BITS" functions are in "bits"
 //   and not bitbuf? Isn't it the bit buf that actually has the blocks?
 //   It only makes sense if other types use the same blocks, and I guess
-//   the IntVec also uses them. But this should be clearly documented & explained!
+//   the IntBuf also uses them. But this should be clearly documented & explained!
 // - note the precise meaning of s0 and s1. Does each select sample point at the block containing its bit?
 // - note the precise meaning of r; is it the number of ones *preceding* this block?
 // - fix all snake_case to camelCase
@@ -26,6 +26,20 @@
 
 // I wonder if types can help disentangle my confusion with regard to the varieties of indexes and block types that are floating around.
 // The runtime nature of the type system might make it impossible to use a newtype-like pattern.
+
+/*
+
+The plan
+  
+  move to a concept of a 'basic block', which is the block size used by the fundamental bit types,
+    bit buf and int buf.
+
+  in this library,
+    'buf' means just for reading/writing
+    'vec' means 'bit vector' means rank/select
+  
+
+*/
 
 import { DEBUG, assert, assertSafeInteger, log } from "./assert.js";
 import { BitBuf } from './bitbuf.js';
@@ -62,62 +76,55 @@ export class DenseBitVec {
     let zerosThreshold = 0; // take a select0 sample at the (zerosThreshold+1)th 1-bit
     let onesThreshold = 0; // take a select1 sample at the (onesThreshold+1)th 1-bit
 
-    let blocksPerRankSample = sr >> bits.BLOCK_BITS_LOG2;
-    // log('blocksPerRankSample', blocksPerRankSample);
+    let basicBlocksPerRankSample = sr >> bits.BLOCK_BITS_LOG2;
 
-    // Iterate one rank block at a time for convenient rank sampling
-    const blocks = data.blocks;
-    for (let i = 0; i < blocks.length; i += blocksPerRankSample) {
-      log('-----');
-      log('sample:', i);
-      r.push(cumulativeOnes);
-      // iterate `j` through 0..<blocksPerRankSample and treat it as an index offset:
-      // in the loop below, `i + j` is the index of the current block
-      for (let j = 0; j < blocksPerRankSample && i + j < blocks.length; j++) {
-        const block = blocks[i + j];
-        const blockOnes = bits.popcount(block);
-        const blockZeros = bits.BLOCK_BITS - blockOnes;
-        const cumulativeZeros = cumulativeBits - cumulativeOnes;        
-        log({ cumulativeBits, cumulativeOnes, cumulativeZeros, blockOnes, blockZeros, zeroTrigger: cumulativeZeros + blockZeros, zerosThreshold });
-
-        // Sample 1-bits for the select1 index
-        if (cumulativeOnes + blockOnes > onesThreshold) {
-          log('s1 sample');
-          // Take a select1 sample, which consists of two parts:
-          // 1. The cumulative bits preceding this raw block, ie. left-shifted block index
-          const high = cumulativeBits;
-          // 2. The number of 1-bits before the (ss1 * i + 1)-th 1-bit within this raw block,
-          //    which we can use to determine the number of 1-bits preceding this raw block.
-          const low = onesThreshold - cumulativeOnes;
-          // High is a multiple of the raw block size so these
-          // two values should never overlap in their bit ranges.
-          DEBUG && assert((high & low) === 0);
-          // Add the select sample and bump the onesThreshold.
-          s1.push(high + low);
-          onesThreshold += ss1;
-        }
-
-        // Sample 0-bits for the select0 index.
-        // This has the same shape as the code above for select1.
-        if (cumulativeZeros + blockZeros > zerosThreshold) {
-          log('s0 sample');
-          // Take a select0 sample, which consists of two parts:
-          // 1. The cumulative bits preceding this raw block
-          const high = cumulativeBits;
-          // 2. The number of 0-bits before (ss0 * i + 1)-th 0-bit within this raw block
-          const low = zerosThreshold - cumulativeZeros;
-          // High is a multiple of the raw block size so these
-          // two values should never overlap in their bit ranges.
-          DEBUG && assert((high & low) === 0);
-          // Add the select sample and bump the zerosThreshold.
-          log('push', s0, high, low);
-          s0.push(high + low);
-          zerosThreshold += ss0;
-        }
-
-        cumulativeOnes += blockOnes;
-        cumulativeBits += bits.BLOCK_BITS;
+    let blockIndex = 0;
+    for (const block of data.blocks) {
+      if (blockIndex % basicBlocksPerRankSample === 0) {
+        r.push(cumulativeOnes);
       }
+
+      const blockOnes = bits.popcount(block);
+      const blockZeros = bits.BLOCK_BITS - blockOnes;
+      const cumulativeZeros = cumulativeBits - cumulativeOnes;        
+
+      // Sample 1-bits for the select1 index
+      if (cumulativeOnes + blockOnes > onesThreshold) {
+        log('s1 sample');
+        // Take a select1 sample, which consists of two parts:
+        // 1. The cumulative bits preceding this raw block, ie. left-shifted block index
+        const high = cumulativeBits;
+        // 2. The number of 1-bits before the (ss1 * i + 1)-th 1-bit within this raw block,
+        //    which we can use to determine the number of 1-bits preceding this raw block.
+        const low = onesThreshold - cumulativeOnes;
+        // High is a multiple of the raw block size so these
+        // two values should never overlap in their bit ranges.
+        DEBUG && assert((high & low) === 0);
+        // Add the select sample and bump the onesThreshold.
+        s1.push(high + low);
+        onesThreshold += ss1;
+      }
+
+      // Sample 0-bits for the select0 index.
+      // This has the same shape as the code above for select1.
+      if (cumulativeZeros + blockZeros > zerosThreshold) {
+        log('s0 sample');
+        // Take a select0 sample, which consists of two parts:
+        // 1. The cumulative bits preceding this raw block
+        const high = cumulativeBits;
+        // 2. The number of 0-bits before (ss0 * i + 1)-th 0-bit within this raw block
+        const low = zerosThreshold - cumulativeZeros;
+        // High is a multiple of the raw block size so these
+        // two values should never overlap in their bit ranges.
+        DEBUG && assert((high & low) === 0);
+        // Add the select sample and bump the zerosThreshold.
+        log('push', s0, high, low);
+        s0.push(high + low);
+        zerosThreshold += ss0;
+      }
+
+      cumulativeOnes += blockOnes;
+      cumulativeBits += bits.BLOCK_BITS;
     }
 
     /** @readonly */
