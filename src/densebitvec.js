@@ -24,6 +24,9 @@
 // Yeah. I think I want a visualization of the state after this constructor has run.
 // Which means bundling this and serving it to a notebook (maybe esbuild does cors)
 
+// I wonder if types can help disentangle my confusion with regard to the varieties of indexes and block types that are floating around.
+// The runtime nature of the type system might make it impossible to use a newtype-like pattern.
+
 import { DEBUG, assert, assertSafeInteger, log } from "./assert.js";
 import { BitBuf } from './bitbuf.js';
 import * as bits from './bits.js';
@@ -187,7 +190,8 @@ export class DenseBitVec {
     const count = sampleBitIndex - correction;
     // our bit index is block-aligned, so we can just return it as a block index. 
     // todo: explain this more fully
-    return { bitIndex, blockIndex: bitIndex >> bits.BLOCK_BITS_LOG2, count };
+    // todo: remove the fields we do not use from here
+    return { bitIndex, dataBlockIndex: bitIndex >> bits.BLOCK_BITS_LOG2, rBlockIndex: bitIndex >> this.srPow2, count };
   }
 
   /**
@@ -203,13 +207,14 @@ export class DenseBitVec {
     // The target bit is somewhere in the data buffer. 
     // Use select samples to compute a lower bound on its position (bit index).
     // There are `count` 1-bits up to but not including index `bitIndex`.
-    let { bitIndex, blockIndex, count } = this.selectSample(this.s1, this.ssPow2, n);
+    let { bitIndex, dataBlockIndex, rBlockIndex, count } = this.selectSample(this.s1, this.ssPow2, n);
+    DEBUG && rBlockIndex === dataBlockIndex && assert(this.r[rBlockIndex] === count);
     // blockIndex (todo: rename for clarity) is a bitbuf block index.
     // so shift by 
-    log({ srPow2: this.srPow2, BLOCK_BITS_LOG2: this.BLOCK_BITS_LOG2 },);
-    log('waaao', bitIndex, blockIndex, blockIndex >>> (this.srPow2 - bits.BLOCK_BITS_LOG2));
-    assert(this.r[blockIndex << (this.srPow2 - bits.BLOCK_BITS_LOG2)] === count);
-    // there are `count` 1-bits up to but not including `bitIndex`, which is a rank-block-aligned index.
+    // log({ srPow2: this.srPow2, BLOCK_BITS_LOG2: this.BLOCK_BITS_LOG2 },);
+    // log('waaao', bitIndex, blockIndex, blockIndex >>> (this.srPow2 - bits.BLOCK_BITS_LOG2));
+    // assert(this.r[blockIndex << (this.srPow2 - bits.BLOCK_BITS_LOG2)] === count);
+    // // there are `count` 1-bits up to but not including `bitIndex`, which is a rank-block-aligned index.
 
     // There may be some rank samples in between the lower bound and
     // the true position; iterate over rank blocks until we find the
@@ -221,19 +226,27 @@ export class DenseBitVec {
     // Currently the worst case is linear search over rank samples.
     // index of the next rank block
     const blocks = this.data.blocks;
-    blockIndex += 1;
-    for (let i = blockIndex + 1; blockIndex < blocks.length; i++) {
+    let lastKnownGood = rBlockIndex;
+    let lastKnownCount = count;
+    rBlockIndex++;
+    while (rBlockIndex < blocks.length && (count = this.r[rBlockIndex]) < n) {
+      lastKnownGood = rBlockIndex;
+      lastKnownCount = count;
+      rBlockIndex++;
+    }
+    log(rBlockIndex);
+    for (let i = rBlockIndex + 1; rBlockIndex < blocks.length; i++) {
       break;
     }
 
-    // Find the rank block right before the one that exceeds n. Or the final block, if none exceeds it.
-    while (blockIndex < blocks.length && blocks[blockIndex] < n) {
-      const nextCount = blocks[blockIndex];
-      if (nextCount < n) {
-        count = nextCount;
-        blockIndex++;
-      }
-    }
+    // // Find the rank block right before the one that exceeds n. Or the final block, if none exceeds it.
+    // while (blockIndex < blocks.length && blocks[blockIndex] < n) {
+    //   const nextCount = blocks[blockIndex];
+    //   if (nextCount < n) {
+    //     count = nextCount;
+    //     blockIndex++;
+    //   }
+    // }
 
     // hop raw blocks
   }
