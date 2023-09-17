@@ -37,7 +37,7 @@ export class BitBuf {
    * Set the bit at index `bitIndex` to a 1-bit.
    * @param {number} bitIndex
    */
-  set(bitIndex) {
+  setOne(bitIndex) {
     DEBUG && assertSafeInteger(bitIndex);
     DEBUG && assert(bitIndex >= 0 && bitIndex < this.lengthInBits);
     const index = blockIndex(bitIndex);

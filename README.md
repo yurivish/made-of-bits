@@ -1,5 +1,9 @@
 # To do
 [] look through package.json and understand the meaning & purpose of every field. Some were just copied from https://vitejs.dev/guide/build.html#library-mode...
+[] play around with an `Opaque<x>` style nominal type thing but just using type coersion: `x as SelectSample` where `SelectSample` has no methods, and is not also a number. Then cast back when we know, inside the function that accepts `SelectSample`s.
+
+# Documentation
+[] Change all comments that say "returns ..." to use @returns doc syntax
 
 # Creating a Live Development Experience
 ## Removing friction'
@@ -41,6 +45,7 @@ DEBUG && assert(expensiveCheck(), 'expensive check must succeed');
 Our tests run in debug mode and contain checks for errors that are thrown only in debug mode. For example, performance sensitive functions such as getting elements from a bit buffer will perform bounds checking in debug mode but not in release mode. 
 
 In release mode, unexpected behavior may occur. This design decision may be revisited if such errors begin to come up in practice despite the debug mode errors.
+
 
 # TypeScript
 

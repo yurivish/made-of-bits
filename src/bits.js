@@ -78,8 +78,8 @@ export function popcount(x) {
  * @param {number} x
  */
 export function trailing0(x) {
-  var c = 32;
   x &= -x;
+  let c = 32;
   if (x) c--;
   if (x & 0x0000ffff) c -= 16;
   if (x & 0x00ff00ff) c -= 8;
@@ -110,3 +110,13 @@ export function trailing0(x) {
 //     }
 //     x.trailing_zeros()
 // }
+
+/**
+ * @param {number} x
+ * @param {number} k
+ */
+export function select1(x, k) {
+  // Unset the k-1 preceding 1-bits
+  for (let i = 0; i < k; i++) x &= x - 1;
+  return trailing0(x);
+}

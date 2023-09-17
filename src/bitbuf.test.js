@@ -12,17 +12,17 @@ describe('BitBuf', () => {
   });
 
   it('should set bits individually', () => {
-    xs.set(1);
+    xs.setOne(1);
     expect(xs.get(0)).toBe(false);
     expect(xs.get(1)).toBe(true);
     expect(xs.get(2)).toBe(false);
 
-    xs.set(2);
+    xs.setOne(2);
     expect(xs.get(0)).toBe(false);
     expect(xs.get(1)).toBe(true);
     expect(xs.get(2)).toBe(true);
 
-    xs.set(0);
+    xs.setOne(0);
     expect(xs.get(0)).toBe(true);
     expect(xs.get(1)).toBe(true);
     expect(xs.get(2)).toBe(true);

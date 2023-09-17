@@ -23,14 +23,21 @@ export function assert(condition, message) {
  * @param {number} x
  */
 export function assertSafeInteger(x) {
-  assert(Number.isSafeInteger(x), `expected safe integer`);
+  assert(Number.isSafeInteger(x), 'expected safe integer');
 };
 
 /**
  * @param {number} x
  */
 export function assertInteger(x) {
-  assert(Number.isInteger(x));
+  assert(Number.isInteger(x), 'expected integer');
+};
+
+/**
+ * @param {any} x
+ */
+export function assertNotUndefined(x) {
+  assert(x !== undefined, 'expected non-undefined');
 };
 
 
