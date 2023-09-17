@@ -2,10 +2,13 @@
   "compilerOptions": {
     "baseUrl": "./src",
     "strict": true,
+    // i would like to enable this but it's kind of annoying in practice without ! syntax.
+    // "noUncheckedIndexedAccess": true,
     "allowJs": true,
     "checkJs": true,
     "noEmit": true,
-    "lib": ["dom", "ES2020"],
+    "target": "ES2015",
+    "lib": ["dom", "ES2015"],
   },
   "include": ["src/**/*.d.ts", "src/**/*.js", "src/**/*.ts"]
 }

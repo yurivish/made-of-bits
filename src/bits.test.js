@@ -1,7 +1,9 @@
 import { describe, expect, it, test } from 'vitest';
 import * as bits from './bits.js';
 
-// todo: test error behavior for all assertions
+// todo
+// - test popcount
+// - test trailing0
 
 describe('BLOCK_BITS', () => {
   it('is a power of two', () => {
