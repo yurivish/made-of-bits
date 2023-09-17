@@ -10,6 +10,7 @@ import { DEBUG, assert } from "./assert.js";
 
 // todo:
 // - store a BLOCK_ARR = Uint32Array here as well? Then BLOCK_BITS = 8 * BLOCK_ARR.BYTES_PER_ELEMENT
+// - a BLOCK_ARR of Uint8Array would make debugging easier...
 export const BLOCK_BITS = 32; // todo: rename to BLOCK_SIZE? 
 export const BLOCK_BITS_LOG2 = Math.log2(BLOCK_BITS);
 

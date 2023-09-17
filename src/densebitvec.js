@@ -128,10 +128,10 @@ export class DenseBitVec {
       if (cumulativeOnes + blockOnes > onesThreshold) {
         log('s1 sample');
         // Take a select1 sample, which consists of two parts:
-        // 1. The cumulative number of bits preceding this raw block, ie. the left-shifted block index
+        // 1. The cumulative number of bits preceding this raw block, ie. the left-shifted block index.
         const high = cumulativeBits;
-        // 2. The number of 1-bits preceding the (ss1 * i + 1)-th 1-bit within this raw block,
-        //    which we can use to determine the number of 1-bits preceding this raw block.
+        // 2. A correction factor: the number of 1-bits preceding the (ss1 * i + 1)-th 1-bit within this
+        //    basic block, which we can use to determine the number of 1-bits preceding this basic block.
         //    Effectively, this is a way for us to store samples that are slightly offset from the strictly
         //    regular select sampling scheme, enabling us to keep the select samples aligned to basic blocks.
         const low = onesThreshold - cumulativeOnes;
@@ -225,16 +225,21 @@ export class DenseBitVec {
    * @param {number} sample - the select sample
    * @param {number} sampleBitIndex - the bit index represented by the sample, ie. for s1[i] it is i << s1Pow2
    */
-  decodeSelectSample(sample, sampleBitIndex) {
+  decodeSelect1Sample(sample) {
     // bitmask with the Raw::BLOCK_BITS_LOG2 bottom bits set.
-    const mask = bits.BLOCK_BITS - 1;
-    const bitIndex = sample & (~mask >>> 0); // todo: investigate if bitshift is needed
-    const correction = sample & (mask >>> 0);
-    log(bitIndex, sampleBitIndex.toString(2), (~mask >>> 0).toString(2));
+    const lowMask = bits.BLOCK_BITS - 1;
+    
+    // The cumulative number of bits preceding the identified basic block, ie. the left-shifted block index of that block.
+    const cumulativeBits = sample & ~lowMask; // high
+
+    // The number of 1-bits in the identified basic block preceding the (select1SampleRate*i+1)-th 1-bit
+    const correction = sample & lowMask; // low
+
+    // log(cumulativeBits, sampleBitIndex.toString(2), (~lowMask >>> 0).toString(2));
     // assert(bitIndex === sampleBitIndex);
 
     // assert that bit pos is data-block-aligned
-    DEBUG && assert(bits.blockBitOffset(bitIndex) === 0);
+    DEBUG && assert(bits.blockBitOffset(cumulativeBits) === 0);
 
     // Number of 1-bits represented by this sample, up to the raw block boundary
     // todo: these are not necessarily ONES; s may represent 0-samples (or even "01"-samples in the future)
@@ -246,7 +251,7 @@ export class DenseBitVec {
     // our bit index is block-aligned, so we can just return it as a block index. 
     // todo: explain this more fully
     // todo: remove the fields we do not use from here
-    return { bitIndex, dataBlockIndex: bitIndex >> bits.BLOCK_BITS_LOG2, rIndex: bitIndex >> this.srPow2, count };
+    return { bitIndex: cumulativeBits, dataBlockIndex: cumulativeBits >> bits.BLOCK_BITS_LOG2, rIndex: cumulativeBits >> this.srPow2, count };
   }
 
   /**
@@ -287,10 +292,23 @@ export class DenseBitVec {
     // If there is no n-th 1-bit, then return null.
     if (n < 0 || n >= this.numOnes) return null;
 
-    // Each s1 sample represents(ss * i + 1) - th 1 - bit.;
-    // 
-    const sIndex = this.toSelect1SampleIndex(n);
-    const sample = this.s1[sIndex];
+    const sampleIndex = n >> this.s1Pow2; // index of the select sample in s1
+    const sampleBitIndex = sampleIndex << this.s1Pow2; // bit represented by the select sample ((ss * i + 1)-th 1-bit)
+    const sample = this.s1[sampleIndex];
+
+    // bitmask with the Raw::BLOCK_BITS_LOG2 bottom bits set.
+    const lowMask = bits.BLOCK_BITS - 1;
+    
+    // The cumulative number of bits preceding the identified basic block, ie. the left-shifted block index of that block.
+    const cumulativeBits = sample & ~lowMask; // high
+
+    // The number of 1-bits in the identified basic block preceding the (select1SampleRate*i+1)-th 1-bit
+    const correction = sample & lowMask; // low
+
+    // log(cumulativeBits, sampleBitIndex.toString(2), (~lowMask >>> 0).toString(2));
+    // assert(bitIndex === sampleBitIndex);
+
+    const count = sampleBitIndex - correction;
 
     // // bitmask with the Raw::BLOCK_BITS_LOG2 bottom bits set.
     // const mask = bits.BLOCK_BITS - 1;
@@ -298,8 +316,8 @@ export class DenseBitVec {
     // const correction = sample & mask;
 
     // const sIndex = (n >> this.s1Pow2); // s1 sample index
-    let { rIndex, dataBlockIndex, count } = this.decodeSelectSample(this.s1[sIndex], sIndex << this.s1Pow2);
-    DEBUG && rIndex === dataBlockIndex && assert(this.r[rIndex] === count);
+    // let { rIndex, dataBlockIndex, count } = this.decodeSelectSample(this.s1[sampleIndex], sampleIndex << this.s1Pow2);
+    // DEBUG && rIndex === dataBlockIndex && assert(this.r[rIndex] === count);
 
 
     // 
