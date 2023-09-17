@@ -15,6 +15,8 @@
 //   but augments it with fast rank/select indexes?
 // - i kinda wanna visualize when select samples are taken – right now I don't really understand it...
 //   and this would be useful for a writeup of this technique.
+// - decide whether to use the Pow2 suffix or the _LOG2 suffix or something else, but be consistent with both
+// - consistently order Select0 and Select1 handling (probably 1 before 0 since rank1/select1 pull focus)
 
 // Select samples are of the (ss*i+1)-th bit. Eg. if ssPow2 = 2, we sample the 1, 1+4=5, 5+4=9, 9+4=13, 13+4=17-th bits.
 // So the first select block points to the raw block containing the 1st bit.
@@ -108,7 +110,7 @@ export class DenseBitVec {
       // Sample 0-bits for the select0 index.
       // This if block has the same structure as the one above that samples 1-bits.
       if (cumulativeZeros + blockZeros > zerosThreshold) {
-        log('s0 samle');
+        log('s0 sample');
         const high = cumulativeBits;
         const low = zerosThreshold - cumulativeZeros;
         DEBUG && assert((high & low) === 0);
@@ -123,11 +125,25 @@ export class DenseBitVec {
     /** @readonly */
     this.data = data;
 
+    // We now store the sample rates in terms of basic blocks.
+
     /** @readonly */
     this.srPow2 = srPow2;
 
     /** @readonly */
-    this.ssPow2 = ssPow2;
+    this.s0Pow2 = ssPow2;
+
+    /** @readonly */
+    this.s1Pow2 = ssPow2;
+
+    /** @readonly */
+    this.rSampleRate = srPow2 >> bits.BLOCK_BITS_LOG2;
+
+    /** @readonly */
+    this.s0SampleRate = ssPow2 >> bits.BLOCK_BITS_LOG2;
+
+    /** @readonly */
+    this.s1SampleRate = ssPow2 >> bits.BLOCK_BITS_LOG2;
 
     /** @readonly */
     this.r = new Uint32Array(r);
@@ -154,30 +170,33 @@ export class DenseBitVec {
    * @param {number} ssPow2
    * @param {number} n - the n-th (0|1)-bit
    */
-  selectSample(s, ssPow2, n) {
-    // Select samples are taken every j*2^ssPow2 1-bits and stores
-    // a value related to the bit position of the 2^ssPow2-th bit.
-    // For improved performance, rather than storing the position of
-    // that bit directly, each select sample holds two separate values:
-    // 1. The raw-block-aligned bit position of that bit, ie. the number
-    //    of bits preceding the raw block containing the 2^ssPow2-th bit.
-    // 2. The bit position of the (ss * i + 1)-th 1-bit within that raw block,
-    //    which we can subtract from j*2^ss_pow2 to tell the number of 1-bits
-    //    up to the raw-block-aligned bit position.
-    const sampleIndex = n >> ssPow2;
-    const sample = s[sampleIndex];
-    return this.decodeSelectSample(sample, sampleIndex << ssPow2);
-  }
+  // selectSample(s, ssPow2, n) {
+  //   // Select samples are taken every j*2^ssPow2 1-bits and stores
+  //   // a value related to the bit position of the 2^ssPow2-th bit.
+  //   // For improved performance, rather than storing the position of
+  //   // that bit directly, each select sample holds two separate values:
+  //   // 1. The raw-block-aligned bit position of that bit, ie. the number
+  //   //    of bits preceding the raw block containing the 2^ssPow2-th bit.
+  //   // 2. The bit position of the (ss * i + 1)-th 1-bit within that raw block,
+  //   //    which we can subtract from j*2^ss_pow2 to tell the number of 1-bits
+  //   //    up to the raw-block-aligned bit position.
+  //   const sampleIndex = n >> ssPow2;
+  //   const sample = s[sampleIndex];
+  //   return this.decodeSelectSample(sample, sampleIndex << ssPow2);
+  // }
 
   /**
-   * @param {number} sample
-   * @param {number} sampleBitIndex
+   * @param {number} sample - the select sample
+   * @param {number} sampleBitIndex - the bit index represented by the sample, ie. for s1[i] it is i << s1Pow2
    */
   decodeSelectSample(sample, sampleBitIndex) {
     // bitmask with the Raw::BLOCK_BITS_LOG2 bottom bits set.
     const mask = bits.BLOCK_BITS - 1;
-    const bitIndex = sample & ~mask;
-    const correction = sample & mask;
+    const bitIndex = sample & (~mask >>> 0); // todo: investigate if bitshift is needed
+    const correction = sample & (mask >>> 0);
+    log(bitIndex, sampleBitIndex.toString(2), (~mask >>> 0).toString(2));
+    // assert(bitIndex === sampleBitIndex);
+
     // assert that bit pos is data-block-aligned
     DEBUG && assert(bits.blockBitOffset(bitIndex) === 0);
 
@@ -191,7 +210,35 @@ export class DenseBitVec {
     // our bit index is block-aligned, so we can just return it as a block index. 
     // todo: explain this more fully
     // todo: remove the fields we do not use from here
-    return { bitIndex, dataBlockIndex: bitIndex >> bits.BLOCK_BITS_LOG2, rBlockIndex: bitIndex >> this.srPow2, count };
+    return { bitIndex, dataBlockIndex: bitIndex >> bits.BLOCK_BITS_LOG2, rIndex: bitIndex >> this.srPow2, count };
+  }
+
+  /**
+   * @param {number} bitIndex
+   */
+  toBasicBlockIndex(bitIndex) {
+    return bitIndex >> bits.BLOCK_BITS_LOG2;
+  }
+
+  /**
+   * @param {number} bitIndex
+   */
+  toRankSampleIndex(bitIndex) {
+    return bitIndex >> this.srPow2;
+  }
+
+  /**
+   * @param {number} bitIndex
+   */
+  toSelect0SampleIndex(bitIndex) {
+    return bitIndex >> this.s0Pow2;
+  }
+
+  /**
+   * @param {number} bitIndex
+   */
+  toSelect1SampleIndex(bitIndex) {
+    return bitIndex >> this.s1Pow2;
   }
 
   /**
@@ -202,13 +249,34 @@ export class DenseBitVec {
     // Call it the target bit.
 
     // If there is no n-th 1-bit, then return null.
-    if (n >= this.numOnes) return null;
+    if (n < 0 || n >= this.numOnes) return null;
+
+    // Each s1 sample represents(ss * i + 1) - th 1 - bit.;
+    // 
+    const sIndex = this.toSelect1SampleIndex(n);
+    const sample = this.s1[sIndex];
+
+    // // bitmask with the Raw::BLOCK_BITS_LOG2 bottom bits set.
+    // const mask = bits.BLOCK_BITS - 1;
+    // const bitIndex = sample & ~mask;
+    // const correction = sample & mask;
+
+    // const sIndex = (n >> this.s1Pow2); // s1 sample index
+    let { rIndex, dataBlockIndex, count } = this.decodeSelectSample(this.s1[sIndex], sIndex << this.s1Pow2);
+    DEBUG && rIndex === dataBlockIndex && assert(this.r[rIndex] === count);
+
+
+    // 
+
+
+    // resume here...
+
 
     // The target bit is somewhere in the data buffer. 
     // Use select samples to compute a lower bound on its position (bit index).
     // There are `count` 1-bits up to but not including index `bitIndex`.
-    let { bitIndex, dataBlockIndex, rBlockIndex, count } = this.selectSample(this.s1, this.ssPow2, n);
-    DEBUG && rBlockIndex === dataBlockIndex && assert(this.r[rBlockIndex] === count);
+    // let { bitIndex, dataBlockIndex, rIndex, count } = this.selectSample(this.s1, this.ssPow2, n);
+
     // blockIndex (todo: rename for clarity) is a bitbuf block index.
     // so shift by 
     // log({ srPow2: this.srPow2, BLOCK_BITS_LOG2: this.BLOCK_BITS_LOG2 },);
@@ -226,16 +294,16 @@ export class DenseBitVec {
     // Currently the worst case is linear search over rank samples.
     // index of the next rank block
     const blocks = this.data.blocks;
-    let lastKnownGood = rBlockIndex;
+    let lastKnownGood = rIndex;
     let lastKnownCount = count;
-    rBlockIndex++;
-    while (rBlockIndex < blocks.length && (count = this.r[rBlockIndex]) < n) {
-      lastKnownGood = rBlockIndex;
+    rIndex++;
+    while (rIndex < blocks.length && (count = this.r[rIndex]) < n) {
+      lastKnownGood = rIndex;
       lastKnownCount = count;
-      rBlockIndex++;
+      rIndex++;
     }
-    log(rBlockIndex);
-    for (let i = rBlockIndex + 1; rBlockIndex < blocks.length; i++) {
+    return (rIndex);
+    for (let i = rIndex + 1; rIndex < blocks.length; i++) {
       break;
     }
 
