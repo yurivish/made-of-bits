@@ -7,6 +7,9 @@ import { DEBUG, assert } from "./assert.js";
 // - bitbuf blocks
 // - others?
 // - should this be exported from bitbuf?
+
+// todo:
+// - store a BLOCK_ARR = Uint32Array here as well? Then BLOCK_BITS = 8 * BLOCK_ARR.BYTES_PER_ELEMENT
 export const BLOCK_BITS = 32; // todo: rename to BLOCK_SIZE? 
 export const BLOCK_BITS_LOG2 = Math.log2(BLOCK_BITS);
 

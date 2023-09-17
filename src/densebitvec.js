@@ -22,6 +22,7 @@
 // So the first select block points to the raw block containing the 1st bit.
 // The second block points to the raw block containing the 5th bit.
 // And it also stores correction info, since eg. maybe that raw block has 2 set bits in it before the 5th bit.
+// In that case, the second block points to the raw block containing the 5th bit, and tells us there are 3 bits preceding it.
 // 
 // Yeah. I think I want a visualization of the state after this constructor has run.
 // Which means bundling this and serving it to a notebook (maybe esbuild does cors)
@@ -69,9 +70,24 @@ export class DenseBitVec {
     const ss0 = 1 << ssPow2; // Select0 sampling rate: sample every `ss0` 0-bits
     const sr = 1 << srPow2; // Rank sampling rate: sample every `sr` bits
 
+    // Rank samples represent the number of 1-bits up to but not including a basic block.
+    // Rank samples are sampled every `rankSamplingRate` bits which is always a multiple of
+    // the bit width of a basic block. For example, if `rankSamplingRate` is 64 and the basic
+    // block width is 32, then the rank samples will tell us about the 0th, 2nd, 4th, 6th, ... basic block.
+    //
+    // A rank sample `r[i]` tells us about the basic block `data.blocks[i << (srPow2 - bits.BLOCK_BITS_LOG2)]`.
+    //
+    // If `r[i] has value `v`, this means that there are `v` 1-bits preceding that basic block.
     const r = []; // rank samples
-    const s0 = []; // select0 samples
+
+    // Select1 samples represent the number of 1-bits up to but not including a basic block.
+    // Select samples are sampled every `select1SampleRate` 1-bits and represent. 
+    // For example, if `select1SamplingRate`
+    // is 64, then the select1 samples will tell us about the basic blocks containing the 1st
+    // A select sample `s1[i]` tells us about the basic block that contains the
+    // `selectSamplingRate * i + 1`-th 1-bit.
     const s1 = []; // select1 samples
+    const s0 = []; // select0 samples
 
     let cumulativeOnes = 0; // 1-bits preceding the current raw block
     let cumulativeBits = 0; // bits preceding the current raw block
