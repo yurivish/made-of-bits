@@ -237,6 +237,15 @@ export class DenseBitVec {
    * @param {number} n
    */
   select1(n) {
+    const result = this.maybeSelect1(n);
+    if (result === null) throw new Error('n is not a valid 1-bit index');
+    return result;
+  }
+  
+  /**
+   * @param {number} n
+   */
+  maybeSelect1(n) {
     // We're looking for the bit index of the n-th 1-bit.
     // If there is no n-th 1-bit, then return null.
     if (n < 0 || n >= this.numOnes) return null; // throw new Error('n is not a valid 1-bit index');
@@ -257,7 +266,7 @@ export class DenseBitVec {
     while (rankSampleIndex + 1 < this.r.length) {
       let next = this.r[rankSampleIndex + 1];
       DEBUG && assertNotUndefined(next);
-      if (next > n) break; // >=?
+      if (next > n) break;
       count = next;  
       rankSampleIndex++;
     }
