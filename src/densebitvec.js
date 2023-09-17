@@ -70,24 +70,42 @@ export class DenseBitVec {
     const ss0 = 1 << ssPow2; // Select0 sampling rate: sample every `ss0` 0-bits
     const sr = 1 << srPow2; // Rank sampling rate: sample every `sr` bits
 
-    // Rank samples represent the number of 1-bits up to but not including a basic block.
-    // Rank samples are sampled every `rankSamplingRate` bits which is always a multiple of
+    // Distinguish
+    // - Which bit (position) the sample represents
+    // - What it stores about that (or related) bit positions
+    // - Bits vs blocks; we want our stuff block-aligned
+
+    // Each rank sample identifies a particular basic block. 
+    // 
+
+    // Rank samples are sampled every `rankSamplingRate` bits, where `rankSamplingRate` is a positive multiple of
     // the bit width of a basic block. For example, if `rankSamplingRate` is 64 and the basic
     // block width is 32, then the rank samples will tell us about the 0th, 2nd, 4th, 6th, ... basic block.
     //
     // A rank sample `r[i]` tells us about the basic block `data.blocks[i << (srPow2 - bits.BLOCK_BITS_LOG2)]`.
     //
     // If `r[i] has value `v`, this means that there are `v` 1-bits preceding that basic block.
+    // Rank samples represent the number of 1-bits up to but not including a basic block.
     const r = []; // rank samples
 
+    // Each select1 sample identifies a particular basic block.
+    //
+    // Select samples are sampled every `select1SampleRate` 1-bits, where `rankSamplingRate` is a positive multiple of
+    // the bit width of a basic block. Unlike rank blocks, which start sampling from 0 (representing the 
+    // `rankSamplingRate*i + 0`-th bits), select blocks start sampling from 1, and thus represent the
+    // `select1SamplingRate*i + 1`-th bits.
+    // For example, if `select1SamplingRate` is 64, then the select1 samples will identify the basic blocks
+    // that contain the 0+1 = 1st, 64+1 = 65th, 2*64+1 = 129th, 3*64+1 = 193rd, ... bits. Note that since
+    // the sampling rate is a positive multiple of the basic block, two select block will never point 
+    // to the same basic block.
+    const s1 = []; // select1 samples
+    const s0 = []; // select0 samples
+
     // Select1 samples represent the number of 1-bits up to but not including a basic block.
-    // Select samples are sampled every `select1SampleRate` 1-bits and represent. 
     // For example, if `select1SamplingRate`
     // is 64, then the select1 samples will tell us about the basic blocks containing the 1st
     // A select sample `s1[i]` tells us about the basic block that contains the
     // `selectSamplingRate * i + 1`-th 1-bit.
-    const s1 = []; // select1 samples
-    const s0 = []; // select0 samples
 
     let cumulativeOnes = 0; // 1-bits preceding the current raw block
     let cumulativeBits = 0; // bits preceding the current raw block
@@ -110,16 +128,18 @@ export class DenseBitVec {
       if (cumulativeOnes + blockOnes > onesThreshold) {
         log('s1 sample');
         // Take a select1 sample, which consists of two parts:
-        // 1. The cumulative bits preceding this raw block, ie. left-shifted block index
+        // 1. The cumulative number of bits preceding this raw block, ie. the left-shifted block index
         const high = cumulativeBits;
-        // 2. The number of 1-bits before the (ss1 * i + 1)-th 1-bit within this raw block,
+        // 2. The number of 1-bits preceding the (ss1 * i + 1)-th 1-bit within this raw block,
         //    which we can use to determine the number of 1-bits preceding this raw block.
+        //    Effectively, this is a way for us to store samples that are slightly offset from the strictly
+        //    regular select sampling scheme, enabling us to keep the select samples aligned to basic blocks.
         const low = onesThreshold - cumulativeOnes;
         // High is a multiple of the raw block size so these
         // two values should never overlap in their bit ranges.
         DEBUG && assert((high & low) === 0);
         // Add the select sample and bump the onesThreshold.
-        s1.push(high + low);
+        s1.push(high | low);
         onesThreshold += ss1;
       }
 
@@ -130,7 +150,7 @@ export class DenseBitVec {
         const high = cumulativeBits;
         const low = zerosThreshold - cumulativeZeros;
         DEBUG && assert((high & low) === 0);
-        s0.push(high + low);
+        s0.push(high | low);
         zerosThreshold += ss0;
       }
 
