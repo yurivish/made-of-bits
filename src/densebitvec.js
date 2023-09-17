@@ -106,19 +106,12 @@ export class DenseBitVec {
       }
 
       // Sample 0-bits for the select0 index.
-      // This has the same shape as the code above for select1.
+      // This if block has the same structure as the one above that samples 1-bits.
       if (cumulativeZeros + blockZeros > zerosThreshold) {
-        log('s0 sample');
-        // Take a select0 sample, which consists of two parts:
-        // 1. The cumulative bits preceding this raw block
+        log('s0 samle');
         const high = cumulativeBits;
-        // 2. The number of 0-bits before (ss0 * i + 1)-th 0-bit within this raw block
         const low = zerosThreshold - cumulativeZeros;
-        // High is a multiple of the raw block size so these
-        // two values should never overlap in their bit ranges.
         DEBUG && assert((high & low) === 0);
-        // Add the select sample and bump the zerosThreshold.
-        log('push', s0, high, low);
         s0.push(high + low);
         zerosThreshold += ss0;
       }
