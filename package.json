@@ -1,20 +1,22 @@
 {
   "name": "bit-structures",
   "type": "module",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "module": "./dist/bit-structures.js",
   "version": "0.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "tap": "tap",
-    "test": "tap"
+    "test": "vitest",
+    "build": "node ./build.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "vite": "^4.4.9",
+    "esbuild": "^0.19.3",
     "vitest": "^0.34.4"
   }
 }

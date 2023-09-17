@@ -4,10 +4,15 @@
 # Creating a Live Development Experience
 ## Removing friction'
 
+[] figure out how to jump to my local files, w/ sourcemaps etc.: https://developer.chrome.com/docs/devtools/workspaces/?utm_source=devtools
+  - answer so far: enable inline sourcemaps & drag the folder into the workspace in the Sources tab in Chrome
 [] figure out how to jump from an error in the JS console in Chrome all the way to the file in my code editor. [google search to start](https://www.google.com/search?q=chrome+dev+tools+open+local+code+source+)
 [x] code on left, tests on right, auto re-running on save and showing the relevant test file. (thanks, vitest)
 [] try using a terminal inside subline so I can do the above with 2 tabs (trying [Terminus](https://github.com/randy3k/Terminus))
 [] try copilot
+[] see if I can also pin the output of tests while doing my development with esbuild
+[] see if i can prevent terminus panel from closing with esc when it is open
+   - related: https://github.com/randy3k/Terminus/issues/58
 
 
 # Testing

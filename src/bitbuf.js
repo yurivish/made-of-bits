@@ -9,7 +9,7 @@ export class BitBuf {
   /**
    * Construct a new `BitBuf` containing all 0-bits.
    * @param {number} lengthInBits
-   */
+ */
   constructor(lengthInBits) {
     assertSafeInteger(lengthInBits);
     assert(lengthInBits >= 0);
@@ -20,9 +20,9 @@ export class BitBuf {
 
     /** @readonly */
     this.lengthInBits = lengthInBits;
-  }
+  } 
 
-  /**
+  /** 
    * @param {number} bitIndex
    */
   get(bitIndex) {

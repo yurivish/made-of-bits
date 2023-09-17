@@ -23,7 +23,7 @@ export function assert(condition, message) {
  * @param {number} x
  */
 export function assertSafeInteger(x) {
-  assert(Number.isSafeInteger(x));
+  assert(Number.isSafeInteger(x), `expected safe integer`);
 };
 
 /**
@@ -33,3 +33,11 @@ export function assertInteger(x) {
   assert(Number.isInteger(x));
 };
 
+
+export const logNoLineNumbers = (/** @type {any[]} */ ...args) => {
+  queueMicrotask(console.log.bind(console.log, ...args));
+};
+
+// export const log = console.log.bind(console.log);
+
+export const log = logNoLineNumbers;

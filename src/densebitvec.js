@@ -24,7 +24,7 @@
 // Yeah. I think I want a visualization of the state after this constructor has run.
 // Which means bundling this and serving it to a notebook (maybe esbuild does cors)
 
-import { DEBUG, assert, assertSafeInteger } from "./assert.js";
+import { DEBUG, assert, assertSafeInteger, log } from "./assert.js";
 import { BitBuf } from './bitbuf.js';
 import * as bits from './bits.js';
 
@@ -59,18 +59,27 @@ export class DenseBitVec {
     let zerosThreshold = 0; // take a select0 sample at the (zerosThreshold+1)th 1-bit
     let onesThreshold = 0; // take a select1 sample at the (onesThreshold+1)th 1-bit
 
+    let blocksPerRankSample = sr >> bits.BLOCK_BITS_LOG2;
+    // log('blocksPerRankSample', blocksPerRankSample);
+
     // Iterate one rank block at a time for convenient rank sampling
     const blocks = data.blocks;
-    for (let i = 0; i < blocks.length; i += sr) {
+    for (let i = 0; i < blocks.length; i += blocksPerRankSample) {
+      log('-----');
+      log('sample:', i);
       r.push(cumulativeOnes);
-      // iterate `j` through 0..<sr and treat it as an index offset:
+      // iterate `j` through 0..<blocksPerRankSample and treat it as an index offset:
       // in the loop below, `i + j` is the index of the current block
-      for (let j = 0; j < sr && i + j < blocks.length; j++) {
+      for (let j = 0; j < blocksPerRankSample && i + j < blocks.length; j++) {
         const block = blocks[i + j];
+        const blockOnes = bits.popcount(block);
+        const blockZeros = bits.BLOCK_BITS - blockOnes;
+        const cumulativeZeros = cumulativeBits - cumulativeOnes;        
+        log({ cumulativeBits, cumulativeOnes, cumulativeZeros, blockOnes, blockZeros, zeroTrigger: cumulativeZeros + blockZeros, zerosThreshold });
 
         // Sample 1-bits for the select1 index
-        const blockOnes = bits.popcount(block);
         if (cumulativeOnes + blockOnes > onesThreshold) {
+          log('s1 sample');
           // Take a select1 sample, which consists of two parts:
           // 1. The cumulative bits preceding this raw block, ie. left-shifted block index
           const high = cumulativeBits;
@@ -87,9 +96,8 @@ export class DenseBitVec {
 
         // Sample 0-bits for the select0 index.
         // This has the same shape as the code above for select1.
-        const blockZeros = bits.BLOCK_BITS;
-        const cumulativeZeros = cumulativeBits - cumulativeOnes;
         if (cumulativeZeros + blockZeros > zerosThreshold) {
+          log('s0 sample');
           // Take a select0 sample, which consists of two parts:
           // 1. The cumulative bits preceding this raw block
           const high = cumulativeBits;
@@ -99,9 +107,11 @@ export class DenseBitVec {
           // two values should never overlap in their bit ranges.
           DEBUG && assert((high & low) === 0);
           // Add the select sample and bump the zerosThreshold.
+          log('push', s0, high, low);
           s0.push(high + low);
           zerosThreshold += ss0;
         }
+
         cumulativeOnes += blockOnes;
         cumulativeBits += bits.BLOCK_BITS;
       }
@@ -117,17 +127,19 @@ export class DenseBitVec {
     this.ssPow2 = ssPow2;
 
     /** @readonly */
-    this.r = r;
+    this.r = new Uint32Array(r);
 
     /** @readonly */
-    this.s0 = s0;
+    this.s0 = new Uint32Array(s0);
 
     /** @readonly */
-    this.s1 = s1;
+    this.s1 = new Uint32Array(s1);
 
     /** @readonly */
     this.numOnes = cumulativeOnes;
   }
+
+  // todo: function to decode a single sample?
 
   // todo: document & explain what this does
   /**
@@ -135,7 +147,7 @@ export class DenseBitVec {
    * preceding the n-th sampled bit [todo: reword... least upper bound?]
    * Eg. we are looking for n=50. We may have a select sample representing
    * the 30th s-bit, saying it is at position 12345. { bitIndex: 12345, numOnes: 30 }
-   * @param {number[]} s
+   * @param {Uint32Array} s
    * @param {number} ssPow2
    * @param {number} n - the n-th (0|1)-bit
    */
@@ -151,12 +163,18 @@ export class DenseBitVec {
     //    up to the raw-block-aligned bit position.
     const sampleIndex = n >> ssPow2;
     const sample = s[sampleIndex];
+    return this.decodeSelectSample(sample, sampleIndex << ssPow2);
+  }
 
+  /**
+   * @param {number} sample
+   * @param {number} sampleBitIndex
+   */
+  decodeSelectSample(sample, sampleBitIndex) {
     // bitmask with the Raw::BLOCK_BITS_LOG2 bottom bits set.
     const mask = bits.BLOCK_BITS - 1;
     const bitIndex = sample & ~mask;
     const correction = sample & mask;
-
     // assert that bit pos is data-block-aligned
     DEBUG && assert(bits.blockBitOffset(bitIndex) === 0);
 
@@ -166,10 +184,10 @@ export class DenseBitVec {
     // I now think this is the number of 1-bits *preceding* bitIndex.
     // But man this stuff is somehow very fiddly... I will feel better when I have a basic version passing tests,
     // because then I can work on simplifying this code while preserving correct behavior.
-
-    const count = (sampleIndex << ssPow2) - correction;
-
-    return { bitIndex, count };
+    const count = sampleBitIndex - correction;
+    // our bit index is block-aligned, so we can just return it as a block index. 
+    // todo: explain this more fully
+    return { bitIndex, blockIndex: bitIndex >> bits.BLOCK_BITS_LOG2, count };
   }
 
   /**
@@ -184,8 +202,14 @@ export class DenseBitVec {
 
     // The target bit is somewhere in the data buffer. 
     // Use select samples to compute a lower bound on its position (bit index).
-    // There are `count` 1-bits up to but not including index `bitIndex`
-    const { bitIndex, count } = this.selectSample(this.s1, this.ssPow2, n);
+    // There are `count` 1-bits up to but not including index `bitIndex`.
+    let { bitIndex, blockIndex, count } = this.selectSample(this.s1, this.ssPow2, n);
+    // blockIndex (todo: rename for clarity) is a bitbuf block index.
+    // so shift by 
+    log({ srPow2: this.srPow2, BLOCK_BITS_LOG2: this.BLOCK_BITS_LOG2 },);
+    log('waaao', bitIndex, blockIndex, blockIndex >>> (this.srPow2 - bits.BLOCK_BITS_LOG2));
+    assert(this.r[blockIndex << (this.srPow2 - bits.BLOCK_BITS_LOG2)] === count);
+    // there are `count` 1-bits up to but not including `bitIndex`, which is a rank-block-aligned index.
 
     // There may be some rank samples in between the lower bound and
     // the true position; iterate over rank blocks until we find the
@@ -196,13 +220,22 @@ export class DenseBitVec {
     // depending on the query and bit distribution this could be an improvement.
     // Currently the worst case is linear search over rank samples.
     // index of the next rank block
-    let blockIndex = bits.blockIndex(bitIndex) + 1;
     const blocks = this.data.blocks;
-    let nextCount = count;
-    while (blockIndex < blocks.length && blocks[blockIndex] < n) {
-      nextCount = blocks[blockIndex];
-      blockIndex++;
+    blockIndex += 1;
+    for (let i = blockIndex + 1; blockIndex < blocks.length; i++) {
+      break;
     }
+
+    // Find the rank block right before the one that exceeds n. Or the final block, if none exceeds it.
+    while (blockIndex < blocks.length && blocks[blockIndex] < n) {
+      const nextCount = blocks[blockIndex];
+      if (nextCount < n) {
+        count = nextCount;
+        blockIndex++;
+      }
+    }
+
+    // hop raw blocks
   }
 
   // next:

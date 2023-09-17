@@ -3,7 +3,11 @@ import { DEBUG, assert } from "./assert.js";
 // Docs for JS bitwise operators:
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Expressions_and_Operators#bitwise_operators
 
-export const BLOCK_BITS = 32;
+// todo: document WHAT blocks this refers to (all of them):
+// - bitbuf blocks
+// - others?
+// - should this be exported from bitbuf?
+export const BLOCK_BITS = 32; // todo: rename to BLOCK_SIZE? 
 export const BLOCK_BITS_LOG2 = Math.log2(BLOCK_BITS);
 
 /**
