@@ -239,7 +239,7 @@ export class DenseBitVec {
   select1(n) {
     // We're looking for the bit index of the n-th 1-bit.
     // If there is no n-th 1-bit, then return null.
-    if (n < 0 || n >= this.numOnes) return null;
+    if (n < 0 || n >= this.numOnes) return null; // throw new Error('n is not a valid 1-bit index');
 
     // Find the closest preceding select block to the n-th 1-bit
     const s = this.select1Sample(n);
@@ -256,28 +256,30 @@ export class DenseBitVec {
     //       what about going beyond the final rank sample?
     while (rankSampleIndex + 1 < this.r.length) {
       let next = this.r[rankSampleIndex + 1];
-      assertNotUndefined(next);
+      DEBUG && assertNotUndefined(next);
       if (next > n) break; // >=?
       count = next;  
       rankSampleIndex++;
     }
-    
-    // hop basic blocks
+
     const blocks = this.data.blocks;
     let basicBlockIndex = rankSampleIndex << (this.srPow2 - bits.BLOCK_BITS_LOG2);
-    let basicBlock = blocks[basicBlockIndex];
-    while (basicBlockIndex + 1 < blocks.length) {
-      let next = blocks[basicBlockIndex + 1];
-      assertNotUndefined(next);
-      let nextCount = count + bits.popcount(next);
+    let basicBlock = 0;
+    while (basicBlockIndex < blocks.length) {
+      basicBlock = blocks[basicBlockIndex];
+      DEBUG && assertNotUndefined(basicBlock);
+      const nextCount = count + bits.popcount(basicBlock);
       if (nextCount > n) break;
-      basicBlock = next;
       count = nextCount;
       basicBlockIndex++;
     }
 
-    // hop bits
-    const ret = basicBlockIndex * bits.BLOCK_BITS + bits.select1(basicBlock, n - count);
+
+    // index of the start of the basic block
+    const blockBitIndex = basicBlockIndex << bits.BLOCK_BITS_LOG2;
+    // bit offset within that basic blot
+    const bitOffset = bits.select1(basicBlock, n - count);
+    const ret = blockBitIndex + bitOffset;
     return ret;
   }
 

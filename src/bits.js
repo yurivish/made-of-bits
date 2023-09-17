@@ -91,7 +91,11 @@ export function trailing0(x) {
 
 // Return the position of the k-th least significant set bit.
 // Assumes that x has at least k set bits.
-// E.g. select1(0b00001100, 0) == 3 and select1(0b00001100, 1) == 4
+// E.g. select1(0b1100, 0) === 2 and select1(0b1100, 1) === 3
+//
+// Will return 32 if the requested bit does not exist, eg. select1(0b1100, 2) === 32
+//
+// todo: is there a way to do doctests with node-tap or vite?
 //
 // As an aside, if we're interested in potentially more efficient approaches,
 // there is a broadword select1 implementation in the `succinct` package by
@@ -112,6 +116,9 @@ export function trailing0(x) {
 // }
 
 /**
+ * NOTE: Will return 32 if 
+ * // todo: clarify that indices are 0-based and that it will return 32 if there is no kth 1-bit.
+ * note that this is linear
  * @param {number} x
  * @param {number} k
  */
