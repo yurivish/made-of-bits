@@ -1,5 +1,5 @@
-// Dense bit vector with rank and select, based on the ideas described
-// in the paper "Fast, Small, Simple Rank/Select on Bitmaps".
+// Dense bit vector with rank and select, based on the ideas described in
+// the paper "Fast, Small, Simple Rank/Select on Bitmaps".
 // We use an additional level of blocks provided by BitVec, but the ideas are the same.
 
 // todo:
@@ -20,32 +20,6 @@
 // - Investigate using u32 to also type case to a nominal U32 type.
 // - consider calling them Rank1Samples
 
-// Select samples are of the (ss*i+1)-th bit. Eg. if ssPow2 = 2, we sample the 1, 1+4=5, 5+4=9, 9+4=13, 13+4=17-th bits.
-// So the first select block points to the raw block containing the 1st bit.
-// The second block points to the raw block containing the 5th bit.
-// And it also stores correction info, since eg. maybe that raw block has 2 set bits in it before the 5th bit.
-// In that case, the second block points to the raw block containing the 5th bit, and tells us there are 3 bits preceding it.
-// 
-// Yeah. I think I want a visualization of the state after this constructor has run.
-// Which means bundling this and serving it to a notebook (maybe esbuild does cors)
-
-// I wonder if types can help disentangle my confusion with regard to the varieties of indexes and block types that are floating around.
-// The runtime nature of the type system might make it impossible to use a newtype-like pattern.
-
-/*
-
-The plan
-  
-  move to a concept of a 'basic block', which is the block size used by the fundamental bit types,
-    bit buf and int buf.
-
-  in this library,
-    'buf' means just for reading/writing
-    'vec' means 'bit vector' means rank/select
-  
-
-*/
-
 import { DEBUG, assert, assertNotUndefined, assertSafeInteger, log } from "./assert.js";
 import { BitBuf } from './bitbuf.js';
 import * as bits from './bits.js';
@@ -58,6 +32,7 @@ export class DenseBitVec {
    */
   constructor(data, srPow2, ssPow2) {
     // todo: 
+    // - kw args for sampling rates, with 2^10 being default
     // - Accept s0Pow2, s1Pow2 instead of ssPow2 in order to control the space usage; 
     //   the s0 index only matters for select0, while select1 helps speed up rank1 and rank0.
     // - document the meanings of the values of the r/s0/s1 arrays.
@@ -126,17 +101,15 @@ export class DenseBitVec {
         r.push(cumulativeOnes);
       }
 
-      const cumulativeZeros = cumulativeBits - cumulativeOnes;
       const blockOnes = bits.popcount(block);
       let blockZeros = bits.BLOCK_BITS - blockOnes;
-      // Don't count trailing zeros in the final data block towards the zero count.
-      if (blockIndex === maxBlockIndex && data.numTrailingZeros > 0) {
-        blockZeros -= data.numTrailingZeros;
-      }
+      // Don't count trailing zeros in the final data block towards the zero count
+      if (blockIndex === maxBlockIndex) blockZeros -= data.numTrailingZeros;
+      const cumulativeZeros = cumulativeBits - cumulativeOnes;
+
 
       // Sample 1-bits for the select1 index
       if (cumulativeOnes + blockOnes > onesThreshold) {
-        log('s1 sample at basic block', blockIndex);
         // Take a select1 sample, which consists of two parts:
         // 1. The cumulative number of bits preceding this basic block, ie. the left-shifted block index.
         //    This is `cumulativeBits`, defined above, and is stored in the high bits.
@@ -156,7 +129,6 @@ export class DenseBitVec {
 
       // Sample 0-bits for the select0 index.
       // This `if` block has the same structure as the one above which samples 1-bits.
-
       if (cumulativeZeros + blockZeros > zerosThreshold) {
         const correction = zerosThreshold - cumulativeZeros;
         DEBUG && assert((cumulativeBits & correction) === 0);
@@ -171,8 +143,6 @@ export class DenseBitVec {
     /** @readonly */
     this.data = data;
 
-    // We now store the sample rates in terms of basic blocks.
-
     /** @readonly */
     this.srPow2 = srPow2;
 
@@ -181,17 +151,6 @@ export class DenseBitVec {
 
     /** @readonly */
     this.s1Pow2 = ssPow2;
-
-    // todo: these are wrong, aren't they? shifting the power of 2 down... wat
-
-    // /** @readonly */
-    // this.rSampleRate = srPow2 >> bits.BLOCK_BITS_LOG2;
-
-    // /** @readonly */
-    // this.s0SampleRate = ssPow2 >> bits.BLOCK_BITS_LOG2;
-
-    // /** @readonly */
-    // this.s1SampleRate = ssPow2 >> bits.BLOCK_BITS_LOG2;
 
     /** @readonly */
     this.r1 = new Uint32Array(r);
@@ -203,6 +162,9 @@ export class DenseBitVec {
     this.s1 = new Uint32Array(s1);
 
     /** @readonly */
+    this.basicBlocksPerRankSamplePow2 = srPow2 - bits.BLOCK_BITS_LOG2;
+
+    /** @readonly */
     this.numOnes = cumulativeOnes;
 
     /** @readonly */
@@ -212,6 +174,7 @@ export class DenseBitVec {
     /** @readonly */
     this.lengthInBits = data.lengthInBits;
 
+    
   }
 
   /**
@@ -238,50 +201,40 @@ export class DenseBitVec {
     // Find the closest preceding select block to the n-th 1-bit
     const s = this.select1Sample(n);
 
-    let rankSampleIndex = s.basicBlockIndex >>> (this.srPow2 - bits.BLOCK_BITS_LOG2);
+    let rankSampleIndex = s.basicBlockIndex >>> this.basicBlocksPerRankSamplePow2;
     let count = 0;
-    // We iterate in a slightly subtle way in order to minimize the number of memory accesses.
-    // Make some assertions about the invariants this assumes.
-    DEBUG && assert(rankSampleIndex < this.r1.length); 
-    DEBUG && assert(this.r1[rankSampleIndex] <= n);
     // Search forward until the next rank sample exceeds n, which indicates that the current
     // rank sample represents the range of basic blocks containing the n-th bit.
-    // (Remember, each rank sample's value indicates the number of _preceding_ 1-bits.)
+    // We iterate in a slightly subtle way in order to minimize the number of memory accesses.
+    DEBUG && assert(rankSampleIndex < this.r1.length); // so the loop below runs at least once
     while (rankSampleIndex < this.r1.length) {
       let nextCount = this.r1[rankSampleIndex];
-      DEBUG && assertNotUndefined(nextCount);
       if (nextCount > n) break;
       count = nextCount; 
       rankSampleIndex++;
     }
+    // Each rank sample's value indicates the number of _preceding_ 1-bits. By the time
+    // we break out of the loop, we have incremented the index one too far. So, rewind.
     rankSampleIndex--;
 
     // Find the basic block containing the n-th 1-bit.
-    let basicBlockIndex = rankSampleIndex << (this.srPow2 - bits.BLOCK_BITS_LOG2);
+    let basicBlockIndex = rankSampleIndex << this.basicBlocksPerRankSamplePow2;
     let basicBlock = 0;
     const blocks = this.data.blocks;
-    // this needs to be true so that our initial zero value for basicBlock gets overwritten in the loop
-    DEBUG && assert(basicBlockIndex < blocks.length); 
+    DEBUG && assert(basicBlockIndex < blocks.length); // so the loop below runs at least once
     while (basicBlockIndex < blocks.length) {
       basicBlock = blocks[basicBlockIndex];
-      DEBUG && assertNotUndefined(basicBlock);
       const nextCount = count + bits.popcount(basicBlock);
       if (nextCount > n) break;
       count = nextCount;
       basicBlockIndex++;
     }
 
-    // index of the start of the basic block
+    // index of the start of the basic block, and bit offset within the basic block
     const blockBitIndex = basicBlockIndex << bits.BLOCK_BITS_LOG2;
-    // bit offset within that basic blot
     const bitOffset = bits.select1(basicBlock, n - count);
-    const ret = blockBitIndex + bitOffset;
-    return ret;
+    return blockBitIndex + bitOffset;
   }
-
-  //
-  // Nominal typing for block types, to enable distinguishing various forms of integer from each other.
-  //
 
   /**
    * @param {number} n
@@ -335,8 +288,8 @@ export class DenseBitVec {
   }
 
   // next:
-  // - fn to decode a select block
-  // - select1
+  // x fn to decode a select block
+  // x select1
   // - select0
   // - rank1
   // - rank0
@@ -483,3 +436,31 @@ export class DenseBitVec {
   // toSelect1SampleIndex(bitIndex) {
   //   return bitIndex >> this.s1Pow2;
   // }
+
+
+
+// Select samples are of the (ss*i+1)-th bit. Eg. if ssPow2 = 2, we sample the 1, 1+4=5, 5+4=9, 9+4=13, 13+4=17-th bits.
+// So the first select block points to the raw block containing the 1st bit.
+// The second block points to the raw block containing the 5th bit.
+// And it also stores correction info, since eg. maybe that raw block has 2 set bits in it before the 5th bit.
+// In that case, the second block points to the raw block containing the 5th bit, and tells us there are 3 bits preceding it.
+// 
+// Yeah. I think I want a visualization of the state after this constructor has run.
+// Which means bundling this and serving it to a notebook (maybe esbuild does cors)
+
+// I wonder if types can help disentangle my confusion with regard to the varieties of indexes and block types that are floating around.
+// The runtime nature of the type system might make it impossible to use a newtype-like pattern.
+
+/*
+
+The plan
+  
+  move to a concept of a 'basic block', which is the block size used by the fundamental bit types,
+    bit buf and int buf.
+
+  in this library,
+    'buf' means just for reading/writing
+    'vec' means 'bit vector' means rank/select
+  
+
+*/
