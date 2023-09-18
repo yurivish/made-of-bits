@@ -3,6 +3,7 @@ import { BLOCK_BITS, blockBitOffset, blockIndex } from './bits.js';
 
 /**
  * Fixed-size bit buffer. Designed to be written once and read many times.
+ * Conceptually, this is a special case of the fixed-width IntBuf.
  * 
  */
 export class BitBuf {
@@ -30,7 +31,7 @@ export class BitBuf {
     DEBUG && assert(bitIndex >= 0 && bitIndex < this.lengthInBits);
     const block = this.blocks[blockIndex(bitIndex)];
     const bit = block & (1 << blockBitOffset(bitIndex));
-    return bit !== 0;
+    return bit === 0 ? 0 : 1;
   }
 
   /**

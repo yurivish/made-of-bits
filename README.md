@@ -1,4 +1,7 @@
 # To do
+[] dense bitvec: use the s0 index if there is no s1 index? at least add a note/todo for it in the code.
+[] work on quadvector (r00, r01, r11; and it is nice that there is a cap on the total number of select samples) and a quad wavelet matrix on top (supporting a limited set of ops).
+   - this will potentially have a 1-bit layer on the top
 [] look through package.json and understand the meaning & purpose of every field. Some were just copied from https://vitejs.dev/guide/build.html#library-mode...
 [] For performance, investigate using bid operations to cast intermediate results to unsigned integers because this might enable jit optimizations.
 [] play around with an `Opaque<x>` style nominal type thing but just using type coersion: `x as SelectSample` where `SelectSample` has no methods, and is not also a number. Then cast back when we know, inside the function that accepts `SelectSample`s.

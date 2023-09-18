@@ -71,7 +71,7 @@ export class DenseBitVec {
     const ss1 = 1 << ssPow2; // Select1 sampling rate: sample every `ss1` 1-bits
     const ss0 = 1 << ssPow2; // Select0 sampling rate: sample every `ss0` 0-bits
     const sr = 1 << srPow2; // Rank sampling rate: sample every `sr` bits
-
+    
     // Distinguish
     // - Which bit (position) the sample represents
     // - What it stores about that (or related) bit positions
@@ -116,8 +116,7 @@ export class DenseBitVec {
     let zerosThreshold = 0; // take a select0 sample at the (zerosThreshold+1)th 1-bit
     let onesThreshold = 0; // take a select1 sample at the (onesThreshold+1)th 1-bit
 
-    let basicBlocksPerRankSample = sr >>> bits.BLOCK_BITS_LOG2;
-    log({ basicBlocksPerRankSample });
+    const basicBlocksPerRankSample = sr >>> bits.BLOCK_BITS_LOG2;
     let blockIndex = 0;
     for (const block of data.blocks) {
       if (blockIndex % basicBlocksPerRankSample === 0) {
@@ -134,16 +133,15 @@ export class DenseBitVec {
         log('s1 sample at basic block', blockIndex);
         // Take a select1 sample, which consists of two parts:
         // 1. The cumulative number of bits preceding this basic block, ie. the left-shifted block index.
-        //    This is stored in the high bits.
-        // 2. A correction factor: the number of 1-bits preceding the (ss1 * i + 1)-th 1-bit within this
+        //    This is `cumulativeBits`, defined above, and is stored in the high bits.
+        // 2. A correction factor storing the number of 1-bits preceding the (ss1 * i + 1)-th 1-bit within this
         //    basic block, which we can use to determine the number of 1-bits preceding this basic block.
         //    Effectively, this is a way for us to store samples that are slightly offset from the strictly
         //    regular select sampling scheme, enabling us to keep the select samples aligned to basic blocks.
-        //    This is stored in the low bits.
+        //    This is `correction`, and is stored in the low bits.
         const correction = onesThreshold - cumulativeOnes;
-        log('correction', correction);
-        // These two values should never overlap in their bit ranges
-        // since cumulativeBits is a multiple of the basic block size.
+        // Since cumulativeBits is a multiple of the basic block size,
+        // these two values should never overlap in their bit ranges.
         DEBUG && assert((cumulativeBits & correction) === 0);
         // Add the select sample and bump the onesThreshold.
         s1.push(cumulativeBits | correction);
@@ -151,9 +149,8 @@ export class DenseBitVec {
       }
 
       // Sample 0-bits for the select0 index.
-      // This if block has the same structure as the one above that samples 1-bits.
+      // This if block has the same structure as the one above which samples 1-bits.
       if (cumulativeZeros + blockZeros > zerosThreshold) {
-        // log('s0 sample at basic block', blockIndex);
         const correction = zerosThreshold - cumulativeZeros;
         DEBUG && assert((cumulativeBits & correction) === 0);
         s0.push(cumulativeBits | correction);
@@ -181,17 +178,17 @@ export class DenseBitVec {
 
     // todo: these are wrong, aren't they? shifting the power of 2 down... wat
 
-    /** @readonly */
-    this.rSampleRate = srPow2 >> bits.BLOCK_BITS_LOG2;
+    // /** @readonly */
+    // this.rSampleRate = srPow2 >> bits.BLOCK_BITS_LOG2;
+
+    // /** @readonly */
+    // this.s0SampleRate = ssPow2 >> bits.BLOCK_BITS_LOG2;
+
+    // /** @readonly */
+    // this.s1SampleRate = ssPow2 >> bits.BLOCK_BITS_LOG2;
 
     /** @readonly */
-    this.s0SampleRate = ssPow2 >> bits.BLOCK_BITS_LOG2;
-
-    /** @readonly */
-    this.s1SampleRate = ssPow2 >> bits.BLOCK_BITS_LOG2;
-
-    /** @readonly */
-    this.r = new Uint32Array(r);
+    this.r1 = new Uint32Array(r);
 
     /** @readonly */
     this.s0 = new Uint32Array(s0);
@@ -201,6 +198,10 @@ export class DenseBitVec {
 
     /** @readonly */
     this.numOnes = cumulativeOnes;
+
+    /** @readonly */
+    this.lengthInBits = data.lengthInBits;
+
   }
 
 
@@ -241,7 +242,7 @@ export class DenseBitVec {
     if (result === null) throw new Error('n is not a valid 1-bit index');
     return result;
   }
-  
+
   /**
    * @param {number} n
    */
@@ -253,27 +254,43 @@ export class DenseBitVec {
     // Find the closest preceding select block to the n-th 1-bit
     const s = this.select1Sample(n);
 
-    // We want to find the closest preceding rank sample whose value does not exceed n.
+    // Find the closest preceding rank sample whose value does not exceed n.
     // Convert the basic block index into a rank sample index
-    let rankSampleIndex = s.basicBlockIndex >>> (this.srPow2 - bits.BLOCK_BITS_LOG2);
-    // log('rankSampleIndex before', rankSampleIndex);
+    // let rankSampleIndex = s.basicBlockIndex >>> (this.srPow2 - bits.BLOCK_BITS_LOG2);
+    // let count = this.r1[rankSampleIndex];
+    // // Search forward until the next rank sample exceeds n, which indicates that the current
+    // // rank sample represents the range of basic blocks containing the n-th bit.
+    // // (Remember, each rank sample's value indicates the number of _preceding_ 1-bits.)
+    // while (rankSampleIndex + 1 < this.r1.length) {
+    //   let nextCount = this.r1[rankSampleIndex + 1];
+    //   DEBUG && assertNotUndefined(nextCount);
+    //   if (nextCount > n) break;
+    //   count = nextCount;  
+    //   rankSampleIndex++;
+    // }
 
-    let count = this.r[rankSampleIndex];
-    // We know this one does not exceed n. Keep going until the next one does.
-    // log('---- rank ----');
-    // todo: how do we want to behave with long stretches of zeros and etc?
-    //       what about going beyond the final rank sample?
-    while (rankSampleIndex + 1 < this.r.length) {
-      let next = this.r[rankSampleIndex + 1];
-      DEBUG && assertNotUndefined(next);
-      if (next > n) break;
-      count = next;  
+    let rankSampleIndex = s.basicBlockIndex >>> (this.srPow2 - bits.BLOCK_BITS_LOG2);
+    let count = 0;
+    DEBUG && assert(rankSampleIndex < this.r1.length); 
+    DEBUG && assert(this.r1[rankSampleIndex] <= n);
+    // Search forward until the next rank sample exceeds n, which indicates that the current
+    // rank sample represents the range of basic blocks containing the n-th bit.
+    // (Remember, each rank sample's value indicates the number of _preceding_ 1-bits.)
+    while (rankSampleIndex < this.r1.length) {
+      let nextCount = this.r1[rankSampleIndex];
+      DEBUG && assertNotUndefined(nextCount);
+      if (nextCount > n) break;
+      count = nextCount; 
       rankSampleIndex++;
     }
+    rankSampleIndex--;
 
-    const blocks = this.data.blocks;
+    // Find the basic block containing the n-th 1-bit.
     let basicBlockIndex = rankSampleIndex << (this.srPow2 - bits.BLOCK_BITS_LOG2);
     let basicBlock = 0;
+    const blocks = this.data.blocks;
+    // this needs to be true so that our initial zero value for basicBlock gets overwritten in the loop
+    DEBUG && assert(basicBlockIndex < blocks.length); 
     while (basicBlockIndex < blocks.length) {
       basicBlock = blocks[basicBlockIndex];
       DEBUG && assertNotUndefined(basicBlock);
@@ -282,7 +299,6 @@ export class DenseBitVec {
       count = nextCount;
       basicBlockIndex++;
     }
-
 
     // index of the start of the basic block
     const blockBitIndex = basicBlockIndex << bits.BLOCK_BITS_LOG2;
@@ -299,15 +315,17 @@ export class DenseBitVec {
   /**
    * @param {number} n
    */
-  select0Sample(n) {
-    return this.selectSample(n, this.s0, this.s0Pow2);
+  select1Sample(n) {
+    DEBUG && assert(n < this.numOnes);
+    return this.selectSample(n, this.s1, this.s1Pow2);
   }
 
   /**
    * @param {number} n
    */
-  select1Sample(n) {
-    return this.selectSample(n, this.s1, this.s1Pow2);
+  select0Sample(n) {
+    DEBUG && assert(n < this.lengthInBits - this.numOnes);
+    return this.selectSample(n, this.s0, this.s0Pow2);
   }
 
   /**
