@@ -201,11 +201,11 @@ export class DenseBitVec {
     // Find the closest preceding select block to the n-th 1-bit
     const s = this.select1Sample(n);
 
-    let rankSampleIndex = s.basicBlockIndex >>> this.basicBlocksPerRankSamplePow2;
     let count = 0;
     // Search forward until the next rank sample exceeds n, which indicates that the current
     // rank sample represents the range of basic blocks containing the n-th bit.
     // We iterate in a slightly subtle way in order to minimize the number of memory accesses.
+    let rankSampleIndex = s.basicBlockIndex >>> this.basicBlocksPerRankSamplePow2;
     DEBUG && assert(rankSampleIndex < this.r1.length); // so the loop below runs at least once
     while (rankSampleIndex < this.r1.length) {
       let nextCount = this.r1[rankSampleIndex];
@@ -218,9 +218,9 @@ export class DenseBitVec {
     rankSampleIndex--;
 
     // Find the basic block containing the n-th 1-bit.
-    let basicBlockIndex = rankSampleIndex << this.basicBlocksPerRankSamplePow2;
-    let basicBlock = 0;
     const blocks = this.data.blocks;
+    let basicBlock = 0;
+    let basicBlockIndex = rankSampleIndex << this.basicBlocksPerRankSamplePow2;
     DEBUG && assert(basicBlockIndex < blocks.length); // so the loop below runs at least once
     while (basicBlockIndex < blocks.length) {
       basicBlock = blocks[basicBlockIndex];
@@ -235,6 +235,68 @@ export class DenseBitVec {
     const bitOffset = bits.select1(basicBlock, n - count);
     return blockBitIndex + bitOffset;
   }
+
+
+  /**
+   * @param {number} n
+   */
+  maybeSelect0(n) {
+    // Note: This function implementation is adapted from maybeSelect1.
+    //
+    // We're looking for the bit index of the n-th 0-bit.
+    // If there is no n-th 0-bit, then return null.
+    if (n < 0 || n >= this.numZeros) return null; // throw new Error('n is not a valid 0-bit index');
+
+    // Find the closest preceding select block to the n-th 0-bit
+    const s = this.select0Sample(n);
+
+    let count = 0;
+    // Search forward until the next rank sample exceeds n, which indicates that the current
+    // rank sample represents the range of basic blocks containing the n-th bit.
+    // We iterate in a slightly subtle way in order to minimize the number of memory accesses.
+    let rankSampleIndex = s.basicBlockIndex >>> this.basicBlocksPerRankSamplePow2;
+    DEBUG && assert(rankSampleIndex < this.r1.length); // so the loop below runs at least once
+    while (rankSampleIndex < this.r1.length) {
+      // number of preceding zeros is (number of preceding bits - number of preceding ones)
+      let nextCount = (rankSampleIndex << this.s0Pow2) - this.r1[rankSampleIndex];
+      if (nextCount > n) break;
+      count = nextCount; 
+      rankSampleIndex++;
+    }
+    // Each rank sample's value indicates the number of _preceding_ 0-bits. By the time
+    // we break out of the loop, we have incremented the index one too far. So, rewind.
+    rankSampleIndex--;
+
+    // Find the basic block containing the n-th 0-bit.
+    const blocks = this.data.blocks;
+    let basicBlock = 0;
+    let basicBlockIndex = rankSampleIndex << this.basicBlocksPerRankSamplePow2;
+    DEBUG && assert(basicBlockIndex < blocks.length); // so the loop below runs at least once
+    while (basicBlockIndex < blocks.length) {
+      basicBlock = blocks[basicBlockIndex];
+      // We don't need to handle the trailing zero bits in the final block since we
+      // will always match the final block even when there are no trailing zero bits.
+      const nextCount = count + (bits.BLOCK_BITS - bits.popcount(basicBlock));
+      if (nextCount > n) break;
+      count = nextCount;
+      basicBlockIndex++;
+    }
+
+    // index of the start of the basic block, and bit offset within the basic block
+    const blockBitIndex = basicBlockIndex << bits.BLOCK_BITS_LOG2;
+    const bitOffset = bits.select1(~basicBlock, n - count);
+    return blockBitIndex + bitOffset;
+  }
+
+  /**
+   * @param {number} n
+   */
+  select0(n) {
+    const result = this.maybeSelect0(n);
+    if (result === null) throw new Error('n is not a valid 0-bit index');
+    return result;
+  }
+
 
   /**
    * @param {number} n
