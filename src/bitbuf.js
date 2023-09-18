@@ -1,5 +1,5 @@
 import { DEBUG, assert, assertSafeInteger } from './assert.js';
-import { BLOCK_BITS, blockBitOffset, blockIndex } from './bits.js';
+import * as bits from './bits.js';
 
 /**
  * Fixed-size bit buffer. Designed to be written once and read many times.
@@ -14,13 +14,18 @@ export class BitBuf {
   constructor(lengthInBits) {
     assertSafeInteger(lengthInBits);
     assert(lengthInBits >= 0);
-    const numBlocks = Math.ceil(lengthInBits / BLOCK_BITS);
+    const numBlocks = Math.ceil(lengthInBits / bits.BLOCK_BITS);
 
     /** @readonly */
     this.blocks = new Uint32Array(numBlocks);
 
     /** @readonly */
     this.lengthInBits = lengthInBits;
+
+    /** 
+     * Number of trailing zeros in the final block that do not belong to this buffer
+     * @readonly */
+    this.numTrailingZeros = bits.BLOCK_BITS - lengthInBits % bits.BLOCK_BITS;
   } 
 
   /** 
@@ -29,8 +34,8 @@ export class BitBuf {
   get(bitIndex) {
     DEBUG && assertSafeInteger(bitIndex);
     DEBUG && assert(bitIndex >= 0 && bitIndex < this.lengthInBits);
-    const block = this.blocks[blockIndex(bitIndex)];
-    const bit = block & (1 << blockBitOffset(bitIndex));
+    const block = this.blocks[bits.blockIndex(bitIndex)];
+    const bit = block & (1 << bits.blockBitOffset(bitIndex));
     return bit === 0 ? 0 : 1;
   }
 
@@ -41,10 +46,10 @@ export class BitBuf {
   setOne(bitIndex) {
     DEBUG && assertSafeInteger(bitIndex);
     DEBUG && assert(bitIndex >= 0 && bitIndex < this.lengthInBits);
-    const index = blockIndex(bitIndex);
-    const block = this.blocks[index];
-    const bit = 1 << blockBitOffset(bitIndex);
-    this.blocks[index] = block | bit;
+    const blockIndex = bits.blockIndex(bitIndex);
+    const block = this.blocks[blockIndex];
+    const bit = 1 << bits.blockBitOffset(bitIndex);
+    this.blocks[blockIndex] = block | bit;
   }
 }
 

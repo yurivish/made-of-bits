@@ -70,7 +70,7 @@ export class DenseBitVec {
 
     const ss1 = 1 << ssPow2; // Select1 sampling rate: sample every `ss1` 1-bits
     const ss0 = 1 << ssPow2; // Select0 sampling rate: sample every `ss0` 0-bits
-    const sr = 1 << srPow2; // Rank sampling rate: sample every `sr` bits
+    const sr1 = 1 << srPow2; // Rank sampling rate: sample every `sr` bits
 
     // Distinguish
     // - Which bit (position) the sample represents
@@ -116,17 +116,23 @@ export class DenseBitVec {
     let zerosThreshold = 0; // take a select0 sample at the (zerosThreshold+1)th 1-bit
     let onesThreshold = 0; // take a select1 sample at the (onesThreshold+1)th 1-bit
 
-    const basicBlocksPerRankSample = sr >>> bits.BLOCK_BITS_LOG2;
-    let blockIndex = 0;
-    for (const block of data.blocks) {
+    const basicBlocksPerRankSample = sr1 >>> bits.BLOCK_BITS_LOG2;
+    const blocks = data.blocks;
+
+    const maxBlockIndex = blocks.length - 1;
+    for (let blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
+      const block = blocks[blockIndex];
       if (blockIndex % basicBlocksPerRankSample === 0) {
         r.push(cumulativeOnes);
       }
 
-      const blockOnes = bits.popcount(block);
-      const blockZeros = bits.BLOCK_BITS - blockOnes;
       const cumulativeZeros = cumulativeBits - cumulativeOnes;
-      // log('blockIndex', blockIndex, 'blockOnes', blockOnes, 'cumulativeOnes', cumulativeOnes);
+      const blockOnes = bits.popcount(block);
+      let blockZeros = bits.BLOCK_BITS - blockOnes;
+      // Don't count trailing zeros in the final data block towards the zero count.
+      if (blockIndex === maxBlockIndex && data.numTrailingZeros > 0) {
+        blockZeros -= data.numTrailingZeros;
+      }
 
       // Sample 1-bits for the select1 index
       if (cumulativeOnes + blockOnes > onesThreshold) {
@@ -149,7 +155,8 @@ export class DenseBitVec {
       }
 
       // Sample 0-bits for the select0 index.
-      // This if block has the same structure as the one above which samples 1-bits.
+      // This `if` block has the same structure as the one above which samples 1-bits.
+
       if (cumulativeZeros + blockZeros > zerosThreshold) {
         const correction = zerosThreshold - cumulativeZeros;
         DEBUG && assert((cumulativeBits & correction) === 0);
@@ -159,7 +166,6 @@ export class DenseBitVec {
 
       cumulativeOnes += blockOnes;
       cumulativeBits += bits.BLOCK_BITS;
-      blockIndex += 1;
     }
 
     /** @readonly */
@@ -200,38 +206,12 @@ export class DenseBitVec {
     this.numOnes = cumulativeOnes;
 
     /** @readonly */
+    this.numZeros = data.lengthInBits - cumulativeOnes;
+
+    // todo: call this 'universe size' for compatibility with multibitvecs?
+    /** @readonly */
     this.lengthInBits = data.lengthInBits;
 
-  }
-
-
- 
-  /**
-   * @param {number} bitIndex
-   */
-  toBasicBlockIndex(bitIndex) {
-    return bitIndex >> bits.BLOCK_BITS_LOG2;
-  }
-
-  /**
-   * @param {number} bitIndex
-   */
-  toRankSampleIndex(bitIndex) {
-    return bitIndex >> this.srPow2;
-  }
-
-  /**
-   * @param {number} bitIndex
-   */
-  toSelect0SampleIndex(bitIndex) {
-    return bitIndex >> this.s0Pow2;
-  }
-
-  /**
-   * @param {number} bitIndex
-   */
-  toSelect1SampleIndex(bitIndex) {
-    return bitIndex >> this.s1Pow2;
   }
 
   /**
@@ -242,6 +222,8 @@ export class DenseBitVec {
     if (result === null) throw new Error('n is not a valid 1-bit index');
     return result;
   }
+
+  // TODO: maybe select w/ rankSampler /* abstract the rank sampling so we can use the same f for select and 1 */
 
   /**
    * @param {number} n
@@ -469,3 +451,33 @@ export class DenseBitVec {
 //   }
 // }
 
+
+
+
+  // /**
+  //  * @param {number} bitIndex
+  //  */
+  // toBasicBlockIndex(bitIndex) {
+  //   return bitIndex >> bits.BLOCK_BITS_LOG2;
+  // }
+
+  // /**
+  //  * @param {number} bitIndex
+  //  */
+  // toRankSampleIndex(bitIndex) {
+  //   return bitIndex >> this.srPow2;
+  // }
+
+  // /**
+  //  * @param {number} bitIndex
+  //  */
+  // toSelect0SampleIndex(bitIndex) {
+  //   return bitIndex >> this.s0Pow2;
+  // }
+
+  // /**
+  //  * @param {number} bitIndex
+  //  */
+  // toSelect1SampleIndex(bitIndex) {
+  //   return bitIndex >> this.s1Pow2;
+  // }
