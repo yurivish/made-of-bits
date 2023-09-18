@@ -27,6 +27,7 @@
 //   - i think nested for loop where each inner loop increments ns[i] while it is within the same type of block.
 //   - we can check times against simple-sds: https://github.com/jltsiren/simple-sds
 //     - it has bv-benchmark and wm-venchmark: https://github.com/jltsiren/simple-sds/blob/main/src/bin/bv-benchmark/main.rs
+// - read this good post on array performance in v8: https://v8.dev/blog/elements-kinds
 
 import { DEBUG, assert, assertNotUndefined, assertSafeInteger, log } from "./assert.js";
 import { BitBuf } from './bitbuf.js';
