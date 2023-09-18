@@ -162,7 +162,7 @@ export class DenseBitVec {
     this.s1Pow2 = ssPow2;
 
     /** @readonly */
-    this.r1 = new Uint32Array(r);
+    this.rankSamples = new Uint32Array(r);
 
     /** @readonly */
     this.s0 = new Uint32Array(s0);
@@ -258,30 +258,33 @@ export class DenseBitVec {
    *   there are many more bits that are not select samples.
    */
   maybeSelect1(n) {
-    if (n < 0 || n >= this.numZeros) return null;
+    if (n < 0 || n >= this.numOnes) return null;
 
     let { basicBlockIndex, precedingCount: count } = this.select1Sample(n);
     assert(count <= n);
 
-    // use rank samples to traverse across basic blocks more efficiently
-    let rankIndex = basicBlockIndex >>> this.basicBlocksPerRankSamplePow2;
-    assert(rankIndex < this.r1.length);
-
-    if (!!1) {
-      for (let rankCount = this.r1[rankIndex]; rankCount <= n; rankCount = this.r1[++rankIndex]) {
-        basicBlockIndex = rankIndex << this.basicBlocksPerRankSamplePow2;
-        count = rankCount;
-      }
-    } else {
-      while (rankIndex < this.r1.length) {
-        let nextCount = this.r1[rankIndex];
-        if (nextCount > n) break;
-        basicBlockIndex = rankIndex << this.basicBlocksPerRankSamplePow2;
-        count = nextCount;
-        rankIndex++;
-      }
+    if (DEBUG) {
+      const prevRankIndex = basicBlockIndex >>> this.basicBlocksPerRankSamplePow2;
+      assert(prevRankIndex < this.rankSamples.length);
     }
 
+    // Equivalent rank loop with two branches per iteration (simpler, but slower):
+    // while (rankIndex < rankSamples.length) {
+    //   let sample = rankSamples[rankIndex];
+    //   if (sample > n) break;
+    //   count = sample;
+    //   basicBlockIndex = rankIndex << this.basicBlocksPerRankSamplePow2;
+    //   rankIndex++;
+    // }
+
+    const rankSamples = this.rankSamples;
+    let rankIndex = (basicBlockIndex >>> this.basicBlocksPerRankSamplePow2) + 1;
+    let rankSample = 0;
+    while (rankIndex < rankSamples.length && (rankSample = rankSamples[rankIndex]) <= n) {
+      count = rankSample;
+      basicBlockIndex = rankIndex << this.basicBlocksPerRankSamplePow2;
+      rankIndex++;
+    }
 
     // traverse across basic blocks until we find the block containing the n-th 0-bit
     let basicBlock = 0;
@@ -311,9 +314,9 @@ export class DenseBitVec {
 
     // use rank samples to traverse across basic blocks more efficiently
     let rankIndex = basicBlockIndex >>> this.basicBlocksPerRankSamplePow2;
-    assert(rankIndex < this.r1.length);
-    while (rankIndex < this.r1.length) {
-      let nextCount = (rankIndex << this.s0Pow2) - this.r1[rankIndex];
+    assert(rankIndex < this.rankSamples.length);
+    while (rankIndex < this.rankSamples.length) {
+      let nextCount = (rankIndex << this.s0Pow2) - this.rankSamples[rankIndex];
       if (nextCount > n) break;
       basicBlockIndex = rankIndex << this.basicBlocksPerRankSamplePow2;
       count = nextCount;
