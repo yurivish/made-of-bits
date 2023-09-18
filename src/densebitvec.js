@@ -199,28 +199,28 @@ export class DenseBitVec {
     if (n < 0 || n >= this.numOnes) return null; // throw new Error('n is not a valid 1-bit index');
 
     // Find the closest preceding select block to the n-th 1-bit
-    const s = this.select1Sample(n);
+    const s = this.select1Sample(n); // note: interesting that we do not use precedingCount.
 
     let count = 0;
     // Search forward until the next rank sample exceeds n, which indicates that the current
     // rank sample represents the range of basic blocks containing the n-th bit.
     // We iterate in a slightly subtle way in order to minimize the number of memory accesses.
-    let rankSampleIndex = s.basicBlockIndex >>> this.basicBlocksPerRankSamplePow2;
-    DEBUG && assert(rankSampleIndex < this.r1.length); // so the loop below runs at least once
-    while (rankSampleIndex < this.r1.length) {
-      let nextCount = this.r1[rankSampleIndex];
+    let rankIndex = s.basicBlockIndex >>> this.basicBlocksPerRankSamplePow2;
+    DEBUG && assert(rankIndex < this.r1.length); // so the loop below runs at least once
+    while (rankIndex < this.r1.length) {
+      let nextCount = this.r1[rankIndex];
       if (nextCount > n) break;
       count = nextCount; 
-      rankSampleIndex++;
+      rankIndex++;
     }
     // Each rank sample's value indicates the number of _preceding_ 1-bits. By the time
     // we break out of the loop, we have incremented the index one too far. So, rewind.
-    rankSampleIndex--;
+    rankIndex--;
 
     // Find the basic block containing the n-th 1-bit.
     const blocks = this.data.blocks;
     let basicBlock = 0;
-    let basicBlockIndex = rankSampleIndex << this.basicBlocksPerRankSamplePow2;
+    let basicBlockIndex = rankIndex << this.basicBlocksPerRankSamplePow2;
     DEBUG && assert(basicBlockIndex < blocks.length); // so the loop below runs at least once
     while (basicBlockIndex < blocks.length) {
       basicBlock = blocks[basicBlockIndex];
@@ -240,49 +240,88 @@ export class DenseBitVec {
   /**
    * @param {number} n
    */
-  maybeSelect0(n) {
-    // Note: This function implementation is adapted from maybeSelect1.
-    //
-    // We're looking for the bit index of the n-th 0-bit.
-    // If there is no n-th 0-bit, then return null.
-    if (n < 0 || n >= this.numZeros) return null; // throw new Error('n is not a valid 0-bit index');
+  // commented and DEBUG-statement-free version of the below.
+  // maybeSelect0(n) {
+  //   // Note: This function implementation is adapted from maybeSelect1.
+  //   //
+  //   // We're looking for the bit index of the n-th 0-bit.
+  //   // If there is no n-th 0-bit, then return null.
+  //   if (n < 0 || n >= this.numZeros) return null; // throw new Error('n is not a valid 0-bit index');
 
-    // Find the closest preceding select block to the n-th 0-bit
+  //   // Find the closest preceding select block to the n-th 0-bit
+  //   const s = this.select0Sample(n);
+
+  //   let count = 0;
+  //   // Search forward until the next rank sample exceeds n, which indicates that the current
+  //   // rank sample represents the range of basic blocks containing the n-th bit.
+  //   // We iterate in a slightly subtle way in order to minimize the number of memory accesses.
+  //   let rankIndex = s.basicBlockIndex >>> this.basicBlocksPerRankSamplePow2;
+  //   DEBUG && assert(rankIndex < this.r1.length); // so the loop below runs at least once
+  //   while (rankIndex < this.r1.length) {
+  //     // number of preceding zeros is (number of preceding bits - number of preceding ones)
+  //     let nextCount = (rankIndex << this.s0Pow2) - this.r1[rankIndex];
+  //     if (nextCount > n) break;
+  //     count = nextCount; 
+  //     rankIndex++;
+  //   }
+  //   // Each rank sample's value indicates the number of _preceding_ 0-bits. By the time
+  //   // we break out of the loop, we have incremented the index one too far. So, rewind.
+  //   rankIndex--;
+
+  //   // Find the basic block containing the n-th 0-bit.
+  //   const blocks = this.data.blocks;
+  //   let basicBlock = 0;
+  //   let basicBlockIndex = rankIndex << this.basicBlocksPerRankSamplePow2;
+  //   DEBUG && assert(basicBlockIndex < blocks.length); // so the loop below runs at least once
+  //   while (basicBlockIndex < blocks.length) {
+  //     basicBlock = blocks[basicBlockIndex];
+  //     // We don't need to handle the trailing zero bits in the final block since we
+  //     // will always match the final block even when there are no trailing zero bits.
+  //     const nextCount = count + bits.popcount(~basicBlock);
+  //     if (nextCount > n) break;
+  //     count = nextCount;
+  //     basicBlockIndex++;
+  //   }
+
+  //   // index of the start of the basic block, and bit offset within the basic block
+  //   const blockBitIndex = basicBlockIndex << bits.BLOCK_BITS_LOG2;
+  //   const bitOffset = bits.select1(~basicBlock, n - count);
+  //   return blockBitIndex + bitOffset;
+  // }
+
+  //
+  // todo: stare at this and see if we can simplify it.
+  // - Is there some way to use s.precedingCount to avoid a rank memory access if the blocks coincide?
+  // - can we similarly avoid touching the basic block if the rank count value is already correct?
+  // - and the same for the final select1
+  // - exciting question: what could it look like to do batch-select on a sorted set of ns?
+  //   - maybe transducers are involved
+  //   - figure out how to access each piece of data just once - eg. never re-access a rank block.
+  //   - i think nested for loop where each inner loop increments ns[i] while it is within the same type of block.
+  //   - we can check times against simple-sds: https://github.com/jltsiren/simple-sds
+  //     - it has bv-benchmark and wm-venchmark: https://github.com/jltsiren/simple-sds/blob/main/src/bin/bv-benchmark/main.rs
+  maybeSelect0(/** @type number */ n) {
+    if (n < 0 || n >= this.numZeros) return null;
     const s = this.select0Sample(n);
-
     let count = 0;
-    // Search forward until the next rank sample exceeds n, which indicates that the current
-    // rank sample represents the range of basic blocks containing the n-th bit.
-    // We iterate in a slightly subtle way in order to minimize the number of memory accesses.
-    let rankSampleIndex = s.basicBlockIndex >>> this.basicBlocksPerRankSamplePow2;
-    DEBUG && assert(rankSampleIndex < this.r1.length); // so the loop below runs at least once
-    while (rankSampleIndex < this.r1.length) {
-      // number of preceding zeros is (number of preceding bits - number of preceding ones)
-      let nextCount = (rankSampleIndex << this.s0Pow2) - this.r1[rankSampleIndex];
+    let rankIndex = s.basicBlockIndex >>> this.basicBlocksPerRankSamplePow2;
+    while (rankIndex < this.r1.length) {
+      let nextCount = (rankIndex << this.s0Pow2) - this.r1[rankIndex];
       if (nextCount > n) break;
-      count = nextCount; 
-      rankSampleIndex++;
+      count = nextCount;
+      rankIndex++;
     }
-    // Each rank sample's value indicates the number of _preceding_ 0-bits. By the time
-    // we break out of the loop, we have incremented the index one too far. So, rewind.
-    rankSampleIndex--;
-
-    // Find the basic block containing the n-th 0-bit.
+    rankIndex--;
     const blocks = this.data.blocks;
     let basicBlock = 0;
-    let basicBlockIndex = rankSampleIndex << this.basicBlocksPerRankSamplePow2;
-    DEBUG && assert(basicBlockIndex < blocks.length); // so the loop below runs at least once
+    let basicBlockIndex = rankIndex << this.basicBlocksPerRankSamplePow2;
     while (basicBlockIndex < blocks.length) {
       basicBlock = blocks[basicBlockIndex];
-      // We don't need to handle the trailing zero bits in the final block since we
-      // will always match the final block even when there are no trailing zero bits.
-      const nextCount = count + (bits.BLOCK_BITS - bits.popcount(basicBlock));
+      const nextCount = count + bits.popcount(~basicBlock);
       if (nextCount > n) break;
       count = nextCount;
       basicBlockIndex++;
     }
-
-    // index of the start of the basic block, and bit offset within the basic block
     const blockBitIndex = basicBlockIndex << bits.BLOCK_BITS_LOG2;
     const bitOffset = bits.select1(~basicBlock, n - count);
     return blockBitIndex + bitOffset;
@@ -295,7 +334,7 @@ export class DenseBitVec {
     const result = this.maybeSelect0(n);
     if (result === null) throw new Error('n is not a valid 0-bit index');
     return result;
-  }
+  };
 
 
   /**
