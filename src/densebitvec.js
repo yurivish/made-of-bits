@@ -268,24 +268,15 @@ export class DenseBitVec {
       assert(prevRankIndex < this.rankSamples.length);
     }
 
-    // Equivalent rank loop with two branches per iteration (simpler, but slower):
-    // while (rankIndex < rankSamples.length) {
-    //   let sample = rankSamples[rankIndex];
-    //   if (sample > n) break;
-    //   count = sample;
-    //   basicBlockIndex = rankIndex << this.basicBlocksPerRankSamplePow2;
-    //   rankIndex++;
-    // }
-
-    const rankSamples = this.rankSamples;
     let rankIndex = (basicBlockIndex >>> this.basicBlocksPerRankSamplePow2) + 1;
-    let rankSample = 0;
-    while (rankIndex < rankSamples.length && (rankSample = rankSamples[rankIndex]) <= n) {
-      count = rankSample;
+    while (rankIndex < this.rankSamples.length) {
+      let sample = this.rankSamples[rankIndex];
+      if (sample > n) break;
+      count = sample;
       basicBlockIndex = rankIndex << this.basicBlocksPerRankSamplePow2;
       rankIndex++;
     }
-
+    
     // traverse across basic blocks until we find the block containing the n-th 0-bit
     let basicBlock = 0;
     assert(basicBlockIndex < this.data.blocks.length); // the loop runs at least once
