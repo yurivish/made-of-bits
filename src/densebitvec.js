@@ -71,7 +71,7 @@ export class DenseBitVec {
     const ss1 = 1 << ssPow2; // Select1 sampling rate: sample every `ss1` 1-bits
     const ss0 = 1 << ssPow2; // Select0 sampling rate: sample every `ss0` 0-bits
     const sr = 1 << srPow2; // Rank sampling rate: sample every `sr` bits
-    
+
     // Distinguish
     // - Which bit (position) the sample represents
     // - What it stores about that (or related) bit positions
@@ -254,23 +254,10 @@ export class DenseBitVec {
     // Find the closest preceding select block to the n-th 1-bit
     const s = this.select1Sample(n);
 
-    // Find the closest preceding rank sample whose value does not exceed n.
-    // Convert the basic block index into a rank sample index
-    // let rankSampleIndex = s.basicBlockIndex >>> (this.srPow2 - bits.BLOCK_BITS_LOG2);
-    // let count = this.r1[rankSampleIndex];
-    // // Search forward until the next rank sample exceeds n, which indicates that the current
-    // // rank sample represents the range of basic blocks containing the n-th bit.
-    // // (Remember, each rank sample's value indicates the number of _preceding_ 1-bits.)
-    // while (rankSampleIndex + 1 < this.r1.length) {
-    //   let nextCount = this.r1[rankSampleIndex + 1];
-    //   DEBUG && assertNotUndefined(nextCount);
-    //   if (nextCount > n) break;
-    //   count = nextCount;  
-    //   rankSampleIndex++;
-    // }
-
     let rankSampleIndex = s.basicBlockIndex >>> (this.srPow2 - bits.BLOCK_BITS_LOG2);
     let count = 0;
+    // We iterate in a slightly subtle way in order to minimize the number of memory accesses.
+    // Make some assertions about the invariants this assumes.
     DEBUG && assert(rankSampleIndex < this.r1.length); 
     DEBUG && assert(this.r1[rankSampleIndex] <= n);
     // Search forward until the next rank sample exceeds n, which indicates that the current
