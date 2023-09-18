@@ -224,6 +224,8 @@ export class DenseBitVec {
   }
 
   // TODO: maybe select w/ rankSampler /* abstract the rank sampling so we can use the same f for select and 1 */
+  // tricky to generalize the below - since we need to replace the rank sampling, rank length checking,
+  // as well as the popcounting
 
   /**
    * @param {number} n
