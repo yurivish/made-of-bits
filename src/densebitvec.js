@@ -300,21 +300,52 @@ export class DenseBitVec {
   //   - i think nested for loop where each inner loop increments ns[i] while it is within the same type of block.
   //   - we can check times against simple-sds: https://github.com/jltsiren/simple-sds
   //     - it has bv-benchmark and wm-venchmark: https://github.com/jltsiren/simple-sds/blob/main/src/bin/bv-benchmark/main.rs
+
+  // we want to
+  // 1. not access rank blocks if we are already at the right basic block
+
+  // how do we handle when rank & select block indices coincide?
+  // could we phrase this all in terms of basic block index?
+  // let i = s.basicBlockIndex;
+
+  // if (s.precedingCount === n)
   maybeSelect0(/** @type number */ n) {
     if (n < 0 || n >= this.numZeros) return null;
-    const s = this.select0Sample(n);
-    let count = 0;
-    let rankIndex = s.basicBlockIndex >>> this.basicBlocksPerRankSamplePow2;
-    while (rankIndex < this.r1.length) {
+
+    let { basicBlockIndex, precedingCount: count } = this.select0Sample(n);
+    assert(count <= n);
+
+    assert((basicBlockIndex >>> this.basicBlocksPerRankSamplePow2) < this.r1.length);
+
+    for (
+      let rankIndex = basicBlockIndex >>> this.basicBlocksPerRankSamplePow2;
+      rankIndex < this.r1.length;
+      rankIndex++
+    ) {
       let nextCount = (rankIndex << this.s0Pow2) - this.r1[rankIndex];
       if (nextCount > n) break;
+      // this could go below the loop but that risks moving the basic block
+      // backwards when the first sampled rank block satisfies nextCount > n
+      basicBlockIndex = rankIndex << this.basicBlocksPerRankSamplePow2;
       count = nextCount;
-      rankIndex++;
     }
-    rankIndex--;
+
+    // the above, as a while loop
+    // let rankIndex = basicBlockIndex >>> this.basicBlocksPerRankSamplePow2;
+    // assert(rankIndex < this.r1.length);
+    // while (rankIndex < this.r1.length) {
+    //   let nextCount = (rankIndex << this.s0Pow2) - this.r1[rankIndex];
+    //   if (nextCount > n) break;
+    //   // this could go below the loop but that risks moving the basic block
+    //   // backwards when the first sampled rank block satisfies nextCount > n
+    //   basicBlockIndex = rankIndex << this.basicBlocksPerRankSamplePow2;
+    //   count = nextCount;
+    //   rankIndex++;
+    // }
+
+
     const blocks = this.data.blocks;
     let basicBlock = 0;
-    let basicBlockIndex = rankIndex << this.basicBlocksPerRankSamplePow2;
     while (basicBlockIndex < blocks.length) {
       basicBlock = blocks[basicBlockIndex];
       const nextCount = count + bits.popcount(~basicBlock);

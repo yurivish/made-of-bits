@@ -59,19 +59,17 @@ export function oneMask(n) {
 // TODO: test
 /**
  * Returns the number of 1-bits in the binary representation of `x`.
- * Based on an implementation by @ashaffer:
- * https://github.com/micro-js/popcount
+ * Based on an implementation from Bit Twiddling Hacks:
+ * https://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
+ * An explanation of the SWAR approach: 
+ * https://stackoverflow.com/questions/109023/count-the-number-of-set-bits-in-a-32-bit-integer/109025#109025
  * @param {number} x
  */
 export function popcount(x) {
-  x -= (x >>> 1) & 0x55555555;
-  x = (x & 0x33333333) + ((x >>> 2) & 0x33333333);
-  x = (x + (x >>> 4)) & 0x0f0f0f0f;
-  x += x >>> 8;
-  x += x >>> 16;
-  return x & 0x7f;
+  let v = (x | 0) - ((x >>> 1) & 0x55555555);
+  v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
+  return (((v + (v >> 4)) & 0xf0f0f0f) * 0x1010101) >>> 24;
 }
-
 // TODO: test
 /**
  * Returns the number of trailing 0-bits in the binary representation of `x`.
