@@ -195,54 +195,6 @@ export class DenseBitVec {
     return result;
   }
 
-  // TODO: maybe select w/ rankSampler /* abstract the rank sampling so we can use the same f for select and 1 */
-  // tricky to generalize the below - since we need to replace the rank sampling, rank length checking,
-  // as well as the popcounting
-
-  // prevMaybeSelect1(n) {
-  //   // We're looking for the bit index of the n-th 1-bit.
-  //   // If there is no n-th 1-bit, then return null.
-  //   if (n < 0 || n >= this.numOnes) return null; // throw new Error('n is not a valid 1-bit index');
-
-  //   // Find the closest preceding select block to the n-th 1-bit
-  //   const s = this.select1Sample(n); // note: interesting that we do not use precedingCount.
-
-  //   let count = 0;
-  //   // Search forward until the next rank sample exceeds n, which indicates that the current
-  //   // rank sample represents the range of basic blocks containing the n-th bit.
-  //   // We iterate in a slightly subtle way in order to minimize the number of memory accesses.
-  //   let rankIndex = s.basicBlockIndex >>> this.basicBlocksPerRankSamplePow2;
-  //   DEBUG && assert(rankIndex < this.r1.length); // so the loop below runs at least once
-  //   while (rankIndex < this.r1.length) {
-  //     let nextCount = this.r1[rankIndex];
-  //     if (nextCount > n) break;
-  //     count = nextCount; 
-  //     rankIndex++;
-  //   }
-  //   // Each rank sample's value indicates the number of _preceding_ 1-bits. By the time
-  //   // we break out of the loop, we have incremented the index one too far. So, rewind.
-  //   rankIndex--;
-
-  //   // Find the basic block containing the n-th 1-bit.
-  //   const blocks = this.data.blocks;
-  //   let basicBlock = 0;
-  //   let basicBlockIndex = rankIndex << this.basicBlocksPerRankSamplePow2;
-  //   DEBUG && assert(basicBlockIndex < blocks.length); // so the loop below runs at least once
-  //   while (basicBlockIndex < blocks.length) {
-  //     basicBlock = blocks[basicBlockIndex];
-  //     const nextCount = count + bits.popcount(basicBlock);
-  //     if (nextCount > n) break;
-  //     count = nextCount;
-  //     basicBlockIndex++;
-  //   }
-
-  //   // index of the start of the basic block, and bit offset within the basic block
-  //   const blockBitIndex = basicBlockIndex << bits.BLOCK_BITS_LOG2;
-  //   const bitOffset = bits.select1(basicBlock, n - count);
-  //   return blockBitIndex + bitOffset;
-  // }
-
-
   /**
    * @param {any} index
    */
