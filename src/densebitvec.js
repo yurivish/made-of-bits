@@ -349,7 +349,7 @@ export class DenseBitVec {
     // Scan rank blocks to skip past multiple basic blocks at a time
     let rankIndex = (basicBlockIndex >>> this.basicBlocksPerRankSamplePow2) + 1;
     while (rankIndex < this.rankSamples.length) {
-      let nextCount = (rankIndex << this.select0SamplesPow2) - this.rankSamples[rankIndex];
+      let nextCount = (rankIndex << this.rankSamplesPow2) - this.rankSamples[rankIndex];
       if (nextCount > n) break;
       count = nextCount;
       basicBlockIndex = rankIndex << this.basicBlocksPerRankSamplePow2;
