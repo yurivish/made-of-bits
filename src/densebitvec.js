@@ -209,22 +209,14 @@ export class DenseBitVec {
     let rankBasicBlockIndex = rankIndex << this.basicBlocksPerRankSamplePow2;
     let lastBasicBlockIndex = index >>> bits.BLOCK_BITS_POW2;
 
-
-    // let selectSampleRate = 1 << this.s1Pow2;
-    // let selectCount = index + selectSampleRate;
-    // let selectSample = this.selectSample(selectSampleIndex, this.select1Samples, this.s1Pow2);
-
+    // todo: something like this to hop over select blocks rather than basic blocks.
+    // it is subtle. we can break here to add tests.
+    // let selectSampleRate = 1 << this.select1SamplesPow2;
+    // let selectCount = count + selectSampleRate; // start from the next select block
+    // let selectSample = this.selectSample(selectCount, this.select1Samples, this.select1SamplesPow2);
     // while (selectSample.basicBlockIndex < lastBasicBlockIndex) {
-
-    //   selectSampleIndex;
-    //   selectSample = this.selectSample(selectSampleIndex, this.select1Samples, this.s1Pow2);      
-
-    // }
-
-
-    // let selectIndex = this.selectSample(index, this.select1Samples, this.s1Pow2).sampleIndex + 1;
-    // while (selectIndex < this.select1Samples.length) { 
-    //   selectIndex++; 
+    //   selectCount += selectSampleRate;
+    //   selectSample = this.selectSample(selectCount, this.select1Samples, this.select1SamplesPow2);      
     // }
 
     for (let i = rankBasicBlockIndex; i < lastBasicBlockIndex; i++) {
@@ -236,8 +228,6 @@ export class DenseBitVec {
     let maskedBlock = this.data.blocks[lastBasicBlockIndex] & bits.oneMask(bitOffset);
     count += bits.popcount(maskedBlock);
     return count;
-    // let select = this.selectSample(rank, this.s1, this.s1Pow2);
-    // { basicBlockIndex, precedingCount: count }
   }
 
   /**
