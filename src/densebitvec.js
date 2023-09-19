@@ -28,7 +28,8 @@
 //   - we can check times against simple-sds: https://github.com/jltsiren/simple-sds
 //     - it has bv-benchmark and wm-venchmark: https://github.com/jltsiren/simple-sds/blob/main/src/bin/bv-benchmark/main.rs
 // - read this good post on array performance in v8: https://v8.dev/blog/elements-kinds
-
+// - implement quad vectors: https://arxiv.org/abs/2302.09239
+//   - 128 bit superblock: for each of (00, 01, 10, 11), store # of occurrences 
 import { DEBUG, assert, assertNotUndefined, assertSafeInteger, log } from "./assert.js";
 import { BitBuf } from './bitbuf.js';
 import * as bits from './bits.js';

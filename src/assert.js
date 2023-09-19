@@ -1,5 +1,3 @@
-export const DEBUG = true;
-
 // - DEBUG && assert (compiled away in release)
 // - plain assert (runtime error)
 // - utility asserts for type narrowing, eg. assert.isInteger or similar
@@ -16,7 +14,7 @@ export const DEBUG = true;
  */
 export function assert(condition, message) {
   const prefix = 'assertion error';
-  if (!condition) throw new Error(message === undefined ? prefix : `${prefix}: ${message}`);
+  if (condition !== true) throw new Error(message === undefined ? prefix : `${prefix}: ${message}`);
 };
 
 /**
