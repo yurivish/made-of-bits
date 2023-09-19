@@ -22,10 +22,12 @@ export class BitBuf {
     /** @readonly */
     this.lengthInBits = lengthInBits;
 
+    const lastBlockOccupancy = lengthInBits % bits.BLOCK_BITS;
+    
     /** 
      * Number of trailing zeros in the final block that do not belong to this buffer
      * @readonly */
-    this.numTrailingZeros = bits.BLOCK_BITS - lengthInBits % bits.BLOCK_BITS;
+    this.numTrailingZeros = lastBlockOccupancy === 0 ? 0 : bits.BLOCK_BITS - lastBlockOccupancy;
   } 
 
   /** 

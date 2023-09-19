@@ -15,7 +15,7 @@ import { DEBUG, assert } from "./assert.js";
 // Or we could build "templates' by generating a different version of eg. the BitBuf
 // for each block size. (similar to zig templates)
 export const BLOCK_BITS = 32; // todo: rename to BLOCK_SIZE? 
-export const BLOCK_BITS_LOG2 = Math.log2(BLOCK_BITS);
+export const BLOCK_BITS_POW2 = Math.log2(BLOCK_BITS);
 
 /**
  * Coerces x to an unsigned 32-bit unsigned integer. This is provided as
@@ -42,7 +42,7 @@ export function blockBitOffset(x) {
  * @param {number} x
  */
 export function blockIndex(x) {
-  return x >>> BLOCK_BITS_LOG2;
+  return x >>> BLOCK_BITS_POW2;
 }
 
 /**

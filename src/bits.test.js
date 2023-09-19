@@ -10,7 +10,7 @@ describe('BLOCK_BITS', () => {
     expect(Number.isInteger(Math.log2(bits.BLOCK_BITS))).toBe(true);
   });
   it('is correctly reflected in BLOCK_BITS_LOG2', () => {
-    expect(bits.BLOCK_BITS_LOG2).toBe((Math.log2(bits.BLOCK_BITS)));
+    expect(bits.BLOCK_BITS_POW2).toBe((Math.log2(bits.BLOCK_BITS)));
   });
 });
 

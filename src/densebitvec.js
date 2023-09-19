@@ -36,10 +36,10 @@ import * as bits from './bits.js';
 export class DenseBitVec {
   /**
    * @param {BitBuf} data - bit buffer containing the underlying bit data
-   * @param {number} srPow2 - power of 2 of the rank sample rate
-   * @param {number} ssPow2 - power of 2 of the select sample rate
+   * @param {number} rankSamplesPow2 - power of 2 of the rank sample rate
+   * @param {number} selectSamplesPow2 - power of 2 of the select sample rate
    */
-  constructor(data, srPow2, ssPow2) {
+  constructor(data, rankSamplesPow2, selectSamplesPow2) {
     // todo: 
     // - kw args for sampling rates, with 2^10 being default
     // - Accept s0Pow2, s1Pow2 instead of ssPow2 in order to control the space usage; 
@@ -47,14 +47,14 @@ export class DenseBitVec {
     // - document the meanings of the values of the r/s0/s1 arrays.
     // - update all references to 'raw' blocks – those mean the blocks in the bitbuf.
     // - assert there are less than 2^32 bits (since we do bitwise ops on bit indexes)
-    assertSafeInteger(srPow2); 
-    assertSafeInteger(ssPow2);
-    assert(srPow2 >= bits.BLOCK_BITS_LOG2, 'sr must be a positive multiple of the block size');
-    assert(ssPow2 >= bits.BLOCK_BITS_LOG2, 'ss must be a positive multiple of the block size');
+    assertSafeInteger(rankSamplesPow2); 
+    assertSafeInteger(selectSamplesPow2);
+    assert(rankSamplesPow2 >= bits.BLOCK_BITS_POW2, 'sr must be a positive multiple of the block size');
+    assert(selectSamplesPow2 >= bits.BLOCK_BITS_POW2, 'ss must be a positive multiple of the block size');
 
-    const ss1 = 1 << ssPow2; // Select1 sampling rate: sample every `ss1` 1-bits
-    const ss0 = 1 << ssPow2; // Select0 sampling rate: sample every `ss0` 0-bits
-    const sr1 = 1 << srPow2; // Rank sampling rate: sample every `sr` bits
+    const ss1 = 1 << selectSamplesPow2; // Select1 sampling rate: sample every `ss1` 1-bits
+    const ss0 = 1 << selectSamplesPow2; // Select0 sampling rate: sample every `ss0` 0-bits
+    const sr1 = 1 << rankSamplesPow2; // Rank sampling rate: sample every `sr` bits
 
     // Distinguish
     // - Which bit (position) the sample represents
@@ -100,7 +100,7 @@ export class DenseBitVec {
     let zerosThreshold = 0; // take a select0 sample at the (zerosThreshold+1)th 1-bit
     let onesThreshold = 0; // take a select1 sample at the (onesThreshold+1)th 1-bit
 
-    const basicBlocksPerRankSample = sr1 >>> bits.BLOCK_BITS_LOG2;
+    const basicBlocksPerRankSample = sr1 >>> bits.BLOCK_BITS_POW2;
     const blocks = data.blocks;
 
     const maxBlockIndex = blocks.length - 1;
@@ -153,25 +153,25 @@ export class DenseBitVec {
     this.data = data;
 
     /** @readonly */
-    this.srPow2 = srPow2;
+    this.rankSamplesPow2 = rankSamplesPow2;
 
     /** @readonly */
-    this.s0Pow2 = ssPow2;
+    this.select0SamplesPow2 = selectSamplesPow2;
 
     /** @readonly */
-    this.s1Pow2 = ssPow2;
+    this.select1SamplesPow2 = selectSamplesPow2;
 
     /** @readonly */
     this.rankSamples = new Uint32Array(r);
 
     /** @readonly */
-    this.s0 = new Uint32Array(s0);
+    this.select0Samples = new Uint32Array(s0);
 
     /** @readonly */
-    this.s1 = new Uint32Array(s1);
+    this.select1Samples = new Uint32Array(s1);
 
     /** @readonly */
-    this.basicBlocksPerRankSamplePow2 = srPow2 - bits.BLOCK_BITS_LOG2;
+    this.basicBlocksPerRankSamplePow2 = rankSamplesPow2 - bits.BLOCK_BITS_POW2;
 
     /** @readonly */
     this.numOnes = cumulativeOnes;
@@ -199,9 +199,6 @@ export class DenseBitVec {
   // tricky to generalize the below - since we need to replace the rank sampling, rank length checking,
   // as well as the popcounting
 
-  /**
-   * @param {number} n
-   */
   // prevMaybeSelect1(n) {
   //   // We're looking for the bit index of the n-th 1-bit.
   //   // If there is no n-th 1-bit, then return null.
@@ -247,21 +244,58 @@ export class DenseBitVec {
 
 
   /**
-   * Foo.
+   * @param {any} index
+   */
+  rank1(index) {
+    if (index >= this.lengthInBits) {
+      return this.numOnes;
+    }
+
+    // Start with the prefix count from the rank block
+    let rankIndex = index >> this.rankSamplesPow2;
+    let count = this.rankSamples[rankIndex];
+    let rankBasicBlockIndex = rankIndex << this.basicBlocksPerRankSamplePow2;
+    let lastBasicBlockIndex = index >>> bits.BLOCK_BITS_POW2;
+
+
+    // let selectSampleRate = 1 << this.s1Pow2;
+    // let selectCount = index + selectSampleRate;
+    // let selectSample = this.selectSample(selectSampleIndex, this.select1Samples, this.s1Pow2);
+
+    // while (selectSample.basicBlockIndex < lastBasicBlockIndex) {
+
+    //   selectSampleIndex;
+    //   selectSample = this.selectSample(selectSampleIndex, this.select1Samples, this.s1Pow2);      
+
+    // }
+
+
+    // let selectIndex = this.selectSample(index, this.select1Samples, this.s1Pow2).sampleIndex + 1;
+    // while (selectIndex < this.select1Samples.length) { 
+    //   selectIndex++; 
+    // }
+
+    for (let i = rankBasicBlockIndex; i < lastBasicBlockIndex; i++) {
+      count += bits.popcount(this.data.blocks[i]);
+    }
+
+    let bitOffset = bits.blockBitOffset(index);
+    // note: if bitOffset is zero, maskedBlock will be zero.
+    let maskedBlock = this.data.blocks[lastBasicBlockIndex] & bits.oneMask(bitOffset);
+    count += bits.popcount(maskedBlock);
+    return count;
+    // let select = this.selectSample(rank, this.s1, this.s1Pow2);
+    // { basicBlockIndex, precedingCount: count }
+  }
+
+  /**
    * @param {number} n - blah.
-   * # Implementation notes
-   * - We set `basicBlockIndex` inside the rank sample loop rather than immediately after it
-   *   in order to avoid ever setting it to a value less than its initial value. This could
-   *   Otherwise, occur if the very first sampled rank block. 
-   * - The special case where we are looking for the exact bit pointed to by the select block
-   *   will incur rank scans here, since this special case is unlikely in the general case as
-   *   there are many more bits that are not select samples.
    */
   maybeSelect1(n) {
     if (n < 0 || n >= this.numOnes) return null;
 
     // Grab the basic block and count information from the select sample
-    let { basicBlockIndex, precedingCount: count } = this.selectSample(n, this.s1, this.s1Pow2);
+    let { basicBlockIndex, precedingCount: count } = this.selectSample(n, this.select1Samples, this.select1SamplesPow2);
     assert(count <= n);
 
     if (DEBUG) {
@@ -291,7 +325,7 @@ export class DenseBitVec {
     }; 
 
     // Compute and return its bit index
-    const blockBitIndex = basicBlockIndex << bits.BLOCK_BITS_LOG2;
+    const blockBitIndex = basicBlockIndex << bits.BLOCK_BITS_POW2;
     const bitOffset = bits.select1(basicBlock, n - count);
     return blockBitIndex + bitOffset;
   }
@@ -304,7 +338,7 @@ export class DenseBitVec {
     if (n < 0 || n >= this.numZeros) return null;
 
     // Grab the basic block and count information from the select sample
-    let { basicBlockIndex, precedingCount: count } = this.selectSample(n, this.s0, this.s0Pow2);
+    let { basicBlockIndex, precedingCount: count } = this.selectSample(n, this.select0Samples, this.select0SamplesPow2);
     assert(count <= n);
 
     if (DEBUG) {
@@ -315,7 +349,7 @@ export class DenseBitVec {
     // Scan rank blocks to skip past multiple basic blocks at a time
     let rankIndex = (basicBlockIndex >>> this.basicBlocksPerRankSamplePow2) + 1;
     while (rankIndex < this.rankSamples.length) {
-      let nextCount = (rankIndex << this.s0Pow2) - this.rankSamples[rankIndex];
+      let nextCount = (rankIndex << this.select0SamplesPow2) - this.rankSamples[rankIndex];
       if (nextCount > n) break;
       count = nextCount;
       basicBlockIndex = rankIndex << this.basicBlocksPerRankSamplePow2;
@@ -334,7 +368,7 @@ export class DenseBitVec {
     }; 
 
     // Compute and return its bit index
-    const blockBitIndex = basicBlockIndex << bits.BLOCK_BITS_LOG2;
+    const blockBitIndex = basicBlockIndex << bits.BLOCK_BITS_POW2;
     const bitOffset = bits.select1(~basicBlock, n - count);
     return blockBitIndex + bitOffset;
   }
@@ -354,7 +388,9 @@ export class DenseBitVec {
    * @param {Uint32Array} samples - array of samples
    */
   selectSample(n, samples, sr) {
+    DEBUG && assert(0 <= n && n <= this.lengthInBits);
     const sampleIndex = n >>> sr;
+    DEBUG && assert(sampleIndex < samples.length);
     const sample = samples[sampleIndex];
 
     // bitmask with the Raw::BLOCK_BITS_LOG2 bottom bits set.
@@ -378,7 +414,8 @@ export class DenseBitVec {
     const precedingCount = (sampleIndex << sr) - correction;
 
     return {
-      basicBlockIndex: cumulativeBits >>> bits.BLOCK_BITS_LOG2,
+      sampleIndex,
+      basicBlockIndex: cumulativeBits >>> bits.BLOCK_BITS_POW2,
       precedingCount
     };
   }
@@ -386,7 +423,7 @@ export class DenseBitVec {
   // next:
   // x fn to decode a select block
   // x select1
-  // - select0
+  // x select0
   // - rank1
   // - rank0
   // - get
