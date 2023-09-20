@@ -1,4 +1,4 @@
-import { DEBUG, assert, assertInteger, assertSafeInteger } from "./assert.js";
+import { assert, assertInteger, assertSafeInteger } from "./assert.js";
 import * as bits from './bits.js';
 
 /**
