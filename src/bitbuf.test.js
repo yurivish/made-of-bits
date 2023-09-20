@@ -11,7 +11,7 @@ describe('BitBuf', () => {
     expect(xs.get(2)).toBe(0);
   });
 
-  it('should set bits individually', () => {
+  it('should set and un-set bits individually', () => {
     xs.setOne(1);
     expect(xs.get(0)).toBe(0);
     expect(xs.get(1)).toBe(1);
@@ -26,6 +26,21 @@ describe('BitBuf', () => {
     expect(xs.get(0)).toBe(1);
     expect(xs.get(1)).toBe(1);
     expect(xs.get(2)).toBe(1);
+
+    xs.setZero(2);
+    expect(xs.get(0)).toBe(1);
+    expect(xs.get(1)).toBe(1);
+    expect(xs.get(2)).toBe(0);
+
+    xs.setZero(0);
+    expect(xs.get(0)).toBe(0);
+    expect(xs.get(1)).toBe(1);
+    expect(xs.get(2)).toBe(0);
+
+    xs.setZero(1);
+    expect(xs.get(0)).toBe(0);
+    expect(xs.get(1)).toBe(0);
+    expect(xs.get(2)).toBe(0);
   });
 
   it('should throw errors if the index is out of bounds.', () => {

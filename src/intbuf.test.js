@@ -1,11 +1,13 @@
-import { describe, expect, it, test } from 'vitest';
+import { DEBUG, describe, expect, it, test } from 'vitest';
 import * as bits from './bits.js';
 import { IntBuf } from "./intbuf.js";
 
 describe('IntBuf', () => { 
-  it('should disallow getting an element from an empty IntBuf', () => {
-    expect(() => new IntBuf(0, 0).get(0)).toThrow();
-  });
+  if (DEBUG) {
+    it('should disallow getting an element from an empty IntBuf (in debug mode)', () => {
+      expect(() => new IntBuf(0, 0).get(0)).toThrow();
+    });
+  }
 
   it('should return zero elements before anything is pushed', () => {
     const xs = new IntBuf(3, 7);
@@ -14,12 +16,14 @@ describe('IntBuf', () => {
     }
   });
 
-  it('should throw on out-of-bounds indices (in debug mode)', () => {
-    const xs = new IntBuf(3, 7);
-    expect(() => xs.get(-1)).toThrow();
-    expect(() => xs.get(4)).toThrow();
-    expect(() => xs.get(5)).toThrow();
-  });
+  if (DEBUG) {
+    it('should throw on out-of-bounds indices (in debug mode)', () => {
+      const xs = new IntBuf(3, 7);
+      expect(() => xs.get(-1)).toThrow();
+      expect(() => xs.get(4)).toThrow();
+      expect(() => xs.get(5)).toThrow();
+    });
+  }
 
   it('should allow writing and reading elements', () => {
     const tests = [
@@ -32,10 +36,12 @@ describe('IntBuf', () => {
     for (const { bitWidth, values } of tests) {
       const xs = new IntBuf(values.length, bitWidth);
 
-      // test value too small
-      expect(() => xs.push(-1)).toThrow();
-      // test value too large
-      expect(() => xs.push(2 ** bitWidth)).toThrow();
+      if (DEBUG) {
+        // test value too small (in debug mode)
+        expect(() => xs.push(-1)).toThrow();
+        // test value too large (in debug mode)
+        expect(() => xs.push(2 ** bitWidth)).toThrow();
+      }
 
       for (let i = 0; i < values.length; i++) {
         const value = values[i];
@@ -47,8 +53,10 @@ describe('IntBuf', () => {
         expect(xs.get(i)).toBe(value);
       }
 
-      // it should disallow getting beyond the end
-      expect(() => xs.get(xs.length)).toThrow();
+      // it should disallow getting beyond the end (in debug mode)
+      if (DEBUG) {
+        expect(() => xs.get(xs.length)).toThrow();
+      }
 
       // it should disallow pushing beyond the end, unless
       // the bit width is zero.

@@ -30,7 +30,7 @@
 // - read this good post on array performance in v8: https://v8.dev/blog/elements-kinds
 // - implement quad vectors: https://arxiv.org/abs/2302.09239
 //   - 128 bit superblock: for each of (00, 01, 10, 11), store # of occurrences 
-import { assert, assertNotUndefined, assertSafeInteger, log } from "./assert.js";
+import { DEBUG, assert, assertNotUndefined, assertSafeInteger, log } from "./assert.js";
 import { BitBuf } from './bitbuf.js';
 import * as bits from './bits.js';
 
@@ -197,7 +197,7 @@ export class DenseBitVec {
   }
 
   /**
-   * @param {any} index
+   * @param {number} index
    */
   rank1(index) {
     if (index >= this.lengthInBits) {
@@ -210,25 +210,39 @@ export class DenseBitVec {
     let rankBasicBlockIndex = rankIndex << this.basicBlocksPerRankSamplePow2;
     let lastBasicBlockIndex = index >>> bits.BLOCK_BITS_POW2;
 
-    // todo: something like this to hop over select blocks rather than basic blocks.
-    // it is subtle. we can break here to add tests.
+    // Scan any intervening select blocks to skip past multiple basic blocks at a time
     // let selectSampleRate = 1 << this.select1SamplesPow2;
-    // let selectCount = count + selectSampleRate; // start from the next select block
-    // let selectSample = this.selectSample(selectCount, this.select1Samples, this.select1SamplesPow2);
+    // let selectSample = { basicBlockIndex: rankBasicBlockIndex, precedingCount: count };
     // while (selectSample.basicBlockIndex < lastBasicBlockIndex) {
-    //   selectCount += selectSampleRate;
-    //   selectSample = this.selectSample(selectCount, this.select1Samples, this.select1SamplesPow2);      
+    //   // while (selectCount < this.numOnes) {
+    //   // let selectCount = count + selectSampleRate; // start from the next select block
+    //   //   let selectSample = this.selectSample(selectCount, this.select1Samples, this.select1SamplesPow2);
+    //   //   selectCount += selectSampleRate;
+    //   //   if (selectSample.basicBlockIndex >= lastBasicBlockIndex) break;
+    //   //   count = selectCount;
+    //   //   selectSample = this.selectSample(selectCount, this.select1Samples, this.select1SamplesPow2);      
     // }
 
     for (let i = rankBasicBlockIndex; i < lastBasicBlockIndex; i++) {
       count += bits.popcount(this.data.blocks[i]);
     }
 
+    // Count any 1-bits in the last block up to `index`
     let bitOffset = bits.blockBitOffset(index);
-    // note: if bitOffset is zero, maskedBlock will be zero.
     let maskedBlock = this.data.blocks[lastBasicBlockIndex] & bits.oneMask(bitOffset);
     count += bits.popcount(maskedBlock);
     return count;
+  }
+
+
+  /**
+   * @param {number} index
+   */
+  rank0(index) {
+    if (index >= this.lengthInBits) {
+      return this.numZeros;
+    };
+    return index - this.rank1(index);
   }
 
   /**
@@ -246,7 +260,7 @@ export class DenseBitVec {
       assert(prevRankIndex < this.rankSamples.length);
     }
 
-    // Scan rank blocks to skip past multiple basic blocks at a time
+    // Scan any intervening rank blocks to skip past multiple basic blocks at a time
     let rankIndex = (basicBlockIndex >>> this.basicBlocksPerRankSamplePow2) + 1;
     while (rankIndex < this.rankSamples.length) {
       let nextCount = this.rankSamples[rankIndex];
@@ -357,7 +371,7 @@ export class DenseBitVec {
     const precedingCount = (sampleIndex << sr) - correction;
 
     return {
-      sampleIndex,
+      // sampleIndex,
       basicBlockIndex: cumulativeBits >>> bits.BLOCK_BITS_POW2,
       precedingCount
     };

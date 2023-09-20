@@ -1,4 +1,4 @@
-import { assert, assertInteger, assertSafeInteger } from "./assert.js";
+import { DEBUG, assert, assertInteger, assertSafeInteger } from "./assert.js";
 import * as bits from './bits.js';
 
 /**
@@ -6,7 +6,7 @@ import * as bits from './bits.js';
  * A newly constructed IntBuf will have the specified length and all elements will be initialized to zero.
  * Elements can be added by pushing them onto the vector, which will add that element from the front at the lowest available index.
  * In typical use, the vector will be initialized and and then precisely `length` elements will be pushed.
- */
+*/
 export class IntBuf {
   /**
    * @param {number} length - the length of the IntBuf (in elements)

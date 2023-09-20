@@ -53,5 +53,18 @@ export class BitBuf {
     const bit = 1 << bits.blockBitOffset(bitIndex);
     this.blocks[blockIndex] = block | bit;
   }
+
+  /**
+   * Set the bit at index `bitIndex` to a 0-bit.
+   * @param {number} bitIndex
+   */
+  setZero(bitIndex) {
+    DEBUG && assertSafeInteger(bitIndex);
+    DEBUG && assert(bitIndex >= 0 && bitIndex < this.lengthInBits);
+    const blockIndex = bits.blockIndex(bitIndex);
+    const block = this.blocks[blockIndex];
+    const bit = 1 << bits.blockBitOffset(bitIndex);
+    this.blocks[blockIndex] = block & ~bit;
+  }
 }
 
