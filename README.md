@@ -5,6 +5,7 @@
 [] look through package.json and understand the meaning & purpose of every field. Some were just copied from https://vitejs.dev/guide/build.html#library-mode...
 [] For performance, investigate using bid operations to cast intermediate results to unsigned integers because this might enable jit optimizations.
 [] play around with an `Opaque<x>` style nominal type thing but just using type coersion: `x as SelectSample` where `SelectSample` has no methods, and is not also a number. Then cast back when we know, inside the function that accepts `SelectSample`s.
+[] remove types.d.ts?
 
 # Documentation
 [] Change all comments that say "returns ..." to use @returns doc syntax

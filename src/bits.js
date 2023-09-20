@@ -17,6 +17,42 @@ import { DEBUG, assert } from "./assert.js";
 export const BLOCK_BITS = 32; // todo: rename to BLOCK_SIZE? 
 export const BLOCK_BITS_POW2 = Math.log2(BLOCK_BITS);
 
+// todo: test
+// todo: cite bitwise binary search article
+// todo: mention this is the simpler (slower) implementation
+// https://orlp.net/blog/bitwise-binary-search/
+// describe what this returns
+/**
+ * Returns the largest index for which `pred` returns true, plus one.
+ * The predicate function `pred` is required to be monotonic, ie. 
+ * to return `true` for all inputs below some cutoff, and `false`
+ * for all inputs above it.
+ * @param {number} n
+ * @param {(index: number) => boolean} pred
+ */
+export function partitionPoint(n, pred) {
+  let b = 0;
+  let bit = bitFloor(n);
+  while (bit !== 0) {
+    const i = (b | bit) - 1;
+    if (i < n && pred(i)) {
+      b |= bit;
+    }
+    bit >>>= 1;
+  }
+  return b;
+}
+
+// todo: test
+/**
+ * @param {number} n
+ */
+export function bitFloor(n) {
+  if (n === 0) return 0;
+  const msb = 31 - Math.clz32(n);
+  return (1 << msb) >>> 0;
+}
+
 /**
  * Coerces x to an unsigned 32-bit unsigned integer. This is provided as
  * a convenience function on top of unsigned shift that does some sanity
