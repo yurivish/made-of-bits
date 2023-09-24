@@ -8,6 +8,9 @@ devDependencies:
   esbuild:
     specifier: ^0.19.3
     version: 0.19.3
+  fast-check:
+    specifier: ^3.13.0
+    version: 3.13.0
   typescript:
     specifier: ^5.2.2
     version: 5.2.2
@@ -609,6 +612,13 @@ packages:
       '@esbuild/win32-x64': 0.19.3
     dev: true
 
+  /fast-check@3.13.0:
+    resolution: {integrity: sha512-m6+3gZ/yTiCWTuV/1e/UuPPjyyyHdQ5gu0pMd84C6705VTDjAgAE6nqFT5jhgegFllCJ95yOzBpqvJSs2DZAxQ==}
+    engines: {node: '>=8.0.0'}
+    dependencies:
+      pure-rand: 6.0.3
+    dev: true
+
   /fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
@@ -705,6 +715,10 @@ packages:
       '@jest/schemas': 29.6.3
       ansi-styles: 5.2.0
       react-is: 18.2.0
+    dev: true
+
+  /pure-rand@6.0.3:
+    resolution: {integrity: sha512-KddyFewCsO0j3+np81IQ+SweXLDnDQTs5s67BOnrYmYe/yNmUhttQyGsYzy8yUnoljGAQ9sl38YB4vH8ur7Y+w==}
     dev: true
 
   /react-is@18.2.0:

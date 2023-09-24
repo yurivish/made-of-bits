@@ -17,6 +17,7 @@
   "license": "ISC",
   "devDependencies": {
     "esbuild": "^0.19.3",
+    "fast-check": "^3.13.0",
     "typescript": "^5.2.2",
     "vite": "^4.4.9",
     "vitest": "^0.34.4"
