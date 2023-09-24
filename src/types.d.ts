@@ -1,5 +1,3 @@
-declare let DEBUG: boolean;
-
 interface BitVecBuilderConstructable {
   new(universeSize: number): BitVecBuilder;
 }
