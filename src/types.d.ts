@@ -3,7 +3,7 @@ interface BitVecBuilderConstructable {
 }
 
 interface BitVecBuilder {
-  one(index: number): void;
+  one(index: number, count?: number): void;
   build(options: object): BitVec;
 }
 
@@ -16,6 +16,8 @@ interface BitVec {
 
   maybeSelect0(n: number): number | null;
   maybeSelect1(n: number): number | null;
+
+  get(index: number): number;
 
   readonly numOnes: number;
   readonly numZeros: number;

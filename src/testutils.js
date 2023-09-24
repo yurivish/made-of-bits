@@ -26,16 +26,26 @@ export function testInvariants(bv) {
   expect(bv.rank0(0)).toBe(0);
   expect(bv.rank0(-1)).toBe(0);
 
-  // Verifies that rank1(select1(n)) === n
   for (let n = 0; n < bv.numOnes; n++) {
-    expect(bv.rank1(bv.select1(n))).toBe(n);
-    expect(bv.rank1(bv.select1(n) + 1)).toBe(n + 1);
+    const select1 = bv.select1(n);
+
+    // Check `get` behavior for valid indices
+    expect(bv.get(select1)).toBe(1);
+
+    // Verifies that rank1(select1(n)) === n
+    expect(bv.rank1(select1)).toBe(n);
+    expect(bv.rank1(select1 + 1)).toBe(n + 1);
   }
 
-  // Verifies that rank0(select0(n)) === n
   for (let n = 0; n < bv.numZeros; n++) {
-    expect(bv.rank0(bv.select0(n))).toBe(n);
-    expect(bv.rank0(bv.select0(n) + 1)).toBe(n + 1);
+    const select0 = bv.select0(n);
+
+    // Check `get` behavior for valid indices
+    expect(bv.get(select0)).toBe(0);
+
+    // Verifies that rank0(select0(n)) === n
+    expect(bv.rank0(select0)).toBe(n);
+    expect(bv.rank0(select0 + 1)).toBe(n + 1);
   }
 }
 

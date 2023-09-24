@@ -48,7 +48,9 @@ export class DenseBitVecBuilder {
   /**
    * @param {number} index
    */
-  one(index) {
+  one(index, count = 1) {
+    assert(count === 1);
+    assert(count === 1);
     this.buf.setOne(index);
   }
 
@@ -59,23 +61,10 @@ export class DenseBitVecBuilder {
 
 /** @implements BitVec */
 export class DenseBitVec {
-
-  /**
-   * @param {number[]} oneIndices
-   * @param {number} length
-   */
-  fromDense(oneIndices, length) {
-    const buf = new BitBuf(length);
-    for (const oneIndex of oneIndices) {
-      buf.setOne(oneIndex);
-    }
-    return new DenseBitVec(buf, 10, 10);
-  }
-
   /**
    * @param {BitBuf} data - bit buffer containing the underlying bit data
    * @param {number} rankSamplesPow2 - power of 2 of the rank sample rate
-   * @param {number} selectSamplesPow2 - power of 2 of the select sample rate
+   * @param {number} selectSamplesPow2 - power of 2 of the select sample rate for both select0 and select1
    */
   constructor(data, rankSamplesPow2, selectSamplesPow2) {
     // todo: 
@@ -399,7 +388,7 @@ export class DenseBitVec {
     const cumulativeBits = sample & ~mask; // high bits
 
     // NOTE: The references to 1-bits below are written from the perspective of select1.
-    // If using this function for select zero, every instance of 1-bit should be replaced by 0-bit.
+    // If using this function for select zero, think of "1-bit" as "0-bit".
 
     // The number of 1-bits in the identified basic block preceding the (select1SampleRate*i+1)-th 1-bit
     const correction = sample & mask; // low bits
@@ -412,186 +401,32 @@ export class DenseBitVec {
     const precedingCount = (sampleIndex << sr) - correction;
 
     return {
-      // sampleIndex,
       basicBlockIndex: cumulativeBits >>> bits.BLOCK_BITS_POW2,
       precedingCount
     };
+  }
+
+
+  /**
+   * Get the value of the bit at the specified index (0 or 1).
+   * todo: test
+   * 
+   * @param {number} index
+   */
+  get(index) {
+    assert(index >= 0 && index <= this.universeSize);
+    const value = this.rank1(index + 1) - this.rank1(index);
+    DEBUG && assert(value === 0 || value === 1);
+    return value;
   }
 
   // next:
   // x fn to decode a select block
   // x select1
   // x select0
-  // - rank1
-  // - rank0
-  // - get
-  // - numOnes
-  // - universeSize
-  // - get
+  // x rank1
+  // x rank0
+  // x get
+  // x numOnes
+  // x universeSize
 }
-
-
-// todo: function to decode a single sample?
-
-// todo: document & explain what this does
-/**
- * Returns the information contained in the closest select sample
- * preceding the n-th sampled bit [todo: reword... least upper bound?]
- * Eg. we are looking for n=50. We may have a select sample representing
- * the 30th s-bit, saying it is at position 12345. { bitIndex: 12345, numOnes: 30 }
- * @param {Uint32Array} s
- * @param {number} ssPow2
- * @param {number} n - the n-th (0|1)-bit
-*/
-
-// selectSample(s, ssPow2, n) {
-//   // Select samples are taken every j*2^ssPow2 1-bits and stores
-//   // a value related to the bit position of the 2^ssPow2-th bit.
-//   // For improved performance, rather than storing the position of
-//   // that bit directly, each select sample holds two separate values:
-//   // 1. The raw-block-aligned bit position of that bit, ie. the number
-//   //    of bits preceding the raw block containing the 2^ssPow2-th bit.
-//   // 2. The bit position of the (ss * i + 1)-th 1-bit within that raw block,
-//   //    which we can subtract from j*2^ss_pow2 to tell the number of 1-bits
-//   //    up to the raw-block-aligned bit position.
-//   const sampleIndex = n >> ssPow2;
-//   const sample = s[sampleIndex];
-//   return this.decodeSelectSample(sample, sampleIndex << ssPow2);
-// }
-
-// /**
-//  * @param {number} sample - the select sample
-//  * @param {number} sampleBitIndex - the bit index represented by the sample, ie. for s1[i] it is i << s1Pow2
-//  */
-// decodeSelect1Sample(sample) {
-//   // bitmask with the Raw::BLOCK_BITS_LOG2 bottom bits set.
-//   const lowMask = bits.BLOCK_BITS - 1;
-
-//   // The cumulative number of bits preceding the identified basic block, ie. the left-shifted block index of that block.
-//   const cumulativeBits = sample & ~lowMask; // high
-
-//   // The number of 1-bits in the identified basic block preceding the (select1SampleRate*i+1)-th 1-bit
-//   const correction = sample & lowMask; // low
-
-//   // log(cumulativeBits, sampleBitIndex.toString(2), (~lowMask >>> 0).toString(2));
-//   // assert(bitIndex === sampleBitIndex);
-
-//   // assert that bit pos is data-block-aligned
-//   DEBUG && assert(bits.blockBitOffset(cumulativeBits) === 0);
-
-//   // Number of 1-bits represented by this sample, up to the raw block boundary
-//   // todo: these are not necessarily ONES; s may represent 0-samples (or even "01"-samples in the future)
-//   // todo: clarify if this is the count of 1-bits < bitIndex, or <= bitIndex
-//   // I now think this is the number of 1-bits *preceding* bitIndex.
-//   // But man this stuff is somehow very fiddly... I will feel better when I have a basic version passing tests,
-//   // because then I can work on simplifying this code while preserving correct behavior.
-//   const count = sampleBitIndex - correction;
-//   // our bit index is block-aligned, so we can just return it as a block index. 
-//   // todo: explain this more fully
-//   // todo: remove the fields we do not use from here
-//   return { bitIndex: cumulativeBits, dataBlockIndex: cumulativeBits >> bits.BLOCK_BITS_LOG2, rIndex: cumulativeBits >> this.srPow2, count };
-// }
-
-
-// The target bit is somewhere in the data buffer. 
-// Use select samples to compute a lower bound on its position (bit index).
-// There are `count` 1-bits up to but not including index `bitIndex`.
-// let { bitIndex, dataBlockIndex, rIndex, count } = this.selectSample(this.s1, this.ssPow2, n);
-
-// blockIndex (todo: rename for clarity) is a bitbuf block index.
-// so shift by 
-// log({ srPow2: this.srPow2, BLOCK_BITS_LOG2: this.BLOCK_BITS_LOG2 },);
-// log('waaao', bitIndex, blockIndex, blockIndex >>> (this.srPow2 - bits.BLOCK_BITS_LOG2));
-// assert(this.r[blockIndex << (this.srPow2 - bits.BLOCK_BITS_LOG2)] === count);
-// // there are `count` 1-bits up to but not including `bitIndex`, which is a rank-block-aligned index.
-
-// There may be some rank samples in between the lower bound and
-// the true position; iterate over rank blocks until we find the
-// last one whose count is less than or equal to n.
-
-// Use rank blocks to hop over many raw blocks.
-// This could use exponential search over [blockIndex, blocks.length);
-// depending on the query and bit distribution this could be an improvement.
-// Currently the worst case is linear search over rank samples.
-// index of the next rank block
-// const blocks = this.data.blocks;
-// let lastKnownGood = rIndex;
-// let lastKnownCount = count;
-// rIndex++;
-// while (rIndex < blocks.length && (count = this.r[rIndex]) < n) {
-//   lastKnownGood = rIndex;
-//   lastKnownCount = count;
-//   rIndex++;
-// }
-// return (rIndex);
-// for (let i = rIndex + 1; rIndex < blocks.length; i++) {
-//   break;
-// }
-
-// // Find the rank block right before the one that exceeds n. Or the final block, if none exceeds it.
-// while (blockIndex < blocks.length && blocks[blockIndex] < n) {
-//   const nextCount = blocks[blockIndex];
-//   if (nextCount < n) {
-//     count = nextCount;
-//     blockIndex++;
-//   }
-// }
-
-
-
-
-// /**
-//  * @param {number} bitIndex
-//  */
-// toBasicBlockIndex(bitIndex) {
-//   return bitIndex >> bits.BLOCK_BITS_LOG2;
-// }
-
-// /**
-//  * @param {number} bitIndex
-//  */
-// toRankSampleIndex(bitIndex) {
-//   return bitIndex >> this.srPow2;
-// }
-
-// /**
-//  * @param {number} bitIndex
-//  */
-// toSelect0SampleIndex(bitIndex) {
-//   return bitIndex >> this.s0Pow2;
-// }
-
-// /**
-//  * @param {number} bitIndex
-//  */
-// toSelect1SampleIndex(bitIndex) {
-//   return bitIndex >> this.s1Pow2;
-// }
-
-
-
-// Select samples are of the (ss*i+1)-th bit. Eg. if ssPow2 = 2, we sample the 1, 1+4=5, 5+4=9, 9+4=13, 13+4=17-th bits.
-// So the first select block points to the raw block containing the 1st bit.
-// The second block points to the raw block containing the 5th bit.
-// And it also stores correction info, since eg. maybe that raw block has 2 set bits in it before the 5th bit.
-// In that case, the second block points to the raw block containing the 5th bit, and tells us there are 3 bits preceding it.
-// 
-// Yeah. I think I want a visualization of the state after this constructor has run.
-// Which means bundling this and serving it to a notebook (maybe esbuild does cors)
-
-// I wonder if types can help disentangle my confusion with regard to the varieties of indexes and block types that are floating around.
-// The runtime nature of the type system might make it impossible to use a newtype-like pattern.
-
-/*
-
-The plan
-  
-  move to a concept of a 'basic block', which is the block size used by the fundamental bit types,
-    bit buf and int buf.
-
-  in this library,
-    'buf' means just for reading/writing
-    'vec' means 'bit vector' means rank/select
-  
-
-*/

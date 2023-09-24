@@ -1,4 +1,6 @@
 # To do
+[] figure out if we can add docstrings to the interface and not need them on the individual types
+[] fix clicking to navigate to lines in terminus: https://forum.sublimetext.com/t/clicking-on-build-errors-doesnt-work-other-stuff/50728/4
 [] https://www.totaltypescript.com/tsconfig-cheat-sheet
 [] dense bitvec: use the s0 index if there is no s1 index? at least add a note/todo for it in the code.
 [] work on quadvector (r00, r01, r11; and it is nice that there is a cap on the total number of select samples) and a quad wavelet matrix on top (supporting a limited set of ops).

@@ -1,6 +1,9 @@
 import { assert, assertNotUndefined, assertSafeInteger, log } from "./assert.js";
 import { partitionPoint } from './bits';
 
+
+// todo: test the multi bit vec nature of this type
+
 /**
  * @implements {BitVecBuilder}
  */
@@ -20,11 +23,13 @@ export class SortedArrayBitVecBuilder {
   /**
    * @param {number} index
    */
-  one(index) {
-    this.ones.push(index);
+  one(index, count = 1) {
+    for (let i = 0; i < count; i++) {
+      this.ones.push(index);
+    }
   }
   
-  build({} = {}) {
+  build(options = {}) {
     return new SortedArrayBitVec(this.ones, this.universeSize);
   }
 }
@@ -52,19 +57,10 @@ export class SortedArrayBitVecBuilder {
 // sorted ones:
 // [1, 1, 5, 8, 8, 8]
 // 
+/**
+ * @implements {BitVec}
+ */
 export class SortedArrayBitVec {
-  /**
-   * @param {Iterable<number> | ArrayLike<number>} oneIndices
-   * @param {number} length
-   */
-  fromDense(oneIndices, length) {
-    // so we don't mutate the input.
-    // maybe we should just document that we do mutate it?
-    const sorted = Array.from(oneIndices);
-    sorted.sort((a, b) => a < b ? -1 : 1);
-    return new SortedArrayBitVec(sorted, length);
-  }
-
   /**
    * @param {number[]} ones
    * @param {number} universeSize
@@ -150,4 +146,17 @@ export class SortedArrayBitVec {
     return result;
   };
 
+  /**
+   * Get the value of the bit at the specified index (0 or 1).
+   * todo: test
+   * note: v inefficient
+   * 
+   * @param {number} index
+   */
+  get(index) {
+    assert(index >= 0 && index <= this.universeSize);
+    const value = this.rank1(index + 1) - this.rank1(index);
+    DEBUG && assert(value === 0 || value === 1);
+    return value;
+  }
 }
