@@ -99,7 +99,9 @@ export class SortedArrayBitVec {
    * @param {number} index
    */
   rank0(index) {
-    if (index >= this.universeSize) {
+    if (index <= 0) {
+      return 0;
+    } else if (index >= this.universeSize) {
       return this.numZeros;
     };
     return index - this.rank1(index);

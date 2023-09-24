@@ -20,6 +20,12 @@ import { SortedArrayBitVec, SortedArrayBitVecBuilder } from './sortedarraybitvec
  * @param {BitVec} bv
  */
 export function testInvariants(bv) {
+  expect(bv.rank1(0)).toBe(0);
+  expect(bv.rank1(-1)).toBe(0);
+  
+  expect(bv.rank0(0)).toBe(0);
+  expect(bv.rank0(-1)).toBe(0);
+
   // Verifies that rank1(select1(n)) === n
   for (let n = 0; n < bv.numOnes; n++) {
     expect(bv.rank1(bv.select1(n))).toBe(n);
