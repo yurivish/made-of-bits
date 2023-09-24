@@ -4,7 +4,7 @@ interface BitVecBuilderConstructable {
 
 interface BitVecBuilder {
   one(index: number): void;
-  build(): BitVec;
+  build(options: object): BitVec;
 }
 
 interface BitVec {

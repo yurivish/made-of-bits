@@ -22,7 +22,7 @@ import { SortedArrayBitVec, SortedArrayBitVecBuilder } from './sortedarraybitvec
 export function testInvariants(bv) {
   expect(bv.rank1(0)).toBe(0);
   expect(bv.rank1(-1)).toBe(0);
-  
+
   expect(bv.rank0(0)).toBe(0);
   expect(bv.rank0(-1)).toBe(0);
 
@@ -46,18 +46,32 @@ export function testInvariants(bv) {
  * is to test the simple sorted array implementation for correctness,
  * then test other BitVecs with it as the ground truth baseline.
  * @param {BitVecBuilderConstructable} Builder
+ * @param {object} buildOptions - options passed to the builder's `build` method
  */
-export function testBitVecType(Builder) {
-  test('one bit set', () => {
-    const universeSize = 123;
-    // save time by only testing with every `step`-th bit set
-    const step = 13;
+export function testBitVecType(Builder, buildOptions = {}) {
+  // large enough to span many blocks
+  const universeSize = 1021;
+  // save time by only testing with every `step`-th bit set
+  const step = 234;
 
+  test('one bit set', () => {
     for (let bitIndex = 0; bitIndex < universeSize; bitIndex += step) {
       const builder = new Builder(universeSize);
       builder.one(bitIndex);
-      const bv = builder.build();
+      const bv = builder.build(buildOptions);
       testInvariants(bv);
+
+      // rank0
+      expect(bv.rank0(0)).toBe(0);
+      expect(bv.rank0(bitIndex)).toBe(bitIndex);
+      expect(bv.rank0(bitIndex + 1)).toBe(bitIndex);
+      expect(bv.rank0(1e6)).toBe(bv.universeSize - 1);
+
+      // rank1
+      expect(bv.rank1(0)).toBe(0);
+      expect(bv.rank1(bitIndex)).toBe(0);
+      expect(bv.rank1(bitIndex + 1)).toBe(1);
+      expect(bv.rank1(bitIndex + 1e6)).toBe(1);
 
       // select0
       if (bitIndex === 0) {
@@ -79,42 +93,17 @@ export function testBitVecType(Builder) {
       expect(() => bv.select1(-1)).toThrow();
       expect(() => bv.select1(1)).toThrow();
 
-      // rank0
-      expect(bv.rank0(0)).toBe(0);
-      expect(bv.rank0(bitIndex)).toBe(bitIndex);
-      expect(bv.rank0(bitIndex + 1)).toBe(bitIndex);
-      expect(bv.rank0(1e6)).toBe(bv.universeSize - 1);
-
-      // rank1
-      expect(bv.rank1(0)).toBe(0);
-      expect(bv.rank1(bitIndex)).toBe(0);
-      expect(bv.rank1(bitIndex + 1)).toBe(1);
-      expect(bv.rank1(bitIndex + 100)).toBe(1);
     }
   });
 
   test('two bits set', () => {
-    const universeSize = 123;
-    // save time by only testing with every `step`-th bit set
-    const step = 13;
-
     for (let bitIndex1 = 0; bitIndex1 < universeSize; bitIndex1 += step) {
       for (let bitIndex2 = bitIndex1 + step; bitIndex2 < universeSize; bitIndex2 += step) {
         const builder = new Builder(universeSize);
         builder.one(bitIndex1);
         builder.one(bitIndex2);
-        const bv = builder.build();
+        const bv = builder.build(buildOptions);
         testInvariants(bv);
-
-        // select0
-        // with 2 bits the edge cases are complex to express, so just test the first element
-        expect(bv.select0(0)).toBe(bitIndex1 === 0 ? 1 : 0);
-
-        // select1
-        expect(bv.select1(0)).toBe(bitIndex1);
-        expect(bv.select1(1)).toBe(bitIndex2);
-        expect(() => bv.select1(-1)).toThrow();
-        expect(() => bv.select1(2)).toThrow();
 
         // rank0
         expect(bv.rank0(0)).toBe(0);
@@ -127,7 +116,17 @@ export function testBitVecType(Builder) {
         expect(bv.rank1(bitIndex1)).toBe(0);
         expect(bv.rank1(bitIndex2)).toBe(1);
         expect(bv.rank1(bitIndex2 + 1)).toBe(2);
-        expect(bv.rank1(bitIndex2 + 100)).toBe(2);
+        expect(bv.rank1(bitIndex2 + 1e6)).toBe(2);
+
+        // select0
+        // with 2 bits the edge cases are complex to express, so just test the first element
+        expect(bv.select0(0)).toBe(bitIndex1 === 0 ? 1 : 0);
+
+        // select1
+        expect(bv.select1(0)).toBe(bitIndex1);
+        expect(bv.select1(1)).toBe(bitIndex2);
+        expect(() => bv.select1(-1)).toThrow();
+        expect(() => bv.select1(2)).toThrow();
       }
     }
   });
