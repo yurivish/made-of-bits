@@ -1,5 +1,6 @@
-import { DEBUG, describe, expect, it, test } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 import * as bits from './bits.js';
+import './debug.js';
 import { IntBuf } from "./intbuf.js";
 
 describe('IntBuf', () => { 

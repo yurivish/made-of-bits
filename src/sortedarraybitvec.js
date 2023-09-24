@@ -1,6 +1,34 @@
 import { assert, assertNotUndefined, assertSafeInteger, log } from "./assert.js";
 import { partitionPoint } from './bits';
 
+/**
+ * @implements {BitVecBuilder}
+ */
+export class SortedArrayBitVecBuilder {
+
+  /**
+   * @param {number} universeSize
+   */
+  constructor(universeSize) {
+    this.universeSize = universeSize;
+    /**
+     * @type {number[]}
+     */
+    this.ones = [];
+  }
+
+  /**
+   * @param {number} index
+   */
+  one(index) {
+    this.ones.push(index);
+  }
+  
+  build({} = {}) {
+    return new SortedArrayBitVec(this.ones, this.universeSize);
+  }
+}
+
 // todo: implement the proper bitvec interface (Eg. universe size = #ones + #zeros)
 // todo: decide how to handle multiplicity
 // todo: figure out the appropriate "multi-bit-vec" interface. what does rank/select mean?
@@ -20,27 +48,41 @@ import { partitionPoint } from './bits';
 //  bits:  1   1  1
 // index: 0123456789
 //  rank: 0022223336
-
+//
+// sorted ones:
+// [1, 1, 5, 8, 8, 8]
+// 
 export class SortedArrayBitVec {
   /**
-   * @param {number[]} ones
-   * @param {number} lengthInBits
-   * @param {boolean} hasMultiplicity
+   * @param {Iterable<number> | ArrayLike<number>} oneIndices
+   * @param {number} length
    */
-  constructor(ones, lengthInBits, hasMultiplicity) {
-    if (hasMultiplicity) {
-      // assert monotonically nondecreasing
-      for (let i = 1; i < ones.length; i++) assert(ones[i - 1] <= ones[i]);
-    } else {
-      // there cannot be more 1-bits than bits
-      assert(ones.length <= length); 
-      // assert monotonically increasing
-      for (let i = 1; i < ones.length; i++) assert(ones[i - 1] < ones[i]);
+  fromDense(oneIndices, length) {
+    // so we don't mutate the input.
+    // maybe we should just document that we do mutate it?
+    const sorted = Array.from(oneIndices);
+    sorted.sort((a, b) => a < b ? -1 : 1);
+    return new SortedArrayBitVec(sorted, length);
+  }
+
+  /**
+   * @param {number[]} ones
+   * @param {number} universeSize
+   */
+  constructor(ones, universeSize) {
+    // assert monotonically nondecreasing
+    let hasMultiplicity = false;
+    for (let i = 1; i < ones.length; i++) {
+      const prev = ones[i - 1];
+      const cur = ones[i];
+      hasMultiplicity ||= prev === cur;
+      assert(prev <= cur);
     }
+
     this.ones = ones;
-    this.lengthInBits = lengthInBits;
+    this.universeSize = universeSize;
     this.numOnes = ones.length;
-    this.numZeros = this.lengthInBits - this.numOnes;
+    this.numZeros = this.universeSize - this.numOnes;
     this.hasMultiplicity = hasMultiplicity;
   }
 
@@ -48,7 +90,7 @@ export class SortedArrayBitVec {
    * @param {number} index
    */
   rank1(index) {
-    return partitionPoint(this.lengthInBits, i => this.ones[i] < index);
+    return partitionPoint(this.universeSize, i => this.ones[i] < index);
   }
 
   // todo: needs to check for multiplicity:
@@ -57,7 +99,7 @@ export class SortedArrayBitVec {
    * @param {number} index
    */
   rank0(index) {
-    if (index >= this.lengthInBits) {
+    if (index >= this.universeSize) {
       return this.numZeros;
     };
     return index - this.rank1(index);
@@ -67,7 +109,7 @@ export class SortedArrayBitVec {
    * @param {number} n
    */
   maybeSelect1(n) {
-    if (n >= this.numOnes) {
+    if (n < 0 || n >= this.numOnes) {
       return null;
     }
     return this.ones[n];
@@ -79,18 +121,31 @@ export class SortedArrayBitVec {
    * @param {number} n
    */
   maybeSelect0(n) {
-    if (n >= this.numZeros) {
+    if (n < 0 || n >= this.numZeros) {
       return null;
     }
     // return this.ones[n];
     // todo: why is this the way it is?
-    const index = partitionPoint(this.lengthInBits, i => this.rank0(i) <= n);
+    const index = partitionPoint(this.universeSize, i => this.rank0(i) <= n);
     return index - 1;
   }
 
+  /**
+   * @param {number} n
+   */
+  select1(n) {
+    const result = this.maybeSelect1(n);
+    if (result === null) throw new Error(`n ${n} is not a valid 1-bit index`);
+    return result;
+  }
 
-
-
-
+  /**
+   * @param {number} n
+   */
+  select0(n) {
+    const result = this.maybeSelect0(n);
+    if (result === null) throw new Error('n is not a valid 0-bit index');
+    return result;
+  };
 
 }

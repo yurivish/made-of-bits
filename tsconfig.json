@@ -1,6 +1,7 @@
+// todo: https://www.totaltypescript.com/tsconfig-cheat-sheet
 {
   "compilerOptions": {
-    "baseUrl": "./src",
+    // "baseUrl": "src",
     "strict": true,
     // i would like to enable this but it's kind of annoying in practice without ! syntax.
     // "noUncheckedIndexedAccess": true,
@@ -9,6 +10,7 @@
     "noEmit": true,
     "target": "ES2015",
     "lib": ["dom", "ES2015"],
+    "moduleResolution": "bundler",
   },
-  "include": ["src/**/*.d.ts", "src/**/*.js", "src/**/*.ts"]
+  "include": ["src/**/*.d.js", "src/**/*.js", "src/**/*.js"]
 }

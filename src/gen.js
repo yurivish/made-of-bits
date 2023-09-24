@@ -1,3 +1,4 @@
+// @ts-nocheck
 gen`a = (b + c) * d`;
 
 // maybe {} is a 'hole' in the AST and we can basically use

@@ -8,8 +8,6 @@
 // Solution: DEBUG &&: https://github.com/evanw/esbuild/issues/2063
 // - can have DEBUG && assertInteger(x);
 
-export const DEBUG = true;
-
 /**
  * @param {boolean} condition
  * @param {string} [message]

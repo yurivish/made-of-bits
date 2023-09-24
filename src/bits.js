@@ -1,4 +1,4 @@
-import { DEBUG, assert } from "./assert.js";
+import { assert } from "./assert.js";
 
 // Docs for JS bitwise operators:
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Expressions_and_Operators#bitwise_operators
@@ -112,6 +112,8 @@ export function popcount(x) {
  * Like `Math.clz32` but for trailing rather than leading zeros.
  * Based on an implementation by @mikolalysenko:
  * https://github.com/mikolalysenko/count-trailing-zeros
+ * I wonder whether removing the branches would perform better:
+ * eg. `c -= 16 * ((x & 0x0000ffff) !== 0); 
  * @param {number} x
  */
 export function trailing0(x) {

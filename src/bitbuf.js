@@ -1,5 +1,6 @@
-import { DEBUG, assert, assertSafeInteger } from './assert.js';
+import { assert, assertSafeInteger } from './assert.js';
 import * as bits from './bits.js';
+import './debug.js';
 
 /**
  * Fixed-size bit buffer. Designed to be written once and read many times.
@@ -9,20 +10,20 @@ import * as bits from './bits.js';
 export class BitBuf {
   /**
    * Construct a new `BitBuf` containing all 0-bits.
-   * @param {number} lengthInBits
+   * @param {number} universeSize
  */
-  constructor(lengthInBits) {
-    assertSafeInteger(lengthInBits);
-    assert(lengthInBits >= 0);
-    const numBlocks = Math.ceil(lengthInBits / bits.BLOCK_BITS);
+  constructor(universeSize) {
+    assertSafeInteger(universeSize);
+    assert(universeSize >= 0);
+    const numBlocks = Math.ceil(universeSize / bits.BLOCK_BITS);
 
     /** @readonly */
     this.blocks = new Uint32Array(numBlocks);
 
     /** @readonly */
-    this.lengthInBits = lengthInBits;
+    this.universeSize = universeSize;
 
-    const lastBlockOccupancy = lengthInBits % bits.BLOCK_BITS;
+    const lastBlockOccupancy = universeSize % bits.BLOCK_BITS;
     
     /** 
      * Number of trailing zeros in the final block that do not belong to this buffer
@@ -35,7 +36,7 @@ export class BitBuf {
    */
   get(bitIndex) {
     DEBUG && assertSafeInteger(bitIndex);
-    DEBUG && assert(bitIndex >= 0 && bitIndex < this.lengthInBits);
+    DEBUG && assert(bitIndex >= 0 && bitIndex < this.universeSize);
     const block = this.blocks[bits.blockIndex(bitIndex)];
     const bit = block & (1 << bits.blockBitOffset(bitIndex));
     return bit === 0 ? 0 : 1;
@@ -47,7 +48,7 @@ export class BitBuf {
    */
   setOne(bitIndex) {
     DEBUG && assertSafeInteger(bitIndex);
-    DEBUG && assert(bitIndex >= 0 && bitIndex < this.lengthInBits);
+    DEBUG && assert(bitIndex >= 0 && bitIndex < this.universeSize);
     const blockIndex = bits.blockIndex(bitIndex);
     const block = this.blocks[blockIndex];
     const bit = 1 << bits.blockBitOffset(bitIndex);
@@ -60,7 +61,7 @@ export class BitBuf {
    */
   setZero(bitIndex) {
     DEBUG && assertSafeInteger(bitIndex);
-    DEBUG && assert(bitIndex >= 0 && bitIndex < this.lengthInBits);
+    DEBUG && assert(bitIndex >= 0 && bitIndex < this.universeSize);
     const blockIndex = bits.blockIndex(bitIndex);
     const block = this.blocks[blockIndex];
     const bit = 1 << bits.blockBitOffset(bitIndex);

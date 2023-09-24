@@ -30,11 +30,48 @@
 // - read this good post on array performance in v8: https://v8.dev/blog/elements-kinds
 // - implement quad vectors: https://arxiv.org/abs/2302.09239
 //   - 128 bit superblock: for each of (00, 01, 10, 11), store # of occurrences 
-import { DEBUG, assert, assertNotUndefined, assertSafeInteger, log } from "./assert.js";
+import { assert, assertNotUndefined, assertSafeInteger, log } from "./assert.js";
 import { BitBuf } from './bitbuf.js';
 import * as bits from './bits.js';
 
+/**
+ * @implements {BitVecBuilder}
+ */
+export class DenseBitVecBuilder {
+  /**
+   * @param {number} universeSize
+   */
+  constructor(universeSize) {
+    this.buf = new BitBuf(universeSize);
+  }
+
+  /**
+   * @param {number} index
+   */
+  one(index) {
+    this.buf.setOne(index);
+  }
+
+  build({ rankSamplesPow2 = 10, selectSamplesPow2 = 10 } = {}) {
+    return new DenseBitVec(this.buf, rankSamplesPow2, selectSamplesPow2);
+  }
+}
+
+/** @implements BitVec */
 export class DenseBitVec {
+
+  /**
+   * @param {number[]} oneIndices
+   * @param {number} length
+   */
+  fromDense(oneIndices, length) {
+    const buf = new BitBuf(length);
+    for (const oneIndex of oneIndices) {
+      buf.setOne(oneIndex);
+    }
+    return new DenseBitVec(buf, 10, 10);
+  }
+
   /**
    * @param {BitBuf} data - bit buffer containing the underlying bit data
    * @param {number} rankSamplesPow2 - power of 2 of the rank sample rate
@@ -178,11 +215,11 @@ export class DenseBitVec {
     this.numOnes = cumulativeOnes;
 
     /** @readonly */
-    this.numZeros = data.lengthInBits - cumulativeOnes;
+    this.numZeros = data.universeSize - cumulativeOnes;
 
     // todo: call this 'universe size' for compatibility with multibitvecs?
     /** @readonly */
-    this.lengthInBits = data.lengthInBits;
+    this.universeSize = data.universeSize;
 
     
   }
@@ -200,7 +237,7 @@ export class DenseBitVec {
    * @param {number} index
    */
   rank1(index) {
-    if (index >= this.lengthInBits) {
+    if (index >= this.universeSize) {
       return this.numOnes;
     }
 
@@ -239,7 +276,7 @@ export class DenseBitVec {
    * @param {number} index
    */
   rank0(index) {
-    if (index >= this.lengthInBits) {
+    if (index >= this.universeSize) {
       return this.numZeros;
     };
     return index - this.rank1(index);
@@ -345,7 +382,7 @@ export class DenseBitVec {
    * @param {Uint32Array} samples - array of samples
    */
   selectSample(n, samples, sr) {
-    DEBUG && assert(0 <= n && n <= this.lengthInBits);
+    DEBUG && assert(0 <= n && n <= this.universeSize);
     const sampleIndex = n >>> sr;
     DEBUG && assert(sampleIndex < samples.length);
     const sample = samples[sampleIndex];
@@ -390,9 +427,9 @@ export class DenseBitVec {
 }
 
 
- // todo: function to decode a single sample?
+// todo: function to decode a single sample?
 
-  // todo: document & explain what this does
+// todo: document & explain what this does
 /**
  * Returns the information contained in the closest select sample
  * preceding the n-th sampled bit [todo: reword... least upper bound?]
@@ -499,33 +536,33 @@ export class DenseBitVec {
 
 
 
-  // /**
-  //  * @param {number} bitIndex
-  //  */
-  // toBasicBlockIndex(bitIndex) {
-  //   return bitIndex >> bits.BLOCK_BITS_LOG2;
-  // }
+// /**
+//  * @param {number} bitIndex
+//  */
+// toBasicBlockIndex(bitIndex) {
+//   return bitIndex >> bits.BLOCK_BITS_LOG2;
+// }
 
-  // /**
-  //  * @param {number} bitIndex
-  //  */
-  // toRankSampleIndex(bitIndex) {
-  //   return bitIndex >> this.srPow2;
-  // }
+// /**
+//  * @param {number} bitIndex
+//  */
+// toRankSampleIndex(bitIndex) {
+//   return bitIndex >> this.srPow2;
+// }
 
-  // /**
-  //  * @param {number} bitIndex
-  //  */
-  // toSelect0SampleIndex(bitIndex) {
-  //   return bitIndex >> this.s0Pow2;
-  // }
+// /**
+//  * @param {number} bitIndex
+//  */
+// toSelect0SampleIndex(bitIndex) {
+//   return bitIndex >> this.s0Pow2;
+// }
 
-  // /**
-  //  * @param {number} bitIndex
-  //  */
-  // toSelect1SampleIndex(bitIndex) {
-  //   return bitIndex >> this.s1Pow2;
-  // }
+// /**
+//  * @param {number} bitIndex
+//  */
+// toSelect1SampleIndex(bitIndex) {
+//   return bitIndex >> this.s1Pow2;
+// }
 
 
 

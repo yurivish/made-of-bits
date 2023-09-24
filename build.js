@@ -15,7 +15,7 @@ const ctx = await esbuild.context({
   entryPoints: ['./src/index.js'],
   bundle: true,
   format: 'esm',
-  define: { DEBUG: 'true' }, // for debug builds (should be 'false' for not)
+  define: { DEBUG: 'false' }, // for debug builds (should be 'false' for not)
   plugins: [examplePlugin],
   outfile: 'dist/bit-structures.js', 
   sourcemap: 'inline'

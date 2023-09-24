@@ -1,5 +1,6 @@
 import { describe, expect, it, test } from 'vitest';
 import * as bits from './bits.js';
+import './debug.js';
 
 // todo
 // - test popcount
