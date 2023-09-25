@@ -14,9 +14,9 @@ import { assert } from "./assert.js";
 // - we could make this a 'dynamic const', taking on parameters at run time somehow... maybe.
 // Or we could build "templates' by generating a different version of eg. the BitBuf
 // for each block size. (similar to zig templates)
-export const BLOCK_BITS = 32; // todo: rename to BLOCK_SIZE? 
-export const BLOCK_BITS_POW2 = Math.log2(BLOCK_BITS);
-
+export const BlockArray = Uint32Array;
+export const BLOCKSIZE = BlockArray.BYTES_PER_ELEMENT << 3; // todo: rename to BLOCK_SIZE? 
+export const BLOCKSIZE_POW2 = Math.log2(BLOCKSIZE);
 // todo: test
 // todo: cite bitwise binary search article
 // todo: mention this is the simpler (slower) implementation
@@ -71,7 +71,7 @@ export function u32(x) {
  * @param {number} x
  */
 export function blockBitOffset(x) {
-  return x & (BLOCK_BITS - 1);
+  return x & (BLOCKSIZE - 1);
 }
 
 /**
@@ -79,7 +79,7 @@ export function blockBitOffset(x) {
  * @param {number} x
  */
 export function blockIndex(x) {
-  return x >>> BLOCK_BITS_POW2;
+  return x >>> BLOCKSIZE_POW2;
 }
 
 /**

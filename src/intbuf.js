@@ -24,7 +24,7 @@ export class IntBuf {
     assertInteger(length);
 
     const lengthInBits = length * bitWidth;
-    const numBlocks = Math.ceil(lengthInBits / bits.BLOCK_BITS);
+    const numBlocks = Math.ceil(lengthInBits / bits.BLOCKSIZE);
 
     /** @readonly */
     this.data = new Uint32Array(numBlocks);
@@ -67,7 +67,7 @@ export class IntBuf {
     const offset = bits.blockBitOffset(this.writeCursor);
 
     // Number of bits available in the current block
-    const numAvailableBits = bits.BLOCK_BITS - offset;
+    const numAvailableBits = bits.BLOCKSIZE - offset;
 
     DEBUG && assert(index < this.length);
     this.data[index] |= value << offset;
@@ -97,7 +97,7 @@ export class IntBuf {
     const offset = bits.blockBitOffset(bitIndex);
 
     // Number of bits available in the current block
-    const numAvailableBits = bits.BLOCK_BITS - offset;
+    const numAvailableBits = bits.BLOCKSIZE - offset;
 
     DEBUG && assert(blockIndex < this.length);
     let value = (this.data[blockIndex] & (this.lowBitMask << offset)) >>> offset;
