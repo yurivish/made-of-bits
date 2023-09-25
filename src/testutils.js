@@ -67,8 +67,56 @@ export function testBitVec(bv) {
   }
 }
 
+// returns an unordered sample of k elements from the universe [0..n-1]
+// sparse fisher-yates sample
+// note: instead of storing the index in m, we could store n - index (or n - index - 1) or something to make the numbers smaller
+// and potentially be able to use a smaller integer type for the keys and values of m (if we use a typed language).
 /**
- * Tests a BitVec implementation for basic correctness.
+ * @param {number} k
+ * @param {number} n
+ */
+function fisherYatesSample(k, n, rng = Math.random) {
+  if (n < 0) throw new Error("n must be nonnegative");
+  if (k > n) throw new Error("k must not exceed n");
+  if (n === 0) return [];
+  const m = new Map();
+  const xs = new Float64Array(k);
+  for (let i = 0; i < k; i++) {
+    // iterate through the conceptual array of n elements backwards
+    const index = n - i - 1;
+    // random number between 0 and index
+    const x = Math.floor((index + 1) * rng());
+    xs[i] = m.get(x) ?? x;
+    m.set(x, m.get(index) ?? index);
+    if (x === index) m.delete(index);
+  }
+  return xs;
+}
+
+/**
+ * * @param {BitVecBuilderConstructable} BitVecBuilder
+ * @param {object} buildOptions - options passed to the builder's `build` method
+ */
+export function testBitVecProperties(BitVecBuilder, buildOptions = {}) {
+  fc.assert(fc.property(
+    fc.integer({ min: 0, max: 1e3 }), 
+    fc.integer({ min: 0, max: 1e3 }), 
+    function (/** any */ numOnes, /** any */ numZeros) {
+      const universeSize = numOnes + numZeros;
+      const ones = fisherYatesSample(numOnes, universeSize);
+      const builder = new BitVecBuilder(universeSize);
+      for (const one of ones) {
+        builder.one(one);
+      }
+      const bv = builder.build(buildOptions);
+      testBitVec(bv);
+      return true;
+    }
+  ));
+}
+
+/**
+ * Tests a BitVec implementation for basic correctness using some specific example scenarios.
  * Does not perform very sophisticated checks, since our strategy
  * is to test the simple sorted array implementation for correctness,
  * then test other BitVecs with it as the ground truth baseline.
@@ -76,11 +124,12 @@ export function testBitVec(bv) {
  * @param {object} buildOptions - options passed to the builder's `build` method
  */
 export function testBitVecType(BitVecBuilder, buildOptions = {}) {
+  testBitVecProperties(BitVecBuilder, buildOptions);
+
   // large enough to span many blocks
   const universeSize = 1021;
   // save time by only testing with every `step`-th bit set
   const step = 234;
-
   test('one bit set', () => {
     for (let bitIndex = 0; bitIndex < universeSize; bitIndex += step) {
       const builder = new BitVecBuilder(universeSize);
