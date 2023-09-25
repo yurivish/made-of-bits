@@ -30,6 +30,7 @@ export class SortedArrayBitVecBuilder {
   }
   
   build(options = {}) {
+    this.ones.sort();
     return new SortedArrayBitVec(this.ones, this.universeSize);
   }
 }
