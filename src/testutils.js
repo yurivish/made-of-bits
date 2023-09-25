@@ -78,7 +78,7 @@ export function testBitVec(bv) {
  * @param {number} k
  * @param {number} n
  */
-function fisherYatesSample(k, n, rng = Math.random) {
+function fisherYatesSample(k, n, rng) {
   if (n < 0) throw new Error("n must be nonnegative");
   if (k > n) throw new Error("k must not exceed n");
   if (n === 0) return new Uint32Array();
