@@ -156,6 +156,7 @@ export class SortedArrayBitVec {
    */
   get(index) {
     assert(index >= 0 && index <= this.universeSize);
+    assert(!this.hasMultiplicity);
     const value = this.rank1(index + 1) - this.rank1(index);
     DEBUG && assert(value === 0 || value === 1);
     return value;
