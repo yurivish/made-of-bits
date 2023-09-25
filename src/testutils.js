@@ -8,6 +8,7 @@ import { SortedArrayBitVec, SortedArrayBitVecBuilder } from './sortedarraybitvec
 // - test with varying rankselect index parameters other than (5, 5)
 // - exercise the block structure, ie. set more than bits.BLOCK_BITS ones...
 // - create a BitVec interface and test the interface (port the test below to the interface)
+// - look into concurrent testsing (https://vitest.dev/guide/features.html)
 
 // idea: flipped testing – flip the bits, and then test with rank/select 0/1 reversed.
 // insight: succinct data structures can have simple implementations used as a testing baseline.
@@ -23,6 +24,9 @@ import { SortedArrayBitVec, SortedArrayBitVecBuilder } from './sortedarraybitvec
  * @param {BitVec} bv
  */
 export function testBitVec(bv) {
+  // if non-multi-bitvec
+  expect(bv.numZeros + bv.numOnes).toBe(bv.universeSize);
+
   expect(bv.rank1(-1)).toBe(0);
   expect(bv.rank1(0)).toBe(0);
   expect(bv.rank1(bv.universeSize + 1)).toBe(bv.numOnes);
@@ -93,37 +97,30 @@ function fisherYatesSample(k, n, rng = Math.random) {
   return xs;
 }
 
-
-function buildAndTest(BitVecBuilder, buildOptions, numOnes, numZeros, rngStream) {
-  // console.log({ numOnes, numZeros });
-  const rng = () => rngStream.next().value;
-  const universeSize = numOnes + numZeros;
-  const ones = fisherYatesSample(numOnes, universeSize, rng);
-  const builder = new BitVecBuilder(universeSize);
-  for (const one of ones) {
-    builder.one(one);
-  }
-  const bv = builder.build(buildOptions);
-  testBitVec(bv);
-  return true;
-}
-
-
 /**
  * * @param {BitVecBuilderConstructable} BitVecBuilder
  * @param {object} buildOptions - options passed to the builder's `build` method
  */
 export function testBitVecProperties(BitVecBuilder, buildOptions = {}) {
+  // Generate random bitvectors with an arbitrary density of uniformly-distributed ones
+  // and run them through basic consistency checks.
   fc.assert(fc.property(
     fc.integer({ min: 0, max: 1e3 }), 
-    // @ts-ignore
+    // @ts-ignore because of strict mode & jsdoc interaction
     fc.integer({ min: 0, max: 1e3 }), 
     fc.infiniteStream(fc.double({ min: 0, max: 1, maxExcluded: true }).noBias()),
-    (numOnes, numZeros, rngStream) => {
-      buildAndTest(BitVecBuilder, buildOptions, numOnes, numZeros, rngStream);
-    },
-  ),
-    { verbose: 0 });
+    function buildAndTest(numOnes, numZeros, rngStream) {
+      const rng = () => rngStream.next().value;
+      const universeSize = numOnes + numZeros;
+      const ones = fisherYatesSample(numOnes, universeSize, rng);
+      const builder = new BitVecBuilder(universeSize);
+      for (const one of ones) {
+        builder.one(one);
+      }
+      const bv = builder.build(buildOptions);
+      testBitVec(bv);
+      return true;
+    }));
 }
 
 /**
@@ -131,6 +128,8 @@ export function testBitVecProperties(BitVecBuilder, buildOptions = {}) {
  * Does not perform very sophisticated checks, since our strategy
  * is to test the simple sorted array implementation for correctness,
  * then test other BitVecs with it as the ground truth baseline.
+ * todo: decide if this is obsoleted by fast-check's property tests or not.
+ * here we exhaustively test a specific sample of scenarios, so it is not quite the same.
  * @param {BitVecBuilderConstructable} BitVecBuilder
  * @param {object} buildOptions - options passed to the builder's `build` method
  */
