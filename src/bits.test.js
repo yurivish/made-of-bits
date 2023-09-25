@@ -2,15 +2,11 @@ import { describe, expect, it, test } from 'vitest';
 import * as bits from './bits.js';
 import './debug.js';
 
-// todo
-// - test popcount
-// - test trailing0
-
-describe('BLOCK_BITS', () => {
+describe('BLOCKSIZE', () => {
   it('is a power of two', () => {
     expect(Number.isInteger(Math.log2(bits.BLOCKSIZE))).toBe(true);
   });
-  it('is correctly reflected in BLOCK_BITS_LOG2', () => {
+  it('is correctly reflected in BLOCKSIZE', () => {
     expect(bits.BLOCKSIZE_POW2).toBe((Math.log2(bits.BLOCKSIZE)));
   });
 });
@@ -64,3 +60,75 @@ describe('oneMask', () => {
   });
 });
 
+describe('popcount', () => {
+  it('returns the correct value for small numbers', () => {
+    expect(bits.popcount(0)).toBe(0);
+    expect(bits.popcount(0b0001)).toBe(1);
+    expect(bits.popcount(0b0010)).toBe(1);
+    expect(bits.popcount(0b0011)).toBe(2);
+    expect(bits.popcount(0b0100)).toBe(1);
+    expect(bits.popcount(0b0101)).toBe(2);
+    expect(bits.popcount(0b0110)).toBe(2);
+    expect(bits.popcount(0b0111)).toBe(3);
+    expect(bits.popcount(0b1000)).toBe(1);
+  });
+
+  it('returns the correct value for large numbers', () => {
+    expect(bits.popcount(0b11111111111111111111111111111111)).toBe(32);
+    expect(bits.popcount(0b11111111111111111111111111111110)).toBe(31);
+    expect(bits.popcount(0b11111111111111111111111111111101)).toBe(31);
+    expect(bits.popcount(0b11111111111111111111111111111100)).toBe(30);
+    expect(bits.popcount(0b11111111111111111111111111111011)).toBe(31);
+    expect(bits.popcount(0b11111111111111111111111111111010)).toBe(30);
+    expect(bits.popcount(0b11111111111111111111111111111001)).toBe(30);
+    expect(bits.popcount(0b11111111111111111111111111111000)).toBe(29);
+    expect(() => bits.popcount(2 ** 32)).toThrow();
+  });
+});
+
+describe('trailing0', () => {
+  it('returns the correct value for small numbers', () => {
+    expect(bits.trailing0(0)).toBe(32);
+    expect(bits.trailing0(0b01111)).toBe(0);
+    expect(bits.trailing0(0b01110)).toBe(1);
+    expect(bits.trailing0(0b01111)).toBe(0);
+    expect(bits.trailing0(0b01100)).toBe(2);
+    expect(bits.trailing0(0b01101)).toBe(0);
+    expect(bits.trailing0(0b01110)).toBe(1);
+    expect(bits.trailing0(0b01111)).toBe(0);
+    expect(bits.trailing0(0b01000)).toBe(3);
+  });
+
+  it('returns the correct value for large numbers', () => {
+    expect(bits.trailing0(0b11111111111111111111111111111110)).toBe(1);
+    expect(bits.trailing0(0b11111111111111111111111111111111)).toBe(0);
+    expect(bits.trailing0(0b11111111111111111111111111111100)).toBe(2);
+    expect(bits.trailing0(0b11111111111111111111111111111101)).toBe(0);
+    expect(bits.trailing0(0b11111111111111111111111111111110)).toBe(1);
+    expect(bits.trailing0(0b11111111111111111111111111111111)).toBe(0);
+    expect(bits.trailing0(0b11111111111111111111111111111000)).toBe(3);
+    expect(() => bits.trailing0(2 ** 32)).toThrow();
+  });
+});
+
+describe('bitFloor', () => {
+  it('returns the correct value for small numbers', () => {
+    expect(bits.bitFloor(0)).toBe(0);
+    expect(bits.bitFloor(1)).toBe(1);
+    expect(bits.bitFloor(2)).toBe(2);
+    expect(bits.bitFloor(3)).toBe(2);
+    expect(bits.bitFloor(4)).toBe(4);
+    expect(bits.bitFloor(5)).toBe(4);
+    expect(bits.bitFloor(6)).toBe(4);
+    expect(bits.bitFloor(7)).toBe(4);
+    expect(bits.bitFloor(8)).toBe(8);
+  });
+
+  it('returns the correct value for large numbers', () => {
+    expect(bits.bitFloor(2 ** 31 - 2)).toBe(2 ** 30);
+    expect(bits.bitFloor(2 ** 31 - 1)).toBe(2 ** 30);
+    expect(bits.bitFloor(2 ** 31 - 0)).toBe(2 ** 31);
+    expect(bits.bitFloor(2 ** 32 - 1)).toBe(2 ** 31);
+    expect(() => bits.bitFloor(2 ** 32)).toThrow();
+  });
+});

@@ -3,10 +3,9 @@ import { assert } from "./assert.js";
 // Docs for JS bitwise operators:
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Expressions_and_Operators#bitwise_operators
 
-// todo: document WHAT blocks this refers to (all of them):
-// - bitbuf blocks
-// - others?
-// - should this be exported from bitbuf?
+// todo:
+// - test partitionPoint
+
 
 // todo:
 // - how can we support dynamic block sizes that are const once creatd? a lá comptime...
@@ -64,9 +63,13 @@ export function partitionPoint(n, pred) {
 
 // todo: test
 /**
+ * If x is not zero, calculates the largest integral power of two that is not greater than x.
+ * If x is zero, returns zero.
+ * Like the function in the C++ standard library: https://en.cppreference.com/w/cpp/numeric/bit_floor
  * @param {number} n
  */
 export function bitFloor(n) {
+  DEBUG && assert(n < 2 ** 32);
   if (n === 0) return 0;
   const msb = 31 - Math.clz32(n);
   return (1 << msb) >>> 0;
@@ -102,32 +105,34 @@ export function oneMask(n) {
  * https://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
  * An explanation of the SWAR approach: 
  * https://stackoverflow.com/questions/109023/count-the-number-of-set-bits-in-a-32-bit-integer/109025#109025
- * @param {number} x
+ * @param {number} n
  */
-export function popcount(x) {
-  let v = (x | 0) - ((x >>> 1) & 0x55555555);
+export function popcount(n) {
+  DEBUG && assert(n < 2 ** 32);
+  let v = (n | 0) - ((n >>> 1) & 0x55555555);
   v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
   return (((v + (v >> 4)) & 0xf0f0f0f) * 0x1010101) >>> 24;
 }
 // TODO: test
 /**
- * Returns the number of trailing 0-bits in the binary representation of `x`.
+ * Returns the number of trailing 0-bits in the binary representation of `n`.
  * Like `Math.clz32` but for trailing rather than leading zeros.
  * Based on an implementation by @mikolalysenko:
  * https://github.com/mikolalysenko/count-trailing-zeros
  * I wonder whether removing the branches would perform better:
- * eg. `c -= 16 * ((x & 0x0000ffff) !== 0); 
- * @param {number} x
+ * eg. `c -= 16 * ((n & 0x0000ffff) !== 0); 
+ * @param {number} n
  */
-export function trailing0(x) {
-  x &= -x;
+export function trailing0(n) {
+  DEBUG && assert(n < 2 ** 32);
+  n &= -n;
   let c = 32;
-  if (x) c--;
-  if (x & 0x0000ffff) c -= 16;
-  if (x & 0x00ff00ff) c -= 8;
-  if (x & 0x0f0f0f0f) c -= 4;
-  if (x & 0x33333333) c -= 2;
-  if (x & 0x55555555) c -= 1;
+  if (n) c--;
+  if (n & 0x0000ffff) c -= 16;
+  if (n & 0x00ff00ff) c -= 8;
+  if (n & 0x0f0f0f0f) c -= 4;
+  if (n & 0x33333333) c -= 2;
+  if (n & 0x55555555) c -= 1;
   return c;
 }
 
@@ -161,11 +166,12 @@ export function trailing0(x) {
  * NOTE: Will return 32 if 
  * // todo: clarify that indices are 0-based and that it will return 32 if there is no kth 1-bit.
  * note that this is linear
- * @param {number} x
+ * @param {number} n
  * @param {number} k
  */
-export function select1(x, k) {
+export function select1(n, k) {
+  DEBUG && assert(n < 2 ** 32);
   // Unset the k-1 preceding 1-bits
-  for (let i = 0; i < k; i++) x &= x - 1;
-  return trailing0(x);
+  for (let i = 0; i < k; i++) n &= n - 1;
+  return trailing0(n);
 }
