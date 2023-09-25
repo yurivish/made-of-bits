@@ -95,6 +95,7 @@ export class SortedArrayBitVec {
    * @param {number} index
    */
   rank0(index) {
+    assert(!this.hasMultiplicity, 'cannot take rank0 in the presence of multiplicity (repeated elements)');
     if (index <= 0) {
       return 0;
     } else if (index >= this.universeSize) {
@@ -119,11 +120,11 @@ export class SortedArrayBitVec {
    * @param {number} n
    */
   maybeSelect0(n) {
+    assert(!this.hasMultiplicity, 'cannot take select0 in the presence of multiplicity (repeated elements)');
     if (n < 0 || n >= this.numZeros) {
       return null;
     }
-    // return this.ones[n];
-    // todo: why is this the way it is?
+    // Binary search over rank0 to determine the position of the n-th 0-bit.
     const index = partitionPoint(this.universeSize, i => this.rank0(i) <= n);
     return index - 1;
   }

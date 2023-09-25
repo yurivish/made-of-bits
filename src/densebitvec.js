@@ -50,7 +50,6 @@ export class DenseBitVecBuilder {
    */
   one(index, count = 1) {
     assert(count === 1);
-    assert(count === 1);
     this.buf.setOne(index);
   }
 
@@ -419,14 +418,4 @@ export class DenseBitVec {
     DEBUG && assert(value === 0 || value === 1);
     return value;
   }
-
-  // next:
-  // x fn to decode a select block
-  // x select1
-  // x select0
-  // x rank1
-  // x rank0
-  // x get
-  // x numOnes
-  // x universeSize
 }

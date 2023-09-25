@@ -14,6 +14,7 @@ let examplePlugin = {
 const ctx = await esbuild.context({
   entryPoints: ['./src/index.js'],
   bundle: true,
+  minify: false,
   format: 'esm',
   define: { 
     // This should be defined to true or false, depending on whether we want to turn
@@ -26,7 +27,7 @@ const ctx = await esbuild.context({
     // reference globalThis.
     // Hence, we define this replacement in order that our module not mutate global state.
     // This is all a bit ugly, but it works until I figure out a better way.
-    globalThis: "{}",
+    globalThis: "false",
 
   },
   plugins: [examplePlugin],

@@ -17,14 +17,32 @@ import { SortedArrayBitVec, SortedArrayBitVecBuilder } from './sortedarraybitvec
 //
 
 /**
+ * Test a specific BitVec instance in a general way, ie. for internal consistency.
+ * - Checks invariants that must hold between rank & select
+ * - Checks that the behaviors of `get` match `select`
  * @param {BitVec} bv
  */
-export function testInvariants(bv) {
-  expect(bv.rank1(0)).toBe(0);
+export function testBitVec(bv) {
   expect(bv.rank1(-1)).toBe(0);
+  expect(bv.rank1(0)).toBe(0);
+  expect(bv.rank1(bv.universeSize + 1)).toBe(bv.numOnes);
 
-  expect(bv.rank0(0)).toBe(0);
   expect(bv.rank0(-1)).toBe(0);
+  expect(bv.rank0(0)).toBe(0);
+  expect(bv.rank0(bv.universeSize + 1)).toBe(bv.numZeros);
+
+  expect(() => bv.select0(-1)).toThrow();
+  expect(() => bv.select0(bv.universeSize + 1)).toThrow();
+  
+  expect(() => bv.select1(-1)).toThrow();
+  expect(() => bv.select1(bv.universeSize + 1)).toThrow();
+
+  expect(() => bv.get(-1)).toThrow();
+  expect(() => bv.get(bv.universeSize + 1)).toThrow();
+
+  expect(() => bv.get(-1)).toThrow();
+  expect(() => bv.get(bv.universeSize + 1)).toThrow();
+
 
   for (let n = 0; n < bv.numOnes; n++) {
     const select1 = bv.select1(n);
@@ -50,15 +68,14 @@ export function testInvariants(bv) {
 }
 
 /**
- * todo: have a BitVec interface or type
  * Tests a BitVec implementation for basic correctness.
  * Does not perform very sophisticated checks, since our strategy
  * is to test the simple sorted array implementation for correctness,
  * then test other BitVecs with it as the ground truth baseline.
- * @param {BitVecBuilderConstructable} Builder
+ * @param {BitVecBuilderConstructable} BitVecBuilder
  * @param {object} buildOptions - options passed to the builder's `build` method
  */
-export function testBitVecType(Builder, buildOptions = {}) {
+export function testBitVecType(BitVecBuilder, buildOptions = {}) {
   // large enough to span many blocks
   const universeSize = 1021;
   // save time by only testing with every `step`-th bit set
@@ -66,10 +83,10 @@ export function testBitVecType(Builder, buildOptions = {}) {
 
   test('one bit set', () => {
     for (let bitIndex = 0; bitIndex < universeSize; bitIndex += step) {
-      const builder = new Builder(universeSize);
+      const builder = new BitVecBuilder(universeSize);
       builder.one(bitIndex);
       const bv = builder.build(buildOptions);
-      testInvariants(bv);
+      testBitVec(bv);
 
       // rank0
       expect(bv.rank0(0)).toBe(0);
@@ -109,11 +126,11 @@ export function testBitVecType(Builder, buildOptions = {}) {
   test('two bits set', () => {
     for (let bitIndex1 = 0; bitIndex1 < universeSize; bitIndex1 += step) {
       for (let bitIndex2 = bitIndex1 + step; bitIndex2 < universeSize; bitIndex2 += step) {
-        const builder = new Builder(universeSize);
+        const builder = new BitVecBuilder(universeSize);
         builder.one(bitIndex1);
         builder.one(bitIndex2);
         const bv = builder.build(buildOptions);
-        testInvariants(bv);
+        testBitVec(bv);
 
         // rank0
         expect(bv.rank0(0)).toBe(0);

@@ -7,6 +7,11 @@ interface BitVecBuilder {
   build(options: object): BitVec;
 }
 
+// TODO: Split this trait into multiple traits.
+// MultiBitVecs may not have rank0 or select0.
+// Of course, they _do_ if they happen to not
+// contain multiplicities, so maybe we can keep
+// this simple and just do a runtime check.
 interface BitVec {
   rank0(index: number): number;
   rank1(index: number): number;
@@ -19,8 +24,11 @@ interface BitVec {
 
   get(index: number): number;
 
+  // todo: sizeInBits()
+
   readonly numOnes: number;
   readonly numZeros: number;
+
   readonly universeSize: number;
 }
 
