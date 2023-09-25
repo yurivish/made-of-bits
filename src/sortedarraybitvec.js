@@ -1,6 +1,6 @@
 import { assert, assertNotUndefined, assertSafeInteger, log } from "./assert.js";
 import { partitionPoint } from './bits';
-
+import * as sort from './sort.js';
 
 // todo: test the multi bit vec nature of this type
 
@@ -30,7 +30,7 @@ export class SortedArrayBitVecBuilder {
   }
   
   build(options = {}) {
-    this.ones.sort();
+    this.ones.sort(sort.ascending);
     return new SortedArrayBitVec(this.ones, this.universeSize);
   }
 }

@@ -93,26 +93,43 @@ function fisherYatesSample(k, n, rng = Math.random) {
   return xs;
 }
 
+
+function buildAndTest(BitVecBuilder, buildOptions, numOnes, numZeros, rngStream) {
+  // console.log({ numOnes, numZeros });
+  const rng = () => rngStream.next().value;
+  const universeSize = numOnes + numZeros;
+  const ones = fisherYatesSample(numOnes, universeSize, rng);
+  const builder = new BitVecBuilder(universeSize);
+  for (const one of ones) {
+    builder.one(one);
+  }
+  const bv = builder.build(buildOptions);
+  testBitVec(bv);
+  return true;
+}
+
+
 /**
  * * @param {BitVecBuilderConstructable} BitVecBuilder
  * @param {object} buildOptions - options passed to the builder's `build` method
  */
 export function testBitVecProperties(BitVecBuilder, buildOptions = {}) {
+  // const bv = new SortedArrayBitVec([0, 7, 8, 9], 10);
+  // testBitVec(bv);
+  // return;
+
+
   fc.assert(fc.property(
-    fc.integer({ min: 0, max: 1e3 }), 
-    fc.integer({ min: 0, max: 1e3 }), 
-    function (/** any */ numOnes, /** any */ numZeros) {
-      const universeSize = numOnes + numZeros;
-      const ones = fisherYatesSample(numOnes, universeSize);
-      const builder = new BitVecBuilder(universeSize);
-      for (const one of ones) {
-        builder.one(one);
-      }
-      const bv = builder.build(buildOptions);
-      testBitVec(bv);
-      return true;
-    }
-  ));
+    fc.integer({ min: 0, max: 7 }), 
+    // @ts-ignore
+    fc.integer({ min: 0, max: 7 }), 
+    fc.infiniteStream(fc.double({ min: 0, max: 1, maxExcluded: true }).noBias())
+    ,
+    (numOnes, numZeros, rngStream) => {
+      buildAndTest(BitVecBuilder, buildOptions, numOnes, numZeros, rngStream);
+    },
+  ),
+    { verbose: 2 });
 }
 
 /**
@@ -123,7 +140,7 @@ export function testBitVecProperties(BitVecBuilder, buildOptions = {}) {
  * @param {BitVecBuilderConstructable} BitVecBuilder
  * @param {object} buildOptions - options passed to the builder's `build` method
  */
-export function testBitVecType(BitVecBuilder, buildOptions = {}) {
+export function testBitVecType(BitVecBuilder, buildOptions = {}) {  
   testBitVecProperties(BitVecBuilder, buildOptions);
 
   // large enough to span many blocks
