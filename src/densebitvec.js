@@ -205,11 +205,8 @@ export class DenseBitVec {
     /** @readonly */
     this.numZeros = data.universeSize - cumulativeOnes;
 
-    // todo: call this 'universe size' for compatibility with multibitvecs?
     /** @readonly */
     this.universeSize = data.universeSize;
-
-    
   }
 
   /**
@@ -238,18 +235,20 @@ export class DenseBitVec {
     let lastBasicBlockIndex = index >>> bits.BLOCK_BITS_POW2;
 
     // Scan any intervening select blocks to skip past multiple basic blocks at a time
-    // let selectSampleRate = 1 << this.select1SamplesPow2;
-    // let selectSample = { basicBlockIndex: rankBasicBlockIndex, precedingCount: count };
-    // while (selectSample.basicBlockIndex < lastBasicBlockIndex) {
-    //   // while (selectCount < this.numOnes) {
-    //   // let selectCount = count + selectSampleRate; // start from the next select block
-    //   //   let selectSample = this.selectSample(selectCount, this.select1Samples, this.select1SamplesPow2);
-    //   //   selectCount += selectSampleRate;
-    //   //   if (selectSample.basicBlockIndex >= lastBasicBlockIndex) break;
-    //   //   count = selectCount;
-    //   //   selectSample = this.selectSample(selectCount, this.select1Samples, this.select1SamplesPow2);      
-    // }
+    let selectSampleRate = 1 << this.select1SamplesPow2;
 
+    // Synthesize a fictitious initial select sample located squarely at the position
+    // designated by the rank sample.
+    let selectSample = { basicBlockIndex: rankBasicBlockIndex, precedingCount: count };
+    let selectCount = selectSample.precedingCount + selectSampleRate;
+    while (selectCount < this.numOnes && selectSample.basicBlockIndex < lastBasicBlockIndex) {
+      selectSample = this.selectSample(selectCount, this.select1Samples, this.select1SamplesPow2);
+      if (selectSample.basicBlockIndex >= lastBasicBlockIndex) break;
+      count = selectCount;
+      selectCount += selectSampleRate;
+    }
+
+    // Increment the count by the number of ones in every subsequent block
     for (let i = rankBasicBlockIndex; i < lastBasicBlockIndex; i++) {
       count += bits.popcount(this.data.blocks[i]);
     }
