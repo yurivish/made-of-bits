@@ -47,23 +47,23 @@ export function testBitVec(bv) {
   for (let n = 0; n < bv.numOnes; n++) {
     const select1 = bv.select1(n);
 
-    // Check `get` behavior for valid indices
-    expect(bv.get(select1)).toBe(1);
-
     // Verifies that rank1(select1(n)) === n
     expect(bv.rank1(select1)).toBe(n);
     expect(bv.rank1(select1 + 1)).toBe(n + 1);
+
+    // Check `get` behavior for valid indices
+    expect(bv.get(select1)).toBe(1);
   }
 
   for (let n = 0; n < bv.numZeros; n++) {
     const select0 = bv.select0(n);
 
-    // Check `get` behavior for valid indices
-    expect(bv.get(select0)).toBe(0);
-
     // Verifies that rank0(select0(n)) === n
     expect(bv.rank0(select0)).toBe(n);
     expect(bv.rank0(select0 + 1)).toBe(n + 1);
+
+    // Check `get` behavior for valid indices
+    expect(bv.get(select0)).toBe(0);
   }
 }
 
@@ -114,22 +114,16 @@ function buildAndTest(BitVecBuilder, buildOptions, numOnes, numZeros, rngStream)
  * @param {object} buildOptions - options passed to the builder's `build` method
  */
 export function testBitVecProperties(BitVecBuilder, buildOptions = {}) {
-  // const bv = new SortedArrayBitVec([0, 7, 8, 9], 10);
-  // testBitVec(bv);
-  // return;
-
-
   fc.assert(fc.property(
-    fc.integer({ min: 0, max: 7 }), 
+    fc.integer({ min: 0, max: 1e3 }), 
     // @ts-ignore
-    fc.integer({ min: 0, max: 7 }), 
-    fc.infiniteStream(fc.double({ min: 0, max: 1, maxExcluded: true }).noBias())
-    ,
+    fc.integer({ min: 0, max: 1e3 }), 
+    fc.infiniteStream(fc.double({ min: 0, max: 1, maxExcluded: true }).noBias()),
     (numOnes, numZeros, rngStream) => {
       buildAndTest(BitVecBuilder, buildOptions, numOnes, numZeros, rngStream);
     },
   ),
-    { verbose: 2 });
+    { verbose: 0 });
 }
 
 /**

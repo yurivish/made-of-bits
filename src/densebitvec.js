@@ -237,6 +237,9 @@ export class DenseBitVec {
     // Scan any intervening select blocks to skip past multiple basic blocks at a time
     let selectSampleRate = 1 << this.select1SamplesPow2;
 
+    // todo: visualize the results of this algorithm to verify that this increases
+    //       the efficiency of the search. also, benchmark to verify that the additional
+    //       steps & memory accesses do not slow down the algorithm even with reduced search space.
     // Synthesize a fictitious initial select sample located squarely at the position
     // designated by the rank sample.
     let selectSample = { basicBlockIndex: rankBasicBlockIndex, precedingCount: count };
@@ -244,7 +247,8 @@ export class DenseBitVec {
     while (selectCount < this.numOnes && selectSample.basicBlockIndex < lastBasicBlockIndex) {
       selectSample = this.selectSample(selectCount, this.select1Samples, this.select1SamplesPow2);
       if (selectSample.basicBlockIndex >= lastBasicBlockIndex) break;
-      count = selectCount;
+      count = selectSample.precedingCount;
+      rankBasicBlockIndex = selectSample.basicBlockIndex;
       selectCount += selectSampleRate;
     }
 
@@ -414,7 +418,7 @@ export class DenseBitVec {
   get(index) {
     assert(index >= 0 && index <= this.universeSize);
     const value = this.rank1(index + 1) - this.rank1(index);
-    DEBUG && assert(value === 0 || value === 1);
+    DEBUG && assert(value === 0 || value === 1, `got ${value}, expected 1 or 0`);
     return value;
   }
-}
+};
