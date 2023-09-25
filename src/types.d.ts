@@ -25,6 +25,7 @@ interface BitVec {
   get(index: number): number;
 
   // todo: sizeInBits()
+  // todo: batchRank0/1 and batchSelect0/1
 
   readonly numOnes: number;
   readonly numZeros: number;

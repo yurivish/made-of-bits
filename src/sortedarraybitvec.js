@@ -14,9 +14,7 @@ export class SortedArrayBitVecBuilder {
    */
   constructor(universeSize) {
     this.universeSize = universeSize;
-    /**
-     * @type {number[]}
-     */
+    /** @type {number[]} */
     this.ones = [];
   }
 

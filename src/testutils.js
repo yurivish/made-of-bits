@@ -5,7 +5,6 @@ import { DenseBitVec, DenseBitVecBuilder } from './densebitvec';
 import { SortedArrayBitVec, SortedArrayBitVecBuilder } from './sortedarraybitvec.js';
 
 // todo:
-// - test with varying rankselect index parameters other than (5, 5)
 // - exercise the block structure, ie. set more than bits.BLOCK_BITS ones...
 // - create a BitVec interface and test the interface (port the test below to the interface)
 // - look into concurrent testsing (https://vitest.dev/guide/features.html)
