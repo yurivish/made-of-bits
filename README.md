@@ -1,4 +1,5 @@
 # To do
+[] figure out how to use coverage info (maybe try switching to node-tap before we do this)
 [] figure out if we can add docstrings to the interface and not need them on the individual types
 [] fix clicking to navigate to lines in terminus: https://forum.sublimetext.com/t/clicking-on-build-errors-doesnt-work-other-stuff/50728/4
 [] https://www.totaltypescript.com/tsconfig-cheat-sheet

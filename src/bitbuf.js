@@ -5,7 +5,6 @@ import './debug.js';
 /**
  * Fixed-size bit buffer. Designed to be written once and read many times.
  * Conceptually, this is a special case of the fixed-width IntBuf.
- * 
  */
 export class BitBuf {
   /**

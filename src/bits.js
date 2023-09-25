@@ -24,9 +24,10 @@ export const BLOCK_BITS_POW2 = Math.log2(BLOCK_BITS);
 // describe what this returns
 /**
  * Returns the largest index for which `pred` returns true, plus one.
+ * If the predicate does not return true for any index, returns 0.
  * The predicate function `pred` is required to be monotonic, ie. 
  * to return `true` for all inputs below some cutoff, and `false`
- * for all inputs above it.
+ * for all inputs above that cutoff.
  * @param {number} n
  * @param {(index: number) => boolean} pred
  */
