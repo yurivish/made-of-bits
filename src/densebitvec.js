@@ -231,7 +231,7 @@ export class DenseBitVec {
     }
 
     // Start with the prefix count from the rank block
-    let rankIndex = index >> this.rankSamplesPow2;
+    let rankIndex = index >>> this.rankSamplesPow2;
     let count = this.rankSamples[rankIndex];
     let rankBasicBlockIndex = rankIndex << this.basicBlocksPerRankSamplePow2;
     let lastBasicBlockIndex = index >>> bits.BLOCK_BITS_POW2;
