@@ -1,8 +1,8 @@
+import fc from 'fast-check';
 import { describe, expect, it, test } from 'vitest';
 import { BitBuf } from './bitbuf';
 import { DenseBitVec, DenseBitVecBuilder } from './densebitvec';
 import { SortedArrayBitVec, SortedArrayBitVecBuilder } from './sortedarraybitvec.js';
-//       - it is convenient for select(0) to behave like indexing
 
 // todo:
 // - test with varying rankselect index parameters other than (5, 5)
@@ -33,7 +33,7 @@ export function testBitVec(bv) {
 
   expect(() => bv.select0(-1)).toThrow();
   expect(() => bv.select0(bv.universeSize + 1)).toThrow();
-  
+
   expect(() => bv.select1(-1)).toThrow();
   expect(() => bv.select1(bv.universeSize + 1)).toThrow();
 
