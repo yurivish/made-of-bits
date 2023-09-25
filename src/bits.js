@@ -9,14 +9,32 @@ import { assert } from "./assert.js";
 // - should this be exported from bitbuf?
 
 // todo:
-// - store a BLOCK_ARR = Uint32Array here as well? Then BLOCK_BITS = 8 * BLOCK_ARR.BYTES_PER_ELEMENT
-// - a BLOCK_ARR of Uint8Array would make debugging easier...
+// - how can we support dynamic block sizes that are const once creatd? a lá comptime...
+// - a BLOCK_ARR of Uint8Array would make debugging and testing easier...
 // - we could make this a 'dynamic const', taking on parameters at run time somehow... maybe.
 // Or we could build "templates' by generating a different version of eg. the BitBuf
 // for each block size. (similar to zig templates)
+// - These are used for intbuf and bitbuf both, so it's unclear where they should live.
 export const BlockArray = Uint32Array;
-export const BLOCKSIZE = BlockArray.BYTES_PER_ELEMENT << 3; // todo: rename to BLOCK_SIZE? 
+export const BLOCKSIZE = BlockArray.BYTES_PER_ELEMENT << 3;
 export const BLOCKSIZE_POW2 = Math.log2(BLOCKSIZE);
+
+/**
+ * Bit index of the `n`-th bit within its block (mask off the high bits)
+ * @param {number} n
+ */
+export function blockBitOffset(n) {
+  return n & (BLOCKSIZE - 1);
+}
+
+/**
+ * Block index of the block containing the `n`-th bit
+ * @param {number} n
+ */
+export function blockIndex(n) {
+  return n >>> BLOCKSIZE_POW2;
+}
+
 // todo: test
 // todo: cite bitwise binary search article
 // todo: mention this is the simpler (slower) implementation
@@ -64,22 +82,6 @@ export function u32(x) {
   DEBUG && assert(Number.isInteger(x));
   DEBUG && assert(x >= 0 && x < 2 ** 32);
   return x >>> 0;
-}
-
-/**
- * Bit index of the `x`-th bit within its block (mask off the high bits)
- * @param {number} x
- */
-export function blockBitOffset(x) {
-  return x & (BLOCKSIZE - 1);
-}
-
-/**
- * Block index of the block containing the `x`-th bit
- * @param {number} x
- */
-export function blockIndex(x) {
-  return x >>> BLOCKSIZE_POW2;
 }
 
 /**
