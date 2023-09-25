@@ -17,8 +17,7 @@
 // - decide whether to use the Pow2 suffix or the _LOG2 suffix or something else, but be consistent with both
 // - consistently order Select0 and Select1 handling (probably 1 before 0 since rank1/select1 pull focus)
 // - Investigate using u32 to also type case to a nominal U32 type.
-// - consider calling them Rank1Samples
-// - for select1/select0, explore binary search over the suffix of rank samples:
+// - for select1/select0, explore binary search over the suffix of rank samples (once we have benchmarking set up):
 //   we want the rightmost rank index such that r1[rankIndex] <= n.
 // - exciting question: what could it look like to do batch-select on a sorted set of ns?
 //   - maybe transducers are involved

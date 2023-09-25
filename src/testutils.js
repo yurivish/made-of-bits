@@ -81,9 +81,9 @@ export function testBitVec(bv) {
 function fisherYatesSample(k, n, rng = Math.random) {
   if (n < 0) throw new Error("n must be nonnegative");
   if (k > n) throw new Error("k must not exceed n");
-  if (n === 0) return [];
+  if (n === 0) return new Uint32Array();
   const m = new Map();
-  const xs = new Float64Array(k);
+  const xs = new Uint32Array(k);
   for (let i = 0; i < k; i++) {
     // iterate through the conceptual array of n elements backwards
     const index = n - i - 1;
