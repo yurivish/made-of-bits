@@ -7,13 +7,8 @@ import { assert } from "./assert.js";
 // - test partitionPoint
 
 
-// todo:
-// - how can we support dynamic block sizes that are const once creatd? a lá comptime...
-// - a BLOCK_ARR of Uint8Array would make debugging and testing easier...
-// - we could make this a 'dynamic const', taking on parameters at run time somehow... maybe.
-// Or we could build "templates' by generating a different version of eg. the BitBuf
-// for each block size. (similar to zig templates)
-// - These are used for intbuf and bitbuf both, so it's unclear where they should live.
+// Used by the buffer types – IntBuf and BitBuf. We don't plan to change the block type at runtime,
+// so we just define the constants here, and they're imported where needed (eg. the DenseBitVec).
 export const BlockArray = Uint32Array;
 export const BlockSize = BlockArray.BYTES_PER_ELEMENT << 3;
 export const BlockSizePow2 = Math.log2(BlockSize);
