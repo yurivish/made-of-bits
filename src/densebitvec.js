@@ -264,6 +264,71 @@ export class DenseBitVec {
   }
 
   /**
+   * @param {number[]} indices
+   * @param {number[]} out
+   */
+  rank1Batch(indices, out) {
+    let i = 0;
+
+    // hanldle all indices[i] < 0
+    while (i < indices.length && indices[i] < 0) {
+      out[i] = 0;
+      i++;
+    }
+
+    if (i === indices.length) {
+      return out; 
+    }
+
+    let index = indices[i];
+
+    // Start with the prefix count from the rank block
+    let rankIndex = index >>> this.rank1SamplesPow2;
+    let count = this.rank1Samples[rankIndex];
+    let rankBasicBlockIndex = rankIndex << this.basicBlocksPerRank1SamplePow2;
+    
+    while (i < indices.length) {
+      index = indices[i];
+
+      if (index >= this.universeSize) {
+        break;
+      }
+
+      const lastBasicBlockIndex = index >>> bits.BlockSizePow2;
+      const nextRankIndex = index >>> this.rank1SamplesPow2;
+      if (nextRankIndex !== rankIndex) {
+        rankIndex = nextRankIndex;
+        console.log('accessing rank block');
+        count = this.rank1Samples[rankIndex];
+        rankBasicBlockIndex = rankIndex << this.basicBlocksPerRank1SamplePow2;
+      }
+     
+      // todo: sus; should not this loop continue from the last block?
+      
+      // Increment the count by the number of ones in every subsequent block
+      for (let j = rankBasicBlockIndex; j < lastBasicBlockIndex; j++) {
+        count += bits.popcount(this.data.blocks[j]);
+      }
+
+      // Count any 1-bits in the last block up to `index`
+      let bitOffset = bits.blockBitOffset(index);
+      let maskedBlock = this.data.blocks[lastBasicBlockIndex] & bits.oneMask(bitOffset);
+      count += bits.popcount(maskedBlock);
+      out[i] = count;
+
+      i++;
+    }
+
+    // handle all indices[i] >= this.universeSize
+    while (i < indices.length) {
+      out[i] = this.numOnes;
+      i++;
+    }
+
+    return out;
+  }
+
+  /**
    * @param {number} index
    */
   rank0(index) {
