@@ -58,6 +58,7 @@ describe('BitBuf', () => {
   }
 
   check(new BitBuf(3), 0);
+  check(new BitBuf(5), 2);
 
   check(new BitBuf(300), 0);
   check(new BitBuf(300), 100);
