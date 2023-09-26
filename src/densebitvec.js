@@ -395,12 +395,12 @@ export class DenseBitVec {
 
   /**
    * @param {number} n - we are looking for the n-th bit of the particular kind (1-bit or 0-bit)
-   * @param {number} sr - power of 2 of the sample rate
+   * @param {number} sampleRate - power of 2 of the sample rate
    * @param {Uint32Array} samples - array of samples
    */
-  selectSample(n, samples, sr) {
+  selectSample(n, samples, sampleRate) {
     DEBUG && assert(0 <= n && n <= this.universeSize);
-    const sampleIndex = n >>> sr;
+    const sampleIndex = n >>> sampleRate;
     DEBUG && assert(sampleIndex < samples.length);
     const sample = samples[sampleIndex];
 
@@ -422,14 +422,13 @@ export class DenseBitVec {
     // since the k-th sample represents the (k*sr + 1)-th bit and this tells us the (k*sr)-th
     // The second term allows us to identify how may 1-bits precede the basic block containing
     // the bit identified by this select sample.
-    const precedingCount = (sampleIndex << sr) - correction;
+    const precedingCount = (sampleIndex << sampleRate) - correction;
 
     return {
       basicBlockIndex: cumulativeBits >>> bits.BlockSizePow2,
       precedingCount
     };
   }
-
 
   /**
    * Get the value of the bit at the specified index (0 or 1).
