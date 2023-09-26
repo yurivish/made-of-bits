@@ -85,11 +85,10 @@ export class SortedArrayBitVec {
    * @param {number} index
    */
   rank1(index) {
+    // Count and return the number of ones less than the given index.
     return partitionPoint(this.universeSize, i => this.ones[i] < index);
   }
 
-  // todo: needs to check for multiplicity:
-  // debug_assert!(!self.has_multiplicity);
   /**
    * @param {number} index
    */
@@ -113,8 +112,6 @@ export class SortedArrayBitVec {
     return this.ones[n];
   }
 
-  // todo: needs to check for multiplicity:
-  // debug_assert!(!self.has_multiplicity);
   /**
    * @param {number} n
    */
@@ -148,8 +145,8 @@ export class SortedArrayBitVec {
 
   /**
    * Get the value of the bit at the specified index (0 or 1).
-   * todo: test
-   * note: v inefficient
+   * Note: This is rather inefficient since it does two rank calls,
+   * each of which takes O(log(n)) time.
    * 
    * @param {number} index
    */

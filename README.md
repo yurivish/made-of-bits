@@ -1,4 +1,5 @@
 # To do
+[] impl a "padded bitvec" with 0 or 1 padding and an internal offset bitvec obeying the interface.
 [] run tests on git commit before allowing a commit to go in? maybe too strict; maybe we should disallow merges to release or something unless tsc / testing both pass.
 [] figure out how to use coverage info (maybe try switching to node-tap before we do this)
 [] figure out if we can add docstrings to the interface and not need them on the individual types

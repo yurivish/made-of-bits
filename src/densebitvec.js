@@ -268,6 +268,9 @@ export class DenseBitVec {
    * @param {number[]} out
    */
   rank1Batch(indices, out) {
+    // I wonder if there isn't a way to do this that's more elegant
+    // and where you simply jump to the part where it will retrieve
+    // the next rank block exactly when necessary.
     let i = 0;
 
     // hanldle all indices[i] < 0
@@ -304,7 +307,7 @@ export class DenseBitVec {
       }
      
       // todo: sus; should not this loop continue from the last block?
-      
+
       // Increment the count by the number of ones in every subsequent block
       for (let j = rankBasicBlockIndex; j < lastBasicBlockIndex; j++) {
         count += bits.popcount(this.data.blocks[j]);
