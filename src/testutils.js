@@ -77,6 +77,7 @@ export function testBitVec(bv) {
 /**
  * @param {number} k
  * @param {number} n
+ * @param { () => number } rng
  */
 function fisherYatesSample(k, n, rng) {
   if (n < 0) throw new Error("n must be nonnegative");

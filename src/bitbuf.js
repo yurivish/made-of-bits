@@ -14,7 +14,7 @@ export class BitBuf {
   constructor(universeSize) {
     assertSafeInteger(universeSize);
     assert(universeSize >= 0);
-    const numBlocks = Math.ceil(universeSize / bits.BLOCKSIZE);
+    const numBlocks = Math.ceil(universeSize / bits.BlockSize);
 
     /** @readonly */
     this.blocks = new bits.BlockArray(numBlocks);
@@ -22,12 +22,12 @@ export class BitBuf {
     /** @readonly */
     this.universeSize = universeSize;
 
-    const lastBlockOccupancy = universeSize % bits.BLOCKSIZE;
+    const lastBlockOccupancy = universeSize % bits.BlockSize;
     
     /** 
      * Number of trailing zeros in the final block that do not belong to this buffer
      * @readonly */
-    this.numTrailingZeros = lastBlockOccupancy === 0 ? 0 : bits.BLOCKSIZE - lastBlockOccupancy;
+    this.numTrailingZeros = lastBlockOccupancy === 0 ? 0 : bits.BlockSize - lastBlockOccupancy;
   } 
 
   /** 

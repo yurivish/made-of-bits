@@ -15,15 +15,15 @@ import { assert } from "./assert.js";
 // for each block size. (similar to zig templates)
 // - These are used for intbuf and bitbuf both, so it's unclear where they should live.
 export const BlockArray = Uint32Array;
-export const BLOCKSIZE = BlockArray.BYTES_PER_ELEMENT << 3;
-export const BLOCKSIZE_POW2 = Math.log2(BLOCKSIZE);
+export const BlockSize = BlockArray.BYTES_PER_ELEMENT << 3;
+export const BlockSizePow2 = Math.log2(BlockSize);
 
 /**
  * Bit index of the `n`-th bit within its block (mask off the high bits)
  * @param {number} n
  */
 export function blockBitOffset(n) {
-  return n & (BLOCKSIZE - 1);
+  return n & (BlockSize - 1);
 }
 
 /**
@@ -31,7 +31,7 @@ export function blockBitOffset(n) {
  * @param {number} n
  */
 export function blockIndex(n) {
-  return n >>> BLOCKSIZE_POW2;
+  return n >>> BlockSizePow2;
 }
 
 // todo: test

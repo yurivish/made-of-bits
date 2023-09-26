@@ -75,8 +75,8 @@ export class DenseBitVec {
     // - assert there are less than 2^32 bits (since we do bitwise ops on bit indexes)
     assertSafeInteger(rank1SamplesPow2); 
     assertSafeInteger(selectSamplesPow2);
-    assert(rank1SamplesPow2 >= bits.BLOCKSIZE_POW2, 'sr must be a positive multiple of the block size');
-    assert(selectSamplesPow2 >= bits.BLOCKSIZE_POW2, 'ss must be a positive multiple of the block size');
+    assert(rank1SamplesPow2 >= bits.BlockSizePow2, 'sr must be a positive multiple of the block size');
+    assert(selectSamplesPow2 >= bits.BlockSizePow2, 'ss must be a positive multiple of the block size');
 
     const select1SampleRate = 1 << selectSamplesPow2; // Select1 sampling rate: sample every `ss1` 1-bits
     const select0SampleRate = 1 << selectSamplesPow2; // Select0 sampling rate: sample every `ss0` 0-bits
@@ -126,7 +126,7 @@ export class DenseBitVec {
     let zerosThreshold = 0; // take a select0 sample at the (zerosThreshold+1)th 1-bit
     let onesThreshold = 0; // take a select1 sample at the (onesThreshold+1)th 1-bit
 
-    const basicBlocksPerRank1Sample = rank1SampleRate >>> bits.BLOCKSIZE_POW2;
+    const basicBlocksPerRank1Sample = rank1SampleRate >>> bits.BlockSizePow2;
     const blocks = data.blocks;
 
     const maxBlockIndex = blocks.length - 1;
@@ -137,7 +137,7 @@ export class DenseBitVec {
       }
 
       const blockOnes = bits.popcount(block);
-      let blockZeros = bits.BLOCKSIZE - blockOnes;
+      let blockZeros = bits.BlockSize - blockOnes;
       // Don't count trailing zeros in the final data block towards the zero count
       if (blockIndex === maxBlockIndex) blockZeros -= data.numTrailingZeros;
       const cumulativeZeros = cumulativeBits - cumulativeOnes;
@@ -172,7 +172,7 @@ export class DenseBitVec {
       }
 
       cumulativeOnes += blockOnes;
-      cumulativeBits += bits.BLOCKSIZE;
+      cumulativeBits += bits.BlockSize;
     }
 
     /** @readonly */
@@ -197,7 +197,7 @@ export class DenseBitVec {
     this.select1Samples = new Uint32Array(select1Samples);
 
     /** @readonly */
-    this.basicBlocksPerRank1SamplePow2 = rank1SamplesPow2 - bits.BLOCKSIZE_POW2;
+    this.basicBlocksPerRank1SamplePow2 = rank1SamplesPow2 - bits.BlockSizePow2;
 
     /** @readonly */
     this.numOnes = cumulativeOnes;
@@ -234,7 +234,7 @@ export class DenseBitVec {
     let rankIndex = index >>> this.rank1SamplesPow2;
     let count = this.rank1Samples[rankIndex];
     let rankBasicBlockIndex = rankIndex << this.basicBlocksPerRank1SamplePow2;
-    let lastBasicBlockIndex = index >>> bits.BLOCKSIZE_POW2;
+    let lastBasicBlockIndex = index >>> bits.BlockSizePow2;
 
     // Scan any intervening select blocks to skip past multiple basic blocks at a time
     let selectSampleRate = 1 << this.select1SamplesPow2;
@@ -315,7 +315,7 @@ export class DenseBitVec {
     }; 
 
     // Compute and return its bit index
-    const blockBitIndex = basicBlockIndex << bits.BLOCKSIZE_POW2;
+    const blockBitIndex = basicBlockIndex << bits.BlockSizePow2;
     const bitOffset = bits.select1(basicBlock, n - count);
     return blockBitIndex + bitOffset;
   }
@@ -358,7 +358,7 @@ export class DenseBitVec {
     }; 
 
     // Compute and return its bit index
-    const blockBitIndex = basicBlockIndex << bits.BLOCKSIZE_POW2;
+    const blockBitIndex = basicBlockIndex << bits.BlockSizePow2;
     const bitOffset = bits.select1(~basicBlock, n - count);
     return blockBitIndex + bitOffset;
   }
@@ -386,7 +386,7 @@ export class DenseBitVec {
     const sample = samples[sampleIndex];
 
     // bitmask with the Raw::BLOCK_BITS_LOG2 bottom bits set.
-    const mask = bits.BLOCKSIZE - 1;
+    const mask = bits.BlockSize - 1;
     
     // The cumulative number of bits preceding the identified basic block, 
     // ie. the left-shifted block index of that block.
@@ -406,7 +406,7 @@ export class DenseBitVec {
     const precedingCount = (sampleIndex << sr) - correction;
 
     return {
-      basicBlockIndex: cumulativeBits >>> bits.BLOCKSIZE_POW2,
+      basicBlockIndex: cumulativeBits >>> bits.BlockSizePow2,
       precedingCount
     };
   }
