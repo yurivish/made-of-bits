@@ -19,10 +19,10 @@ describe('u32', () => {
   });
 
   it('does not allow numbers outside [0, 2^32)', () => {
-    expect(() => bits.u32(-12345)).toThrow();
-    expect(() => bits.u32(-1)).toThrow();
-    expect(() => bits.u32(2 ** 32)).toThrow();
-    expect(() => bits.u32(2 ** 32 + 12345)).toThrow();
+    DEBUG && expect(() => bits.u32(-12345)).toThrow();
+    DEBUG && expect(() => bits.u32(-1)).toThrow();
+    DEBUG && expect(() => bits.u32(2 ** 32)).toThrow();
+    DEBUG && expect(() => bits.u32(2 ** 32 + 12345)).toThrow();
   });
 });
 
@@ -55,8 +55,8 @@ describe('oneMask', () => {
   });
 
   it('throws if the number is out of range', () => {
-    expect(() => bits.oneMask(-1)).toThrow();
-    expect(() => bits.oneMask(33)).toThrow();
+    DEBUG && expect(() => bits.oneMask(-1)).toThrow();
+    DEBUG && expect(() => bits.oneMask(33)).toThrow();
   });
 });
 
@@ -82,7 +82,7 @@ describe('popcount', () => {
     expect(bits.popcount(0b11111111111111111111111111111010)).toBe(30);
     expect(bits.popcount(0b11111111111111111111111111111001)).toBe(30);
     expect(bits.popcount(0b11111111111111111111111111111000)).toBe(29);
-    expect(() => bits.popcount(2 ** 32)).toThrow();
+    DEBUG && expect(() => bits.popcount(2 ** 32)).toThrow();
   });
 });
 
@@ -107,7 +107,7 @@ describe('trailing0', () => {
     expect(bits.trailing0(0b11111111111111111111111111111110)).toBe(1);
     expect(bits.trailing0(0b11111111111111111111111111111111)).toBe(0);
     expect(bits.trailing0(0b11111111111111111111111111111000)).toBe(3);
-    expect(() => bits.trailing0(2 ** 32)).toThrow();
+    DEBUG && expect(() => bits.trailing0(2 ** 32)).toThrow();
   });
 });
 
@@ -129,6 +129,6 @@ describe('bitFloor', () => {
     expect(bits.bitFloor(2 ** 31 - 1)).toBe(2 ** 30);
     expect(bits.bitFloor(2 ** 31 - 0)).toBe(2 ** 31);
     expect(bits.bitFloor(2 ** 32 - 1)).toBe(2 ** 31);
-    expect(() => bits.bitFloor(2 ** 32)).toThrow();
+    DEBUG && expect(() => bits.bitFloor(2 ** 32)).toThrow();
   });
 });
