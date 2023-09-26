@@ -321,6 +321,17 @@ export class DenseBitVec {
   }
 
   /**
+   * TODO: implement this with a nested loop, where we stride efficiently over
+   * blocks of various kinds.
+   * 
+   * @param {number[]} n - sorted array of input 1-bit indices
+   * @param {number[]} out - sorted array of output bit indices
+   */
+  select1Batch(n, out) {
+    // todo
+  }
+
+  /**
    * This implementation is adapted from on maybeSelect1 above.
    * @param {number} n
    */
