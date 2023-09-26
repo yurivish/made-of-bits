@@ -132,3 +132,37 @@ describe('bitFloor', () => {
     DEBUG && expect(() => bits.bitFloor(2 ** 32)).toThrow();
   });
 });
+
+describe('partitionPoint', () => {
+  it('returns 0 if the predicate is always false', () => {
+    expect(bits.partitionPoint(0, () => false)).toBe(0);
+    expect(bits.partitionPoint(1, () => false)).toBe(0);
+    expect(bits.partitionPoint(10, () => false)).toBe(0);
+  });
+
+  it('returns n if the predicate is always true', () => {
+    expect(bits.partitionPoint(0, () => true)).toBe(0);
+    expect(bits.partitionPoint(1, () => true)).toBe(1);
+    expect(bits.partitionPoint(10, () => true)).toBe(10);
+  });
+
+
+  it('returns the split point for small numbers', () => {
+    const n = 10;
+    for (let split = 0; split < n; split++) {
+      expect(bits.partitionPoint(n, (i) => i < split)).toBe(split);
+    }
+  });
+
+  it('returns the split point for large numbers', () => {
+    const n = 2 ** 32 - 1;
+    expect(bits.partitionPoint(n, (i) => i < 2 ** 15)).toBe(2 ** 15);
+    expect(bits.partitionPoint(n, (i) => i < n)).toBe(n);
+  });
+  
+  if (DEBUG) {
+    it('errors for numbers exceeding 32 bits (in debug mode)', () => {
+      expect(() => bits.partitionPoint(2 ** 40, (i) => i < 2 ** 35)).toThrow();
+    });
+  }
+});

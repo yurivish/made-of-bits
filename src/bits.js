@@ -1,4 +1,4 @@
-import { assert } from "./assert.js";
+import { assert, assertSafeInteger } from "./assert.js";
 
 // Docs for JS bitwise operators:
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Expressions_and_Operators#bitwise_operators
@@ -44,16 +44,18 @@ export function blockIndex(n) {
  * @param {(index: number) => boolean} pred
  */
 export function partitionPoint(n, pred) {
+  DEBUG && assert(n < 2 ** 32);
+  DEBUG && assertSafeInteger(n);
   let b = 0;
   let bit = bitFloor(n);
   while (bit !== 0) {
-    const i = (b | bit) - 1;
+    const i = ((b | bit) - 1) >>> 0;
     if (i < n && pred(i)) {
       b |= bit;
     }
     bit >>>= 1;
   }
-  return b;
+  return b >>> 0;
 }
 
 // todo: test
