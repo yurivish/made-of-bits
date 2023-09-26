@@ -79,7 +79,6 @@ export function bitFloor(n) {
 export function u32(x) {
   DEBUG && assert(Number.isInteger(x));
   // Allow bit patterns representing negative numbers, eg. 1 << 31
-  console.log(x);
   DEBUG && assert(Math.abs(x) < 2 ** 32);
   return x >>> 0;
 }
