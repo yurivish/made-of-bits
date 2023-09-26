@@ -234,7 +234,7 @@ export class DenseBitVec {
     let rankIndex = index >>> this.rank1SamplesPow2;
     let count = this.rank1Samples[rankIndex];
     let rankBasicBlockIndex = rankIndex << this.basicBlocksPerRank1SamplePow2;
-    let lastBasicBlockIndex = index >>> bits.BlockSizePow2;
+    const lastBasicBlockIndex = index >>> bits.BlockSizePow2;
 
     // Scan any intervening select blocks to skip past multiple basic blocks at a time
     let selectSampleRate = 1 << this.select1SamplesPow2;
@@ -273,40 +273,19 @@ export class DenseBitVec {
     // the next rank block exactly when necessary.
     let i = 0;
 
-    // hanldle all indices[i] < 0
-    while (i < indices.length && indices[i] < 0) {
-      out[i] = 0;
-      i++;
-    }
-
-    if (i === indices.length) {
-      return out; 
-    }
-
+    while (i < indices.length && indices[i] < 0) out[i++] = 0;
+    if (i === indices.length) return out;
     let index = indices[i];
-
-    // Start with the prefix count from the rank block
-    let rankIndex = index >>> this.rank1SamplesPow2;
-    let count = this.rank1Samples[rankIndex];
-    let rankBasicBlockIndex = rankIndex << this.basicBlocksPerRank1SamplePow2;
-    
     while (i < indices.length) {
       index = indices[i];
 
-      if (index >= this.universeSize) {
-        break;
-      }
+      if (index >= this.universeSize) break;
 
+      // Start with the prefix count from the rank block
+      let rankIndex = index >>> this.rank1SamplesPow2;
+      let count = this.rank1Samples[rankIndex];
+      let rankBasicBlockIndex = rankIndex << this.basicBlocksPerRank1SamplePow2;
       const lastBasicBlockIndex = index >>> bits.BlockSizePow2;
-      const nextRankIndex = index >>> this.rank1SamplesPow2;
-      if (nextRankIndex !== rankIndex) {
-        rankIndex = nextRankIndex;
-        console.log('accessing rank block');
-        count = this.rank1Samples[rankIndex];
-        rankBasicBlockIndex = rankIndex << this.basicBlocksPerRank1SamplePow2;
-      }
-     
-      // todo: sus; should not this loop continue from the last block?
 
       // Increment the count by the number of ones in every subsequent block
       for (let j = rankBasicBlockIndex; j < lastBasicBlockIndex; j++) {
@@ -322,11 +301,7 @@ export class DenseBitVec {
       i++;
     }
 
-    // handle all indices[i] >= this.universeSize
-    while (i < indices.length) {
-      out[i] = this.numOnes;
-      i++;
-    }
+    while (i < indices.length) out[i++] = this.numOnes;
 
     return out;
   }
