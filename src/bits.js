@@ -3,10 +3,6 @@ import { assert, assertSafeInteger } from "./assert.js";
 // Docs for JS bitwise operators:
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Expressions_and_Operators#bitwise_operators
 
-// todo:
-// - test partitionPoint
-
-
 // Used by the buffer types – IntBuf and BitBuf. We don't plan to change the block type at runtime,
 // so we just define the constants here, and they're imported where needed (eg. the DenseBitVec).
 export const BlockArray = Uint32Array;
@@ -29,8 +25,6 @@ export function blockIndex(n) {
   return n >>> BlockSizePow2;
 }
 
-// todo: test
-// todo: cite bitwise binary search article
 // todo: mention this is the simpler (slower) implementation
 // https://orlp.net/blog/bitwise-binary-search/
 // describe what this returns
@@ -58,7 +52,6 @@ export function partitionPoint(n, pred) {
   return b >>> 0;
 }
 
-// todo: test
 /**
  * If x is not zero, calculates the largest integral power of two that is not greater than x.
  * If x is zero, returns zero.
@@ -95,7 +88,6 @@ export function oneMask(n) {
   return 0xffffffff >>> (32 - n);
 }
 
-// TODO: test
 /**
  * Returns the number of 1-bits in the binary representation of `x`.
  * Based on an implementation from Bit Twiddling Hacks:
@@ -110,7 +102,6 @@ export function popcount(n) {
   v = (v & 0x33333333) + ((v >> 2) & 0x33333333);
   return (((v + (v >> 4)) & 0xf0f0f0f) * 0x1010101) >>> 24;
 }
-// TODO: test
 /**
  * Returns the number of trailing 0-bits in the binary representation of `n`.
  * Like `Math.clz32` but for trailing rather than leading zeros.
@@ -139,8 +130,6 @@ export function trailing0(n) {
 //
 // Will return 32 if the requested bit does not exist, eg. select1(0b1100, 2) === 32
 //
-// todo: is there a way to do doctests with node-tap or vite?
-//
 // As an aside, if we're interested in potentially more efficient approaches,
 // there is a broadword select1 implementation in the `succinct` package by
 // Jesse A. Tov, provided under an MIT license: https://github.com/tov/succinct-rs
@@ -151,18 +140,11 @@ export function trailing0(n) {
 // - Use simd128 to accelerate u_le8, le8, and u_nz8
 // - Implement 32-bit, 16-bit, and 8-bit select1
 // - Write my own tests (the original file had tests, but I'd like to practice writing my own)
-// pub fn select1<T: BitBlock>(mut x: T, k: u32) -> u32 {
-//     // Unset the k-1 preceding 1-bits
-//     for _ in 0..k {
-//         x &= x - T::one();
-//     }
-//     x.trailing_zeros()
-// }
 
 /**
- * NOTE: Will return 32 if 
- * // todo: clarify that indices are 0-based and that it will return 32 if there is no kth 1-bit.
- * note that this is linear
+ * Return the index of the `k`-th 1-bit of `n`, from the LSB upwards.
+ * Returns 32 if there is no k-th 1-bit.
+ * Note that the time complexity is linear in k, but constant since k <= 31.
  * @param {number} n
  * @param {number} k
  */

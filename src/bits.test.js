@@ -166,3 +166,29 @@ describe('partitionPoint', () => {
     });
   }
 });
+
+describe('select1', () => {
+  it('returns 32 for a non-existent bit', () => {
+    expect(bits.select1(0, 0)).toBe(32);
+    expect(bits.select1(0b11111, 6)).toBe(32);
+    expect(bits.select1(0b11111, 7)).toBe(32);
+    expect(bits.select1(0b11111, 12345)).toBe(32);
+  });
+
+  it('returns the index of the k-th bit (from the LSB up)', () => {
+    const n = 0b0111000110010;
+    expect(bits.select1(n, 0)).toBe(1);
+    expect(bits.select1(n, 1)).toBe(4);
+    expect(bits.select1(n, 2)).toBe(5);
+    expect(bits.select1(n, 3)).toBe(9);
+    expect(bits.select1(n, 4)).toBe(10);
+    expect(bits.select1(n, 5)).toBe(11);
+    expect(bits.select1(n, 6)).toBe(32);
+  });
+
+  if (DEBUG) {
+    it('errors for numbers exceeding 32 bits (in debug mode)', () => {
+      expect(() => bits.select1(2 ** 32, 0)).toThrow();
+    });
+  }
+});
