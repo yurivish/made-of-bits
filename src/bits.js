@@ -63,7 +63,9 @@ export function partitionPoint(n, pred) {
  */
 export function bitFloor(n) {
   DEBUG && assert(n < 2 ** 32);
-  if (n === 0) return 0;
+  if (n === 0) {
+    return 0;
+  }
   const msb = 31 - Math.clz32(n);
   return (1 << msb) >>> 0;
 }
