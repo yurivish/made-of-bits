@@ -1,6 +1,3 @@
-// Dense bit vector with rank and select, based on the ideas described in
-// the paper "Fast, Small, Simple Rank/Select on Bitmaps".
-// We use an additional level of blocks provided by BitVec, but the ideas are the same.
 
 // todo:
 // - transfer more comments from the rust code
@@ -63,7 +60,18 @@ export class DenseBitVecBuilder {
   }
 }
 
-/** @implements BitVec */
+/** 
+ * Dense bit vector with rank and select, based on the ideas described in the paper
+ * 
+ *   - Title: Fast, Small, Simple Rank/Select on Bitmaps
+ *   - Authors: Gonzalo Navarro and Eliana Providel
+ *   - Link: https://users.dcc.uchile.cl/~gnavarro/ps/sea12.1.pdf
+ * 
+ * We implement their structure for plain bitmaps. We use 32-bit blocks rather than
+ * the 8-bit blocks as described in the paper, but otherwise the ideas are the same. 
+ *
+ * @implements BitVec 
+ * */
 export class DenseBitVec {
   /**
    * @param {BitBuf} data - bit buffer containing the underlying bit data

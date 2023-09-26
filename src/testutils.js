@@ -76,11 +76,11 @@ export function testBitVec(bv) {
  *   https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle
  * 
  * The idea comes from the paper
- *   Simple, Optimal Algorithms for Random Sampling Without Replacement
  *
+ *   - Title: Simple, Optimal Algorithms for Random Sampling Without Replacement
  *   - Link: https://arxiv.org/abs/2104.05091
  *   - Author Daniel Ting: https://stat.uw.edu/about-us/people/daniel-ting
- * 
+ *
  * Note: If we were in a typed language, instead of storing the `index` in `m`, we could
  * store `n - index` (or `n - index - 1` or something) to make the numbers smaller, potentially
  * being able to use a smaller integer type for the keys and values of `m` (in a typed language).
