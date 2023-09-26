@@ -1,5 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, it, test } from 'vitest';
+import { assertSafeInteger } from './assert.js';
 import { BitBuf } from './bitbuf';
 import { DenseBitVec, DenseBitVecBuilder } from './densebitvec';
 import { SortedArrayBitVec, SortedArrayBitVecBuilder } from './sortedarraybitvec.js';
@@ -66,16 +67,31 @@ export function testBitVec(bv) {
   }
 }
 
-// returns an unordered sample of k elements from the universe [0..n-1]
-// sparse fisher-yates sample
-// note: instead of storing the index in m, we could store n - index (or n - index - 1) or something to make the numbers smaller
-// and potentially be able to use a smaller integer type for the keys and values of m (if we use a typed language).
 /**
- * @param {number} k
- * @param {number} n
- * @param { () => number } rng
+ * Returns an unsorted sample of k elements without replacement, sampled
+ * from the universe [0, `n`).
+ * This algorithm is best when the sample is sparse, ie. `k` is much smaller than `n`.
+ * If `k` and `n` are of comparable size, then you may as well just do
+ * an in-place Fischer-Yates shuffle of the full range as an array:
+ *   https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle
+ * 
+ * The idea comes from the paper
+ *   Simple, Optimal Algorithms for Random Sampling Without Replacement
+ *
+ *   - Link: https://arxiv.org/abs/2104.05091
+ *   - Author Daniel Ting: https://stat.uw.edu/about-us/people/daniel-ting
+ * 
+ * Note: If we were in a typed language, instead of storing the `index` in `m`, we could
+ * store `n - index` (or `n - index - 1` or something) to make the numbers smaller, potentially
+ * being able to use a smaller integer type for the keys and values of `m` (in a typed language).
+ * 
+ * @param {number} k - number of elements to sample
+ * @param {number} n - universe size
+ * @param { () => number } rng - random number generator function
  */
-function fisherYatesSample(k, n, rng) {
+function sparseFisherYatesSample(k, n, rng) {
+  assertSafeInteger(k);
+  assertSafeInteger(n);
   if (n < 0) throw new Error("n must be nonnegative");
   if (k > n) throw new Error("k must not exceed n");
   if (n === 0) return new Uint32Array();
@@ -94,7 +110,7 @@ function fisherYatesSample(k, n, rng) {
 }
 
 /**
- * * @param {BitVecBuilderConstructable} BitVecBuilder
+ * @param {BitVecBuilderConstructable} BitVecBuilder
  * @param {object} buildOptions - options passed to the builder's `build` method
  */
 export function testBitVecProperties(BitVecBuilder, buildOptions = {}) {
@@ -108,7 +124,7 @@ export function testBitVecProperties(BitVecBuilder, buildOptions = {}) {
     function buildAndTest(numOnes, numZeros, rngStream) {
       const rng = () => rngStream.next().value;
       const universeSize = numOnes + numZeros;
-      const ones = fisherYatesSample(numOnes, universeSize, rng);
+      const ones = sparseFisherYatesSample(numOnes, universeSize, rng);
       const builder = new BitVecBuilder(universeSize);
       for (const one of ones) {
         builder.one(one);

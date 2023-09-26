@@ -30,6 +30,11 @@
 //   - 128 bit superblock: for each of (00, 01, 10, 11), store # of occurrences 
 // - if DEBUG, append all algorithm steps to a log, cleared upon execution of the next algorithm.
 //   - eg. an algorithm is select1 or rank1.
+// - allow specifying select0SamplesPow2 separately from select1SamplesPow2
+// - visualize the results of this algorithm to verify that this increases
+//   the efficiency of the search. also, benchmark to verify that the additional
+//   steps & memory accesses do not slow down the algorithm even with reduced search space.
+
 import { assert, assertNotUndefined, assertSafeInteger, log } from "./assert.js";
 import { BitBuf } from './bitbuf.js';
 import * as bits from './bits.js';
@@ -94,12 +99,10 @@ export class DenseBitVec {
     // the bit width of a basic block. For example, if `rank1SamplingRate` is 64 and the basic
     // block width is 32, then the rank samples will tell us about the 0th, 2nd, 4th, 6th, ... basic block.
     //
-    // A rank sample `r[i]` tells us about the basic block `data.blocks[i << (srPow2 - bits.BLOCK_BITS_LOG2)]`.
+    // A rank sample `rank1Samples[i]` tells us about the basic block `data.blocks[i << (srPow2 - bits.BLOCK_BITS_LOG2)]`.
     //
-    // If `r[i] has value `v`, this means that there are `v` 1-bits preceding that basic block.
+    // If `rank1Samples[i] has value `v`, this means that there are `v` 1-bits preceding that basic block.
     // Rank samples represent the number of 1-bits up to but not including a basic block.
-    // todo: we could preallocate a Uint32Array since we know the number of rank samples in advance
-    // todo: we could preallocate
     const rank1Samples = []; 
 
     // Each select1 sample identifies a particular basic block.
@@ -118,7 +121,7 @@ export class DenseBitVec {
     // Select1 samples represent the number of 1-bits up to but not including a basic block.
     // For example, if `select1SamplingRate`
     // is 64, then the select1 samples will tell us about the basic blocks containing the 1st
-    // A select sample `s1[i]` tells us about the basic block that contains the
+    // A select sample `select1Samples[i]` tells us about the basic block that contains the
     // `selectSamplingRate * i + 1`-th 1-bit.
 
     let cumulativeOnes = 0; // 1-bits preceding the current raw block
@@ -210,17 +213,6 @@ export class DenseBitVec {
   }
 
   /**
-   * @param {number} n
-   */
-  select1(n) {
-    const result = this.maybeSelect1(n);
-    if (result === null) {
-      throw new Error(`n ${n} is not a valid 1-bit index`);
-    }
-    return result;
-  }
-
-  /**
    * @param {number} index
    */
   rank1(index) {
@@ -239,9 +231,6 @@ export class DenseBitVec {
     // Scan any intervening select blocks to skip past multiple basic blocks at a time
     let selectSampleRate = 1 << this.select1SamplesPow2;
 
-    // todo: visualize the results of this algorithm to verify that this increases
-    //       the efficiency of the search. also, benchmark to verify that the additional
-    //       steps & memory accesses do not slow down the algorithm even with reduced search space.
     // Synthesize a fictitious initial select sample located squarely at the position
     // designated by the rank sample.
     let selectSample = { basicBlockIndex: rankBasicBlockIndex, precedingCount: count };
@@ -279,7 +268,18 @@ export class DenseBitVec {
   }
 
   /**
-   * @param {number} n - blah.
+   * @param {number} n
+   */
+  select1(n) {
+    const result = this.maybeSelect1(n);
+    if (result === null) {
+      throw new Error(`n ${n} is not a valid 1-bit index`);
+    }
+    return result;
+  }
+
+  /**
+   * @param {number} n
    */
   maybeSelect1(n) {
     if (n < 0 || n >= this.numOnes) return null;
@@ -322,7 +322,7 @@ export class DenseBitVec {
 
   /**
    * This implementation is adapted from on maybeSelect1 above.
-   * @param {number} n - blah.
+   * @param {number} n
    */
   maybeSelect0(n) {
     if (n < 0 || n >= this.numZeros) return null;
@@ -414,7 +414,6 @@ export class DenseBitVec {
 
   /**
    * Get the value of the bit at the specified index (0 or 1).
-   * todo: test
    * 
    * @param {number} index
    */
