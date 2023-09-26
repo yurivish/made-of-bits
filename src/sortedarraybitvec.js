@@ -33,8 +33,6 @@ export class SortedArrayBitVecBuilder {
   }
 }
 
-// todo: implement the proper bitvec interface (Eg. universe size = #ones + #zeros)
-// todo: decide how to handle multiplicity
 // todo: figure out the appropriate "multi-bit-vec" interface. what does rank/select mean?
 // select: select the k-th occurrence of a 0/1 bit.
 // rank: return the number of bits below "universe index" i

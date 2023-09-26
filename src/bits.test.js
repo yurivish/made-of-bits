@@ -18,12 +18,17 @@ describe('u32', () => {
     expect(bits.u32(2 ** 32 - 1)).toBe(2 ** 32 - 1);
   });
 
-  it('does not allow numbers outside [0, 2^32)', () => {
-    DEBUG && expect(() => bits.u32(-12345)).toThrow();
-    DEBUG && expect(() => bits.u32(-1)).toThrow();
-    DEBUG && expect(() => bits.u32(2 ** 32)).toThrow();
-    DEBUG && expect(() => bits.u32(2 ** 32 + 12345)).toThrow();
-  });
+  if (DEBUG) {
+    it('appropriately handle integers in (-2^32, 2^32) (in debug mode)', () => {
+      // These are allowed because their i32 bit pattern is a valid u32,
+      // ie. they can be "losslessly coerced" to a u32.
+      expect(() => bits.u32(-12345)).not.toThrow();
+      expect(() => bits.u32(-1)).not.toThrow();
+      // These are not allowed because they are unrepresentable as i32/u32.
+      expect(() => bits.u32(2 ** 32)).toThrow();
+      expect(() => bits.u32(2 ** 32 + 12345)).toThrow();
+    });
+  }
 });
 
 test('bitBlockOffset', () => {

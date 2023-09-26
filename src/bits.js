@@ -5,7 +5,7 @@ import { assert, assertSafeInteger } from "./assert.js";
 
 // Used by the buffer types – IntBuf and BitBuf. We don't plan to change the block type at runtime,
 // so we just define the constants here, and they're imported where needed (eg. the DenseBitVec).
-export const BasicBlockArray = Uint32Array;
+export const BasicBlockArray = Uint8Array;
 export const BasicBlockSize = 8 * BasicBlockArray.BYTES_PER_ELEMENT;
 export const BasicBlockSizePow2 = Math.log2(BasicBlockSize);
 
@@ -76,9 +76,11 @@ export function bitFloor(n) {
  * checks in debug mode.
  * @param {number} x
  */
-export function u32(x) { 
+export function u32(x) {
   DEBUG && assert(Number.isInteger(x));
-  DEBUG && assert(x >= 0 && x < 2 ** 32);
+  // Allow bit patterns representing negative numbers, eg. 1 << 31
+  console.log(x);
+  DEBUG && assert(Math.abs(x) < 2 ** 32);
   return x >>> 0;
 }
 

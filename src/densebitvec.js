@@ -31,6 +31,8 @@
 // - visualize the results of this algorithm to verify that this increases
 //   the efficiency of the search. also, benchmark to verify that the additional
 //   steps & memory accesses do not slow down the algorithm even with reduced search space.
+// - maybe just do hinted search, ie. pass the previous rank/etc...
+// - specifically for select, hinting a lower bound may be v useful
 
 import { assert, assertNotUndefined, assertSafeInteger, log } from "./assert.js";
 import { BitBuf } from './bitbuf.js';
@@ -264,14 +266,6 @@ export class DenseBitVec {
   }
 
   /**
-   * @param {number[]} indices
-   * @param {number[]} out - should this be a uint32 array?
-   */
-  rank1Batch(indices, out) {
-    // for now, assume all indices are within bounds. can loosen later.
-  }
-
-  /**
    * @param {number} index
    */
   rank0(index) {
@@ -337,17 +331,6 @@ export class DenseBitVec {
   }
 
   /**
-   * TODO: implement this with a nested loop, where we stride efficiently over
-   * blocks of various kinds.
-   * 
-   * @param {number[]} n - sorted array of input 1-bit indices
-   * @param {number[]} out - sorted array of output bit indices
-   */
-  select1Batch(n, out) {
-    // todo
-  }
-
-  /**
    * This implementation is adapted from on maybeSelect1 above.
    * @param {number} n
    */
@@ -379,7 +362,7 @@ export class DenseBitVec {
     assert(basicBlockIndex < this.data.blocks.length); // the index is in-bounds for the first iteration
     while (basicBlockIndex < this.data.blocks.length) {
       basicBlock = this.data.blocks[basicBlockIndex];
-      // the mask ensures that we only count 1-bits inside the basic block
+      // The mask ensures that we only count 1-bits inside the basic block
       // even when the basic block size is less than 32 bits.
       const nextCount = count + bits.popcount(~basicBlock & basicBlockMask);
       if (nextCount > n) break;
