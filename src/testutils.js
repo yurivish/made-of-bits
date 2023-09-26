@@ -5,14 +5,10 @@ import { DenseBitVec, DenseBitVecBuilder } from './densebitvec';
 import { SortedArrayBitVec, SortedArrayBitVecBuilder } from './sortedarraybitvec.js';
 
 // todo:
-// - exercise the block structure, ie. set more than bits.BLOCK_BITS ones...
-// - create a BitVec interface and test the interface (port the test below to the interface)
 // - look into concurrent testsing (https://vitest.dev/guide/features.html)
-
-// idea: flipped testing – flip the bits, and then test with rank/select 0/1 reversed.
-// insight: succinct data structures can have simple implementations used as a testing baseline.
-// also, w/ multiple implementations, can effectively test for agreement between bitvec impls.
-// (equivalent to checking that they all match the sorted array impl)
+// - idea: flipped testing – flip the bits, and then test with rank/select 0/1 reversed.
+// - insight: succinct data structures can have simple implementations used as a testing baseline,
+//   eg. we can check all bitvec impls against the sorted array impl.
 
 //
 
@@ -106,7 +102,7 @@ export function testBitVecProperties(BitVecBuilder, buildOptions = {}) {
   // and run them through basic consistency checks.
   fc.assert(fc.property(
     fc.integer({ min: 0, max: 1e3 }), 
-    // @ts-ignore because of strict mode & jsdoc interaction
+    // @ts-ignore because of strict mode & jsdoc interactions underlining the func args w/ squigglies
     fc.integer({ min: 0, max: 1e3 }), 
     fc.infiniteStream(fc.double({ min: 0, max: 1, maxExcluded: true }).noBias()),
     function buildAndTest(numOnes, numZeros, rngStream) {
@@ -128,8 +124,8 @@ export function testBitVecProperties(BitVecBuilder, buildOptions = {}) {
  * Does not perform very sophisticated checks, since our strategy
  * is to test the simple sorted array implementation for correctness,
  * then test other BitVecs with it as the ground truth baseline.
- * todo: decide if this is obsoleted by fast-check's property tests or not.
- * here we exhaustively test a specific sample of scenarios, so it is not quite the same.
+ * This is distinct from the property tests since here we exhaustively test a specific collection
+ * of examples scenarios, so it is not quite the same.
  * @param {BitVecBuilderConstructable} BitVecBuilder
  * @param {object} buildOptions - options passed to the builder's `build` method
  */
