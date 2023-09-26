@@ -31,7 +31,7 @@ describe('IntBuf', () => {
       { bitWidth: 0, values: [0, 0, 0] },
       { bitWidth: 1, values: [1, 0, 1, 0] },
       { bitWidth: 5, values: [1, 0, 1, 0] },
-      { bitWidth: 32, values: [10, 0, 31, 2 ** 32 - 1] },
+      { bitWidth: bits.BasicBlockSize, values: [10, 0, 31, 2 ** bits.BasicBlockSize - 1] },
     ];
 
     for (const { bitWidth, values } of tests) {

@@ -16,15 +16,16 @@ export class IntBuf {
     assertInteger(bitWidth);
     // The bit width cannot exceed 32 bits because JavaScript's bit operations 
     // will truncate to 32 bits before performing the operation, and we use bit ops
-    // to shift by the bit width. The bit width also cannot exceed 2 * bits.BLOCK_BITS,
-    // since then a single value would span more than two contiguous blocks and our 
-    // algorithms assume this cannot happen. But since BLOCK_BITS caps the bit width at
-    // 32 that condition is redundant.
+    // to shift by the bit width.
     assert(bitWidth <= 32);
+    // The bit width also cannot exceed bits.BlockSize, since then
+    // a single value could span more than two contiguous blocks and
+    // our algorithms assume this cannot happen. 
+    assert(bitWidth <= 2 * bits.BasicBlockSize);
     assertInteger(length);
 
     const lengthInBits = length * bitWidth;
-    const numBlocks = Math.ceil(lengthInBits / bits.BlockSize);
+    const numBlocks = Math.ceil(lengthInBits / bits.BasicBlockSize);
 
     /** @readonly */
     this.data = new Uint32Array(numBlocks);
@@ -63,11 +64,11 @@ export class IntBuf {
     }
     assert(this.writeCursor < this.lengthInBits, 'cannot push into a full IntBuf');
 
-    const index = bits.blockIndex(this.writeCursor);
-    const offset = bits.blockBitOffset(this.writeCursor);
+    const index = bits.basicBlockIndex(this.writeCursor);
+    const offset = bits.basicBlockBitOffset(this.writeCursor);
 
     // Number of bits available in the current block
-    const numAvailableBits = bits.BlockSize - offset;
+    const numAvailableBits = bits.BasicBlockSize - offset;
 
     DEBUG && assert(index < this.length);
     this.data[index] |= value << offset;
@@ -93,16 +94,17 @@ export class IntBuf {
     }
 
     const bitIndex = index * this.bitWidth;
-    const blockIndex = bits.blockIndex(bitIndex);
-    const offset = bits.blockBitOffset(bitIndex);
+    const blockIndex = bits.basicBlockIndex(bitIndex);
+    const offset = bits.basicBlockBitOffset(bitIndex);
 
     // Number of bits available in the current block
-    const numAvailableBits = bits.BlockSize - offset;
+    const numAvailableBits = bits.BasicBlockSize - offset;
 
     DEBUG && assert(blockIndex < this.length);
     let value = (this.data[blockIndex] & (this.lowBitMask << offset)) >>> offset;
 
     // If needed, extract the remaining bits from the bottom of the next block
+
     if (numAvailableBits < this.bitWidth) {
       const numRemainingBits = this.bitWidth - numAvailableBits;
       DEBUG && assert(blockIndex + 1 < this.length);

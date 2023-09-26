@@ -4,10 +4,10 @@ import './debug.js';
 
 describe('BLOCKSIZE', () => {
   it('is a power of two', () => {
-    expect(Number.isInteger(Math.log2(bits.BlockSize))).toBe(true);
+    expect(Number.isInteger(Math.log2(bits.BasicBlockSize))).toBe(true);
   });
   it('is correctly reflected in BLOCKSIZE', () => {
-    expect(bits.BlockSizePow2).toBe((Math.log2(bits.BlockSize)));
+    expect(bits.BasicBlockSizePow2).toBe((Math.log2(bits.BasicBlockSize)));
   });
 });
 
@@ -29,19 +29,19 @@ describe('u32', () => {
 test('bitBlockOffset', () => {
   it('returns the correct value for small inputs', () => {
     // zero should always be zero, regardless of block size
-    expect(bits.blockBitOffset(0)).toBe(0);
+    expect(bits.basicBlockBitOffset(0)).toBe(0);
     // values less than a block size should be returned as they are.
-    expect(bits.blockBitOffset(bits.BlockSize >> 1)).toBe(bits.BlockSize >> 1);
+    expect(bits.basicBlockBitOffset(bits.BasicBlockSize >> 1)).toBe(bits.BasicBlockSize >> 1);
     // multiples of the block size should be zero
-    expect(bits.blockBitOffset(bits.BlockSize)).toBe(0);
+    expect(bits.basicBlockBitOffset(bits.BasicBlockSize)).toBe(0);
   });
 
   it('handles being offset by a large number of blocks', () => {
     const blockIndices = [100, 12345];
-    const bitOffsets = [bits.BlockSize >> 1, bits.BlockSize >> 2];
+    const bitOffsets = [bits.BasicBlockSize >> 1, bits.BasicBlockSize >> 2];
     for (const blockIndex of blockIndices) {
       for (const bitOffset of bitOffsets) {
-        expect(bits.blockBitOffset(blockIndex * bits.BlockSize + bitOffset)).toBe(bitOffset);
+        expect(bits.basicBlockBitOffset(blockIndex * bits.BasicBlockSize + bitOffset)).toBe(bitOffset);
       }
     }
   });

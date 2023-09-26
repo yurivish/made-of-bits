@@ -5,24 +5,24 @@ import { assert, assertSafeInteger } from "./assert.js";
 
 // Used by the buffer types – IntBuf and BitBuf. We don't plan to change the block type at runtime,
 // so we just define the constants here, and they're imported where needed (eg. the DenseBitVec).
-export const BlockArray = Uint32Array;
-export const BlockSize = BlockArray.BYTES_PER_ELEMENT << 3;
-export const BlockSizePow2 = Math.log2(BlockSize);
+export const BasicBlockArray = Uint32Array;
+export const BasicBlockSize = 8 * BasicBlockArray.BYTES_PER_ELEMENT;
+export const BasicBlockSizePow2 = Math.log2(BasicBlockSize);
 
 /**
  * Bit index of the `n`-th bit within its block (mask off the high bits)
  * @param {number} n
  */
-export function blockBitOffset(n) {
-  return n & (BlockSize - 1);
-}
+export function basicBlockBitOffset(n) {
+  return n & (BasicBlockSize - 1);
+} 
 
 /**
  * Block index of the block containing the `n`-th bit
  * @param {number} n
  */
-export function blockIndex(n) {
-  return n >>> BlockSizePow2;
+export function basicBlockIndex(n) {
+  return n >>> BasicBlockSizePow2;
 }
 
 /**

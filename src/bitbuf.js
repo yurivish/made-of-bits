@@ -14,20 +14,20 @@ export class BitBuf {
   constructor(universeSize) {
     assertSafeInteger(universeSize);
     assert(universeSize >= 0);
-    const numBlocks = Math.ceil(universeSize / bits.BlockSize);
+    const numBlocks = Math.ceil(universeSize / bits.BasicBlockSize);
 
     /** @readonly */
-    this.blocks = new bits.BlockArray(numBlocks);
+    this.blocks = new bits.BasicBlockArray(numBlocks);
 
     /** @readonly */
     this.universeSize = universeSize;
 
-    const lastBlockOccupancy = universeSize % bits.BlockSize;
+    const lastBlockOccupancy = universeSize % bits.BasicBlockSize;
     
     /** 
      * Number of trailing zeros in the final block that do not belong to this buffer
      * @readonly */
-    this.numTrailingZeros = lastBlockOccupancy === 0 ? 0 : bits.BlockSize - lastBlockOccupancy;
+    this.numTrailingZeros = lastBlockOccupancy === 0 ? 0 : bits.BasicBlockSize - lastBlockOccupancy;
   } 
 
   /** 
@@ -36,8 +36,8 @@ export class BitBuf {
   get(bitIndex) {
     DEBUG && assertSafeInteger(bitIndex);
     DEBUG && assert(bitIndex >= 0 && bitIndex < this.universeSize);
-    const block = this.blocks[bits.blockIndex(bitIndex)];
-    const bit = block & (1 << bits.blockBitOffset(bitIndex));
+    const block = this.blocks[bits.basicBlockIndex(bitIndex)];
+    const bit = block & (1 << bits.basicBlockBitOffset(bitIndex));
     return bit === 0 ? 0 : 1;
   }
 
@@ -48,9 +48,9 @@ export class BitBuf {
   setOne(bitIndex) {
     DEBUG && assertSafeInteger(bitIndex);
     DEBUG && assert(bitIndex >= 0 && bitIndex < this.universeSize);
-    const blockIndex = bits.blockIndex(bitIndex);
+    const blockIndex = bits.basicBlockIndex(bitIndex);
     const block = this.blocks[blockIndex];
-    const bit = 1 << bits.blockBitOffset(bitIndex);
+    const bit = 1 << bits.basicBlockBitOffset(bitIndex);
     this.blocks[blockIndex] = block | bit;
   }
 
@@ -61,9 +61,9 @@ export class BitBuf {
   setZero(bitIndex) {
     DEBUG && assertSafeInteger(bitIndex);
     DEBUG && assert(bitIndex >= 0 && bitIndex < this.universeSize);
-    const blockIndex = bits.blockIndex(bitIndex);
+    const blockIndex = bits.basicBlockIndex(bitIndex);
     const block = this.blocks[blockIndex];
-    const bit = 1 << bits.blockBitOffset(bitIndex);
+    const bit = 1 << bits.basicBlockBitOffset(bitIndex);
     this.blocks[blockIndex] = block & ~bit;
   }
 }

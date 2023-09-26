@@ -3,6 +3,7 @@ import { describe, expect, it, test } from 'vitest';
 import { assertSafeInteger } from './assert.js';
 import { BitBuf } from './bitbuf';
 import { DenseBitVec, DenseBitVecBuilder } from './densebitvec';
+import { bits } from './index.js';
 import { SortedArrayBitVec, SortedArrayBitVecBuilder } from './sortedarraybitvec.js';
 
 // todo:
@@ -116,15 +117,17 @@ function sparseFisherYatesSample(k, n, rng) {
 export function testBitVecProperties(BitVecBuilder, buildOptions = {}) {
 
   /// todo: delete!
-  if (true) return;
+  // if (true) return;
 
 
   // Generate random bitvectors with an arbitrary density of uniformly-distributed ones
   // and run them through basic consistency checks.
   fc.assert(fc.property(
-    fc.integer({ min: 0, max: 1e3 }), 
+    // note: the `max` here might want to be raised for more exhaustive tests,
+    // but the downside is that test begin to take longer
+    fc.integer({ min: 0, max: 5e2 }), 
     // @ts-ignore because of strict mode & jsdoc interactions underlining the func args w/ squigglies
-    fc.integer({ min: 0, max: 1e3 }), 
+    fc.integer({ min: 0, max: 5e2 }), 
     fc.infiniteStream(fc.double({ min: 0, max: 1, maxExcluded: true }).noBias()),
     function buildAndTest(numOnes, numZeros, rngStream) {
       const rng = () => rngStream.next().value;
@@ -154,9 +157,9 @@ export function testBitVecType(BitVecBuilder, buildOptions = {}) {
   testBitVecProperties(BitVecBuilder, buildOptions);
 
   // large enough to span many blocks
-  const universeSize = 1021;
+  const universeSize = bits.BasicBlockSize * 10;
   // save time by only testing with every `step`-th bit set
-  const step = 234;
+  const step = (bits.BasicBlockSize >>> 1) - 1;
   test('one bit set', () => {
     for (let bitIndex = 0; bitIndex < universeSize; bitIndex += step) {
       const builder = new BitVecBuilder(universeSize);
