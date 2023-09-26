@@ -25,15 +25,18 @@ export function blockIndex(n) {
   return n >>> BlockSizePow2;
 }
 
-// todo: mention this is the simpler (slower) implementation
-// https://orlp.net/blog/bitwise-binary-search/
-// describe what this returns
 /**
  * Returns the largest index for which `pred` returns true, plus one.
  * If the predicate does not return true for any index, returns 0.
  * The predicate function `pred` is required to be monotonic, ie. 
  * to return `true` for all inputs below some cutoff, and `false`
  * for all inputs above that cutoff.
+ * 
+ * This implementation is adapted from https://orlp.net/blog/bitwise-binary-search/
+ * 
+ * The post contains optimized versions of this function, but here I opted for the
+ * clearest implementation, at a slight performance cost.
+ * 
  * @param {number} n
  * @param {(index: number) => boolean} pred
  */
