@@ -24,6 +24,14 @@ export function assertSafeInteger(x) {
   assert(Number.isSafeInteger(x), 'expected safe integer');
 };
 
+
+/**
+ * @param {number} x
+ */
+export function assertNonNegative(x) {
+  assert(x >= 0, 'expected non-negative number');
+};
+
 /**
  * @param {number} x
  */

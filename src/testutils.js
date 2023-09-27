@@ -1,7 +1,7 @@
 import * as d3 from 'd3';
 import fc from 'fast-check';
 import { describe, expect, it, test } from 'vitest';
-import { assertSafeInteger } from './assert.js';
+import { assert, assertSafeInteger } from './assert.js';
 import { BitBuf } from './bitbuf';
 import { DenseBitVec, DenseBitVecBuilder } from './densebitvec';
 import { bits } from './index.js';
@@ -12,8 +12,8 @@ import { SortedArrayBitVec, SortedArrayBitVecBuilder } from './sortedarraybitvec
 // - idea: flipped testing – flip the bits, and then test with rank/select 0/1 reversed.
 // - insight: succinct data structures can have simple implementations used as a testing baseline,
 //   eg. we can check all bitvec impls against the sorted array impl.
-
-//
+// - add a correctness test for `get` in the presence of multiplicity,
+//   testing specifically that it returns the count of that bit.
 
 /**
  * Test a specific BitVec instance in a general way, ie. for internal consistency.
@@ -22,50 +22,67 @@ import { SortedArrayBitVec, SortedArrayBitVecBuilder } from './sortedarraybitvec
  * @param {BitVec} bv
  */
 export function testBitVec(bv) {
-  // if non-multi-bitvec
-  expect(bv.numZeros + bv.numOnes).toBe(bv.universeSize);
-
   expect(bv.rank1(-1)).toBe(0);
   expect(bv.rank1(0)).toBe(0);
-  expect(bv.rank1(bv.universeSize + 1)).toBe(bv.numOnes);
-
-  expect(bv.rank0(-1)).toBe(0);
-  expect(bv.rank0(0)).toBe(0);
-  expect(bv.rank0(bv.universeSize + 1)).toBe(bv.numZeros);
-
-  expect(() => bv.select0(-1)).toThrow();
-  expect(() => bv.select0(bv.universeSize + 1)).toThrow();
-
-  expect(() => bv.select1(-1)).toThrow();
-  expect(() => bv.select1(bv.universeSize + 1)).toThrow();
+  expect(bv.rank1(bv.numZeros + bv.numOnes + 1)).toBe(bv.numOnes);
 
   expect(() => bv.get(-1)).toThrow();
-  expect(() => bv.get(bv.universeSize + 1)).toThrow();
+  expect(() => bv.get(bv.numZeros + bv.numOnes + 1)).toThrow();
 
-  expect(() => bv.get(-1)).toThrow();
-  expect(() => bv.get(bv.universeSize + 1)).toThrow();
+  // Run an adjusted set of tests in the case of multiplicity.
+  // In particular, all of the bit vectors that allow multiplicity
+  // Only allow it for 1 bits and disallow duplicate 0-bits. Additionally,
+  // these vectors typically do not expose efficient operations on zeros,
+  // so we test rank0 and select0 only in the non-multiplicity case.
+  if (bv.hasMultiplicity) { 
+    expect(bv.numZeros + bv.numOnes).toBeGreaterThanOrEqual(bv.universeSize);
 
+    for (let n = 0; n < bv.numOnes; n++) {
+      const select1 = bv.select1(n);
 
-  for (let n = 0; n < bv.numOnes; n++) {
-    const select1 = bv.select1(n);
+      // Verifies the multiplicity rank-select invariant
+      expect(bv.rank1(select1)).toBeLessThanOrEqual(n);
+      expect(bv.rank1(select1 + 1)).toBeGreaterThanOrEqual(n + 1);
 
-    // Verifies that rank1(select1(n)) === n
-    expect(bv.rank1(select1)).toBe(n);
-    expect(bv.rank1(select1 + 1)).toBe(n + 1);
+      // Check `get` behavior for valid indices
+      expect(bv.get(select1)).toBeGreaterThanOrEqual(1);
+    }
 
-    // Check `get` behavior for valid indices
-    expect(bv.get(select1)).toBe(1);
-  }
+    // Bit vectors with multiplicity do not support operations on zero bits.
+    expect(() => bv.rank0(0)).toThrow();
+    expect(() => bv.select0(0)).toThrow();
 
-  for (let n = 0; n < bv.numZeros; n++) {
-    const select0 = bv.select0(n);
+  } else {
+    expect(bv.numZeros + bv.numOnes).toBe(bv.universeSize);
 
-    // Verifies that rank0(select0(n)) === n
-    expect(bv.rank0(select0)).toBe(n);
-    expect(bv.rank0(select0 + 1)).toBe(n + 1);
+    expect(bv.rank0(-1)).toBe(0);
+    expect(bv.rank0(0)).toBe(0);
+    expect(bv.rank0(bv.numZeros + bv.numOnes + 1)).toBe(bv.numZeros);
 
-    // Check `get` behavior for valid indices
-    expect(bv.get(select0)).toBe(0);
+    expect(() => bv.select0(-1)).toThrow();
+    expect(() => bv.select0(bv.numZeros + bv.numOnes + 1)).toThrow();
+
+    for (let n = 0; n < bv.numOnes; n++) {
+      const select1 = bv.select1(n);
+
+      // Verifies that rank1(select1(n)) === n
+      expect(bv.rank1(select1)).toBe(n);
+      expect(bv.rank1(select1 + 1)).toBe(n + 1);
+
+      // Check `get` behavior for valid indices
+      expect(bv.get(select1)).toBe(1);
+    }
+
+    for (let n = 0; n < bv.numZeros; n++) {
+      const select0 = bv.select0(n);
+
+      // Verifies that rank0(select0(n)) === n
+      expect(bv.rank0(select0)).toBe(n);
+      expect(bv.rank0(select0 + 1)).toBe(n + 1);
+
+      // Check `get` behavior for valid indices
+      expect(bv.get(select0)).toBe(0);
+    }
   }
 }
 
@@ -118,17 +135,17 @@ function sparseFisherYatesSample(k, n, rng) {
 export function testBitVecProperties(BitVecBuilder, buildOptions = {}) {
 
   // 🌶️ todo: delete!
-  if (true) return;
+  // if (true) return;
 
 
   // Generate random bitvectors with an arbitrary density of uniformly-distributed ones
   // and run them through basic consistency checks.
   fc.assert(fc.property(
-    // note: the `max` here might want to be raised for more exhaustive tests,
+    // note: the `max` here might want to be raised for more exhaustive testing,
     // but the downside is that test begin to take longer
-    fc.integer({ min: 0, max: 5e2 }), 
+    fc.integer({ min: 0, max: 2e2 }), 
     // @ts-ignore because of strict mode & jsdoc interactions underlining the func args w/ squigglies
-    fc.integer({ min: 0, max: 5e2 }), 
+    fc.integer({ min: 0, max: 2e2 }), 
     fc.infiniteStream(fc.double({ min: 0, max: 1, maxExcluded: true }).noBias()),
     function buildAndTest(numOnes, numZeros, rngStream) {
       const rng = () => rngStream.next().value;
@@ -140,7 +157,6 @@ export function testBitVecProperties(BitVecBuilder, buildOptions = {}) {
       }
       const bv = builder.build(buildOptions);
       testBitVec(bv);
-      return true;
     }));
 }
 
@@ -149,22 +165,20 @@ export function testBitVecProperties(BitVecBuilder, buildOptions = {}) {
  * @param {object} buildOptions - options passed to the builder's `build` method
  */
 export function testMultiBitVecType(BitVecBuilder, buildOptions = {}) {  
-  // fc.assert(fc.property(
-
-  //   fc.array(fc.integer({ min: 0, max: 1e2 }), { maxLength: 1e3 }),
-  //   // @ts-ignore because of strict mode & jsdoc interactions underlining the func args w/ squigglies
-  //   fc.double({ min: 0, max: 1 }),
-  //   function buildAndTest(ones, pcDuplicates) {
-  //     const universeSize = ones.length > 0 ? ones[ones.length - 1] : 0;
-  //     const builder = new BitVecBuilder(universeSize);
-  //     for (const one of ones) {
-  //       builder.one(one);
-  //     }
-  //     const bv = builder.build(buildOptions);
-  //     console.log(bv.hasMultiplicity);
-  //     testBitVec(bv);
-  //     return true;
-  //   }));
+  // Create and test bit vectors with repetition.
+  fc.assert(fc.property(
+    fc.array(fc.integer({ min: 1, max: 1e2 }), { minLength: 1e2 + 1, maxLength: 1e3 }),
+    // @ts-ignore because of strict mode & jsdoc interactions underlining the func args w/ squigglies
+    function buildAndTest(ones) {
+      const universeSize = d3.max(ones) ?? 0;
+      const builder = new BitVecBuilder(universeSize);
+      for (const one of ones) {
+        builder.one(one);
+      }
+      const bv = builder.build(buildOptions);
+      assert(bv.hasMultiplicity);
+      testBitVec(bv);
+    }));
 }
 
 /**

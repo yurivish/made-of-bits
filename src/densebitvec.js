@@ -33,6 +33,8 @@
 //   steps & memory accesses do not slow down the algorithm even with reduced search space.
 // - maybe just do hinted search, ie. pass the previous rank/etc...
 // - specifically for select, hinting a lower bound may be v useful
+// - consider abstracting this away from a specific backing store
+// - consider abstracting this away from non-multiplicity (allow multiplicity)
 
 import { assert, assertNotUndefined, assertSafeInteger, log } from "./assert.js";
 import { BitBuf } from './bitbuf.js';
@@ -220,6 +222,15 @@ export class DenseBitVec {
 
     /** @readonly */
     this.universeSize = data.universeSize;
+
+    /** @readonly */
+    this.hasMultiplicity = false;
+
+    /** @readonly */
+    this.numUniqueOnes = this.numOnes;
+    
+    /** @readonly */
+    this.numUniqueZeros = this.numZeros;
   }
 
   /**

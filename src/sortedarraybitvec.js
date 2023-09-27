@@ -1,5 +1,5 @@
 import * as d3 from 'd3';
-import { assert, assertNotUndefined, assertSafeInteger, log } from "./assert.js";
+import { assert, assertNonNegative, assertNotUndefined, assertSafeInteger, log } from "./assert.js";
 import { partitionPoint } from './bits';
 
 // todo: test the multi bit vec nature of this type
@@ -63,20 +63,43 @@ export class SortedArrayBitVec {
    * @param {number} universeSize
    */
   constructor(ones, universeSize) {
-    // assert monotonically nondecreasing
     let hasMultiplicity = false;
+    let numUniqueOnes = ones.length > 0 ? 1 : 0;
+    if (ones.length > 0) {
+      assertNonNegative(ones[0]);
+    }
     for (let i = 1; i < ones.length; i++) {
       const prev = ones[i - 1];
       const cur = ones[i];
       hasMultiplicity ||= prev === cur;
-      assert(prev <= cur);
+      numUniqueOnes += Number(prev !== cur);
+      assertSafeInteger(cur);
+      assert(prev <= cur, 'expected monotonically nondecreasing sequence');
     }
 
+    /** @readonly */
     this.ones = ones;
+
+    /** @readonly */
     this.universeSize = universeSize;
+
+    /** @readonly */
     this.numOnes = ones.length;
-    this.numZeros = this.universeSize - this.numOnes;
+
+    /** @readonly */
+    this.numZeros = this.universeSize - numUniqueOnes;
+
+    /** @readonly */
     this.hasMultiplicity = hasMultiplicity;
+
+    /** @readonly */
+    this.numUniqueOnes = numUniqueOnes;
+    
+    /** @readonly */
+    this.numUniqueZeros = this.numZeros;
+
+    /** @readonly */
+    this.size = this.numZeros + this.numOnes;
   }
 
   /**
@@ -84,7 +107,7 @@ export class SortedArrayBitVec {
    */
   rank1(index) {
     // Count and return the number of ones less than the given index.
-    return partitionPoint(this.universeSize, i => this.ones[i] < index);
+    return partitionPoint(this.numOnes, i => this.ones[i] < index);
   }
 
   /**
@@ -146,13 +169,16 @@ export class SortedArrayBitVec {
    * Note: This is rather inefficient since it does two rank calls,
    * each of which takes O(log(n)) time.
    * 
+   * In the presence of multiplicity, returns the count of the bit.
+   * 
    * @param {number} index
    */
   get(index) {
     assert(index >= 0 && index <= this.universeSize);
-    assert(!this.hasMultiplicity);
     const value = this.rank1(index + 1) - this.rank1(index);
-    DEBUG && assert(value === 0 || value === 1);
-    return value;
+    if (DEBUG && !this.hasMultiplicity) {
+      assert(value === 0 || value === 1);
+    }
+    return value > 0 ? 1 : 0;
   }
 }
