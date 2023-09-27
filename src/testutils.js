@@ -12,8 +12,7 @@ import { SortedArrayBitVec, SortedArrayBitVecBuilder } from './sortedarraybitvec
 // - idea: flipped testing – flip the bits, and then test with rank/select 0/1 reversed.
 // - insight: succinct data structures can have simple implementations used as a testing baseline,
 //   eg. we can check all bitvec impls against the sorted array impl.
-// - add a correctness test for `get` in the presence of multiplicity,
-//   testing specifically that it returns the count of that bit.
+// - debug-assert that all inputs to rank/select methods are integers across all bitvec types
 
 /**
  * Test a specific BitVec instance in a general way, ie. for internal consistency.
@@ -37,22 +36,28 @@ export function testBitVec(bv) {
   if (bv.hasMultiplicity) { 
     expect(bv.numZeros + bv.numOnes).toBeGreaterThanOrEqual(bv.universeSize);
 
+    // Check `get` behavior for all valid inputs
+    const ones = Array.from({ length: bv.numOnes }, (_, n) => bv.select1(n));
+    const g = d3.rollup(ones, g => g.length, d => d);
+    for (let i = 0; i < bv.universeSize; i++) {
+      const count = g.get(i) ?? 0;
+      expect(bv.get(i)).toEqual(count);
+    }
+
     for (let n = 0; n < bv.numOnes; n++) {
       const select1 = bv.select1(n);
 
       // Verifies the multiplicity rank-select invariant
       expect(bv.rank1(select1)).toBeLessThanOrEqual(n);
-      expect(bv.rank1(select1 + 1)).toBeGreaterThanOrEqual(n + 1);
-
-      // Check `get` behavior for valid indices
-      expect(bv.get(select1)).toBeGreaterThanOrEqual(1);
+      expect(bv.rank1(select1 + 1)).toBeGreaterThanOrEqual(n + 1);    
     }
 
     // Bit vectors with multiplicity do not support operations on zero bits.
     expect(() => bv.rank0(0)).toThrow();
     expect(() => bv.select0(0)).toThrow();
-
   } else {
+    // we're in the non-multiplicity case
+    
     expect(bv.numZeros + bv.numOnes).toBe(bv.universeSize);
 
     expect(bv.rank0(-1)).toBe(0);

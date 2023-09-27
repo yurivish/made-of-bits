@@ -179,6 +179,6 @@ export class SortedArrayBitVec {
     if (DEBUG && !this.hasMultiplicity) {
       assert(value === 0 || value === 1);
     }
-    return value > 0 ? 1 : 0;
+    return value; 
   }
 }
