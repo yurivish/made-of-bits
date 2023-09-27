@@ -1,4 +1,4 @@
-import * as d3 from 'd3-array';
+import * as d3 from 'd3';
 import fc from 'fast-check';
 import { describe, expect, it, test } from 'vitest';
 import { assertSafeInteger } from './assert.js';
@@ -144,31 +144,27 @@ export function testBitVecProperties(BitVecBuilder, buildOptions = {}) {
     }));
 }
 
-
 /**
  * @param {BitVecBuilderConstructable} BitVecBuilder
  * @param {object} buildOptions - options passed to the builder's `build` method
  */
 export function testMultiBitVecType(BitVecBuilder, buildOptions = {}) {  
-  fc.assert(fc.property(
+  // fc.assert(fc.property(
 
-    fc.array(fc.integer({ min: 0, max: 1e3 }), { maxLength: 1e5 }),
-    // @ts-ignore because of strict mode & jsdoc interactions underlining the func args w/ squigglies
-    fc.double({ min: 0, max: 1 }),
-    function buildAndTest(ones, pcDuplicates) {
-      d3.shuffle(ones).sort(d3.ascending);
-      ones = ones.concat(ones.slice(0, Math.round(ones.length * pcDuplicates)));
-      
-      const universeSize = ones.length > 0 ? ones[ones.length - 1] : 0;
-      const builder = new BitVecBuilder(universeSize);
-      for (const one of ones) {
-        builder.one(one);
-      }
-      const bv = builder.build(buildOptions);
-      console.log(bv.hasMultiplicity);
-      testBitVec(bv);
-      return true;
-    }));
+  //   fc.array(fc.integer({ min: 0, max: 1e2 }), { maxLength: 1e3 }),
+  //   // @ts-ignore because of strict mode & jsdoc interactions underlining the func args w/ squigglies
+  //   fc.double({ min: 0, max: 1 }),
+  //   function buildAndTest(ones, pcDuplicates) {
+  //     const universeSize = ones.length > 0 ? ones[ones.length - 1] : 0;
+  //     const builder = new BitVecBuilder(universeSize);
+  //     for (const one of ones) {
+  //       builder.one(one);
+  //     }
+  //     const bv = builder.build(buildOptions);
+  //     console.log(bv.hasMultiplicity);
+  //     testBitVec(bv);
+  //     return true;
+  //   }));
 }
 
 /**

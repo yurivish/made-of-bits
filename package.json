@@ -16,8 +16,8 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@types/d3-array": "^3.0.8",
-    "d3-array": "^3.2.4",
+    "@types/d3": "^7.4.1",
+    "d3": "^7.8.5",
     "esbuild": "^0.19.3",
     "fast-check": "^3.13.0",
     "typescript": "^5.2.2",
