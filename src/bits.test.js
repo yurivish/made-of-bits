@@ -22,8 +22,8 @@ describe('u32', () => {
     it('appropriately handle integers in (-2^32, 2^32) (in debug mode)', () => {
       // These are allowed because their i32 bit pattern is a valid u32,
       // ie. they can be "losslessly coerced" to a u32.
-      expect(() => bits.u32(-12345)).not.toThrow();
-      expect(() => bits.u32(-1)).not.toThrow();
+      expect(bits.u32(-12345)).toBe(4294954951);
+      expect(bits.u32(-1)).toBe(4294967295);
       // These are not allowed because they are unrepresentable as i32/u32.
       expect(() => bits.u32(2 ** 32)).toThrow();
       expect(() => bits.u32(2 ** 32 + 12345)).toThrow();

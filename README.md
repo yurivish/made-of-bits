@@ -1,3 +1,9 @@
+# MultiSet
+[] call it set or vec?
+[] how to allow/disallow rank0?
+[] should we distinguish multisets at the type level? feels weird
+
+
 # To do
 [] impl a "padded bitvec" with 0 or 1 padding and an internal offset bitvec obeying the interface.
 [] run tests on git commit before allowing a commit to go in? maybe too strict; maybe we should disallow merges to release or something unless tsc / testing both pass.
