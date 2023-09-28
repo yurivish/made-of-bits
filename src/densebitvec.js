@@ -245,6 +245,11 @@ export class DenseBitVec {
       return this.numOnes;
     }
 
+    // todo: investigate whether we can provide a 'hint' argument of a start block
+    // that would allow us to skip the rank/select memory fetches if querying
+    // another 1-bit close by. As another way to do a 'batch' operation for a
+    // sorted input.
+
     // Start with the prefix count from the rank block
     let rankIndex = index >>> this.rank1SamplesPow2;
     let count = this.rank1Samples[rankIndex];
