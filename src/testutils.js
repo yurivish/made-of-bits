@@ -28,6 +28,14 @@ export function testBitVec(bv) {
   expect(() => bv.get(-1)).toThrow();
   expect(() => bv.get(bv.numZeros + bv.numOnes + 1)).toThrow();
 
+  // Check `get` behavior for all valid inputs
+  const ones = Array.from({ length: bv.numOnes }, (_, n) => bv.select1(n));
+  const g = d3.rollup(ones, g => g.length, d => d);
+  for (let i = 0; i < bv.universeSize; i++) {
+    const count = g.get(i) ?? 0;
+    expect(bv.get(i)).toEqual(count);
+  }
+
   // Run an adjusted set of tests in the case of multiplicity.
   // In particular, all of the bit vectors that allow multiplicity
   // Only allow it for 1 bits and disallow duplicate 0-bits. Additionally,
@@ -35,14 +43,6 @@ export function testBitVec(bv) {
   // so we test rank0 and select0 only in the non-multiplicity case.
   if (bv.hasMultiplicity) { 
     expect(bv.numZeros + bv.numOnes).toBeGreaterThanOrEqual(bv.universeSize);
-
-    // Check `get` behavior for all valid inputs
-    const ones = Array.from({ length: bv.numOnes }, (_, n) => bv.select1(n));
-    const g = d3.rollup(ones, g => g.length, d => d);
-    for (let i = 0; i < bv.universeSize; i++) {
-      const count = g.get(i) ?? 0;
-      expect(bv.get(i)).toEqual(count);
-    }
 
     for (let n = 0; n < bv.numOnes; n++) {
       const select1 = bv.select1(n);
@@ -57,7 +57,7 @@ export function testBitVec(bv) {
     expect(() => bv.select0(0)).toThrow();
   } else {
     // we're in the non-multiplicity case
-    
+
     expect(bv.numZeros + bv.numOnes).toBe(bv.universeSize);
 
     expect(bv.rank0(-1)).toBe(0);

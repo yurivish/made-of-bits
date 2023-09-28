@@ -35,6 +35,10 @@
 // - specifically for select, hinting a lower bound may be v useful
 // - consider abstracting this away from a specific backing store
 // - consider abstracting this away from non-multiplicity (allow multiplicity)
+// - Maybe rank and select both take hints, and the hint takes the form of a proceeding count and basic block index
+// - Unless the index of the rank block is ahead of the hinted block
+// - If a hint is present, it is used instead of the rank or select block
+// - Document the meaning of the bit vec interface elements. Incl select0. Can we have a selectUnique, for bit vecs that store occupancy and count data separately?
 
 import { assert, assertNotUndefined, assertSafeInteger, log } from "./assert.js";
 import { BitBuf } from './bitbuf.js';
@@ -56,6 +60,9 @@ export class DenseBitVecBuilder {
    */
   one(index, count = 1) {
     assert(count === 1);
+    // we do this to catch errors, and to be compatible with the multiset case
+    // where setting a bit multiple times should add to its multiplicity.
+    assert(this.buf.get(index) === 0, 'each bit should be set only once');
     this.buf.setOne(index);
   }
 
@@ -98,11 +105,6 @@ export class DenseBitVec {
     const select1SampleRate = 1 << selectSamplesPow2; // Sample every `select1SampleRate` 1-bits
     const select0SampleRate = 1 << selectSamplesPow2; // Sample every `select0SampleRate` 0-bits
     const rank1SampleRate = 1 << rank1SamplesPow2; // Sample every `rank1SampleRate` bits
-
-    // Distinguish
-    // - Which bit (position) the sample represents
-    // - What it stores about that (or related) bit positions
-    // - Bits vs blocks; we want our stuff block-aligned
 
     // Each rank sample identifies a particular basic block. 
     // 
@@ -443,7 +445,7 @@ export class DenseBitVec {
   get(index) {
     assert(index >= 0 && index <= this.universeSize);
     const value = this.rank1(index + 1) - this.rank1(index);
-    DEBUG && assert(value === 0 || value === 1, `got ${value}, expected 1 or 0`);
+    DEBUG && assert(value === 0 || value === 1, `expected 0 or 1, got ${value}`);
     return value;
   }
 };
