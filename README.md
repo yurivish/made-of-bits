@@ -1,3 +1,25 @@
+# Notes
+
+- Allow greater than two to the 32 bits in sparse vector by controlling the split point 
+- Approximate number of bites because that’s what’s gonna always fit in the 32 bit integer 
+- We can do the dynamic regeneration trick for avoiding mega Orphic default functions like in that blog post. I read today about optimizing versus rust. 
+- We have a encoded vector builder that lets you put in runs, but also supports, adding runs of length one to be of the same interface as before,  allowing us to reuse tests 
+- Try always less-than comparators: https://matklad.github.io/2023/09/13/comparative-analysis.html
+- "Tour of bit vecs" post.
+   - Table of properties: multiplicity: no, low (explicitly stored repetitions), yes (eg occupancy plus count)
+- Is there another way to look at the run length bit vector as if it’s encoding account for not only each one bit but also each zero bit? Maybe we can use this to more elegantly express the wavelet matrix weighted quintile thing
+   - Basically the aligned rank0 and rank1 except you just supply the index - these become the normal rank ops. Visually it’s like instead of stacking the ones and zeros horizontally we’re stacking them vertically.
+   - Maybe there’s another structure for this case where you want multiplicity of both ones and zeros. Store and occupancy, bit vector and store two sparse count vectors with the cumulative number of zeros and cumulative number of ones, each corresponding to the respective entry in the occupancy vector. The case, with only counts for one becomes a special case, where you admit, the zero vector, and assume a count of one for each zero. Maybe we store one minus the count, though this might get weird with select.
+   - Or maybe it’s more of a plus one minus one kind of bit vec. by default the zeros all have count zero so it acts like a regular bit vector. But if you give them a count, then they become negative weight.
+- Can we do all intercepting with proxy from the outside? Intercept get index and append to log.
+- add a ZeroPadded: BitVec wrapper for padding on both sides
+- If we have Huffman encoding, then we can store trees in a WM with each symbol only taking as long as its depth or frequency or something, rather than each symbol having the same number of bits as the maximum depth of the tree.
+- Idea: work on package docs next
+
+[] We should test all zeros vector, and all ones bit vector   
+[] try imlementing a simple fm index: https://drops.dagstuhl.de/opus/volltexte/2023/18357/
+
+
 # MultiSet
 [] call it set or vec?
 [] how to allow/disallow rank0?
