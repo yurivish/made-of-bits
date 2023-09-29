@@ -49,6 +49,8 @@
 
 # Testing
 
+[] test with a vastly larger universeSize than the number of bits
+[] 
 [x] test bits.popcount
 [x] test bits.trailing0
 [x] test `DenseBitVec`

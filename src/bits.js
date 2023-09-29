@@ -5,7 +5,7 @@ import { assert, assertSafeInteger } from "./assert.js";
 
 // Used by the buffer types – IntBuf and BitBuf. We don't plan to change the block type at runtime,
 // so we just define the constants here, and they're imported where needed (eg. the DenseBitVec).
-export const BasicBlockArray = Uint8Array;
+export const BasicBlockArray = Uint32Array;
 export const BasicBlockSize = 8 * BasicBlockArray.BYTES_PER_ELEMENT;
 export const BasicBlockSizePow2 = Math.log2(BasicBlockSize);
 
