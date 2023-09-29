@@ -67,7 +67,7 @@ export class SparseBitVec {
       numUniqueOnes += Number(prev !== cur);
       assertNonNegative(cur);
       assertSafeInteger(cur);
-      assert(cur < universeSize);
+      assert(cur < universeSize, () => `expected 1-bit (${cur}) to not exceed the universeSize (${universeSize})`);
       assert(prev <= cur, 'expected monotonically nondecreasing sequence');
       prev = cur;
 
@@ -192,7 +192,7 @@ export class SparseBitVec {
    */
   trySelect1(n) {
     // How many zeros are there before the nth one bit?
-    const pos = this.high.select1(n);
+    const pos = this.high.trySelect1(n);
     if (pos === null) {
       return null;
     }
@@ -214,7 +214,7 @@ export class SparseBitVec {
    */
   select1(n) {
     const result = this.trySelect1(n);
-    if (result === null) throw new Error(`n = ${n} is not a valid 1-bit index`);
+    if (result === null) throw new Error(`n (${n}) is not a valid 1-bit index`);
     return result;
   }
 
@@ -223,7 +223,7 @@ export class SparseBitVec {
    */
   select0(n) {
     const result = this.trySelect0(n);
-    if (result === null) throw new Error(`n = x${n} is not a valid 0-bit index`);
+    if (result === null) throw new Error(`n (${n}) is not a valid 0-bit index`);
     return result;
   };
 

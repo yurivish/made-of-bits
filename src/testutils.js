@@ -180,7 +180,7 @@ export function testMultiBitVecType(BitVecBuilder, buildOptions = {}) {
     fc.array(fc.integer({ min: 1, max: 1e2 }), { minLength: 1e2 + 1, maxLength: 1e3 }),
     // @ts-ignore because of strict mode & jsdoc interactions underlining the func args w/ squigglies
     function buildAndTest(ones) {
-      const universeSize = d3.max(ones) ?? 0;
+      const universeSize = (d3.max(ones) ?? -1) + 1;
       const builder = new BitVecBuilder(universeSize);
       for (const one of ones) {
         builder.one(one);

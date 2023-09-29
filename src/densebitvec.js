@@ -303,7 +303,7 @@ export class DenseBitVec {
   select1(n) {
     const result = this.trySelect1(n);
     if (result === null) {
-      throw new Error(`n ${n} is not a valid 1-bit index`);
+      throw new Error(`n (${n}) is not a valid 1-bit index`);
     }
     return result;
   }
@@ -402,7 +402,7 @@ export class DenseBitVec {
   select0(n) {
     const result = this.trySelect0(n);
     if (result === null) {
-      throw new Error('n is not a valid 0-bit index');
+      throw new Error(`n (${n}) is not a valid 0-bit index`);
     }
     return result;
   };

@@ -22,7 +22,7 @@ export function assert(condition, message) {
   const prefix = 'assertion error';
   if (condition !== true) {
     const text = typeof message === "function" ? message() : message;
-    throw new Error(message === undefined ? prefix : `${prefix}: ${message}`);
+    throw new Error(text === undefined ? prefix : `${prefix}: ${text}`);
   }
 };
 
