@@ -126,7 +126,7 @@ export class SortedArrayBitVec {
   /**
    * @param {number} n
    */
-  maybeSelect1(n) {
+  trySelect1(n) {
     if (n < 0 || n >= this.numOnes) {
       return null;
     }
@@ -136,7 +136,7 @@ export class SortedArrayBitVec {
   /**
    * @param {number} n
    */
-  maybeSelect0(n) {
+  trySelect0(n) {
     assert(!this.hasMultiplicity, 'cannot take select0 in the presence of multiplicity (repeated elements)');
     if (n < 0 || n >= this.numZeros) {
       return null;
@@ -150,7 +150,7 @@ export class SortedArrayBitVec {
    * @param {number} n
    */
   select1(n) {
-    const result = this.maybeSelect1(n);
+    const result = this.trySelect1(n);
     if (result === null) throw new Error(`n ${n} is not a valid 1-bit index`);
     return result;
   }
@@ -159,7 +159,7 @@ export class SortedArrayBitVec {
    * @param {number} n
    */
   select0(n) {
-    const result = this.maybeSelect0(n);
+    const result = this.trySelect0(n);
     if (result === null) throw new Error('n is not a valid 0-bit index');
     return result;
   };

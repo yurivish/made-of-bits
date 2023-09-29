@@ -5,10 +5,9 @@
 
 # Design
 
-- Try a variable width font for the zoomable bit vector :)
-- Make a bit vec doc tech note. Audience: me
-- Try scrivener. Import transcripts and audio notes
-
+[] Try a variable width font for the zoomable bit vector :)
+[] Make a bit vec doc tech note. Audience: me
+[] Try scrivener. Import transcripts and audio notes
 
 # To do
 [] Hist constructor: accept {m,r,n} or {a,b,n} or even any two of a b c with m and r as aliases
@@ -19,13 +18,12 @@
 [] figure out if we can add docstrings to the interface and not need them on the individual types
 [] fix clicking to navigate to lines in terminus: https://forum.sublimetext.com/t/clicking-on-build-errors-doesnt-work-other-stuff/50728/4
 [] https://www.totaltypescript.com/tsconfig-cheat-sheet
-[] dense bitvec: use the s0 index if there is no s1 index? at least add a note/todo for it in the code.
+[x] dense bitvec: use the s0 index if there is no s1 index? at least add a note/todo for it in the code. [note added]
 [] work on quadvector (r00, r01, r11; and it is nice that there is a cap on the total number of select samples) and a quad wavelet matrix on top (supporting a limited set of ops).
    - this will potentially have a 1-bit layer on the top
 [] look through package.json and understand the meaning & purpose of every field. Some were just copied from https://vitejs.dev/guide/build.html#library-mode...
-[] For performance, investigate using bid operations to cast intermediate results to unsigned integers because this might enable jit optimizations.
-[] play around with an `Opaque<x>` style nominal type thing but just using type coersion: `x as SelectSample` where `SelectSample` has no methods, and is not also a number. Then cast back when we know, inside the function that accepts `SelectSample`s.
-[] remove types.d.js?
+[] For performance, investigate using bit operations to cast intermediate results to unsigned integers because this might enable jit optimizations.
+[x] play around with an `Opaque<x>` style nominal type thing but just using type coersion: `x as SelectSample` where `SelectSample` has no methods, and is not also a number. Then cast back when we know, inside the function that accepts `SelectSample`s.
 
 # Documentation
 [] Change all comments that say "returns ..." to use @returns doc syntax
@@ -40,18 +38,20 @@
 [] lots of strict modes
 [] figure out how to jump from an error in the JS console in Chrome all the way to the file in my code editor. [google search to start](https://www.google.com/search?q=chrome+dev+tools+open+local+code+source+)
 [x] code on left, tests on right, auto re-running on save and showing the relevant test file. (thanks, vitest)
-[] try using a terminal inside subline so I can do the above with 2 tabs (trying [Terminus](https://github.com/randy3k/Terminus))
+[x] try using a terminal inside subline so I can do the above with 2 tabs (trying [Terminus](https://github.com/randy3k/Terminus))
 [] try copilot
 [] see if I can also pin the output of tests while doing my development with esbuild
 [] see if i can prevent terminus panel from closing with esc when it is open
    - related: https://github.com/randy3k/Terminus/issues/58
 
+# Wavelet matrix
+[] Wm: one loop that goes up to 32 with bit operations, and then another one that does the rest with math operations up to 53
 
 # Testing
 
-[] test bits.popcount
-[] test bits.trailing0
-[] test `DenseBitVec`
+[x] test bits.popcount
+[x] test bits.trailing0
+[x] test `DenseBitVec`
 
 [] Investigate whether there is a way to force parentheses for ambiguous arithmetic expressions.
 

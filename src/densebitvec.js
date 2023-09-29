@@ -236,6 +236,8 @@ export class DenseBitVec {
   }
 
   /**
+   * 
+   * Note: This will use select1 samples (but not select0 samples) to skip basic blocks if possible.
    * @param {number} index
    */
   rank1(index) {
@@ -299,7 +301,7 @@ export class DenseBitVec {
    * @param {number} n
    */
   select1(n) {
-    const result = this.maybeSelect1(n);
+    const result = this.trySelect1(n);
     if (result === null) {
       throw new Error(`n ${n} is not a valid 1-bit index`);
     }
@@ -309,7 +311,7 @@ export class DenseBitVec {
   /**
    * @param {number} n
    */
-  maybeSelect1(n) {
+  trySelect1(n) {
     if (n < 0 || n >= this.numOnes) return null;
 
     // Grab the basic block and count information from the select sample
@@ -349,10 +351,10 @@ export class DenseBitVec {
   }
 
   /**
-   * This implementation is adapted from on maybeSelect1 above.
+   * This implementation is adapted from on trySelect1 above.
    * @param {number} n
    */
-  maybeSelect0(n) {
+  trySelect0(n) {
     if (n < 0 || n >= this.numZeros) return null;
 
     // Grab the basic block and count information from the select sample
@@ -398,7 +400,7 @@ export class DenseBitVec {
    * @param {number} n
    */
   select0(n) {
-    const result = this.maybeSelect0(n);
+    const result = this.trySelect0(n);
     if (result === null) {
       throw new Error('n is not a valid 0-bit index');
     }
