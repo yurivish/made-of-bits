@@ -6,6 +6,7 @@ import { DenseBitVec, DenseBitVecBuilder } from './densebitvec.js';
 import { IntBuf } from './intbuf.js';
 import { ascending } from './sort.js';
 
+// todo: decide how to choose the optimal split point (& document it)
 /**
  * @implements {BitVecBuilder}
  */
@@ -36,6 +37,7 @@ export class SparseBitVecBuilder {
 }
 
 /**
+ * Sparse bitvector using Elias-Fano encoding. Supports multiplicity.
  * @implements {BitVec}
  */
 export class SparseBitVec {

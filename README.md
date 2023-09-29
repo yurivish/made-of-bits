@@ -2,7 +2,7 @@
 
 - Allow greater than two to the 32 bits in sparse vector by controlling the split point 
 - Approximate number of bites because that’s what’s gonna always fit in the 32 bit integer 
-- We can do the dynamic regeneration trick for avoiding mega Orphic default functions like in that blog post. I read today about optimizing versus rust. 
+- We can do the dynamic regeneration trick for avoiding megamorphic default functions like in that blog post. I read today about optimizing versus rust. 
 - We have a encoded vector builder that lets you put in runs, but also supports, adding runs of length one to be of the same interface as before,  allowing us to reuse tests 
 - Try always less-than comparators: https://matklad.github.io/2023/09/13/comparative-analysis.html
 - "Tour of bit vecs" post.

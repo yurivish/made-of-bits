@@ -3,7 +3,7 @@ interface BitVecBuilderConstructable {
 }
 
 interface BitVecBuilder {
-  one(index: number, count?: number): void;
+  one(index: number, count: number): void;
   build(options: object): BitVec;
 }
 
@@ -28,14 +28,14 @@ interface BitVec {
 
   get(index: number): number;
 
-  // todo: sizeInBits()
+  // todo: approxSizeInBytes() // ignoring fixed-width fields
   // todo: batchRank0/1 and batchSelect0/1
 
   readonly numOnes: number;
   readonly numZeros: number;
 
   // todo: this comment was pasted in from Rust; adapt/modify/remove it.
-  // num_ones() + num_zeros()
+  // num_ones() + num_zeros() in the non-multiplicity case
   // Note: Since `len` returns a value of type `Ones`,
   // the maximum length of a BitVec is 2^n-1 and the
   // maximum index is 2^n-2, with n = Ones::BITS.

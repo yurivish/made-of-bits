@@ -36,7 +36,7 @@ export function basicBlockIndex(n) {
  * 
  * This implementation is adapted from https://orlp.net/blog/bitwise-binary-search/
  * 
- * The post contains optimized versions of this function, but here I opted for the
+ * That post contains optimized versions of this function, but here I opted for the
  * clearest implementation, at a slight performance cost.
  * 
  * @param {number} n
