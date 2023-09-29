@@ -1,24 +1,56 @@
 import { assert } from './assert.js';
+import * as defaults from './defaults';
+import { trySelect0 } from './defaults.js';
+import { bits } from './index.js';
+import { ascending } from './sort.js';
 import { SparseBitVec } from './sparsebitvec.js';
-
-// pad out the vector to the desired universe size if needed
-const diff = this.universeSize - (this.numOnes + this.numZeros);
-assert(diff >= 0);
-if (diff > 0) {
-  this.run(diff, 0);
-}
-
 
 /**
  * @implements {BitVecBuilder}
  */
-
-// note: does not implement BitVecBuilder since it is based on a run() method!
-export class RLERunBitVectorBuilder {
+export class RLEBitVecBuilder {
 
   /**
    * @param {number} universeSize
    */
+  constructor(universeSize) {
+    this.universeSize = universeSize;
+    /** @type {number[]} */
+    this.ones = [];
+  }
+
+  /**
+   * @param {number} index
+   */
+  one(index, count = 1) {
+    for (let i = 0; i < count; i++) {
+      this.ones.push(index);
+    }
+  }
+  
+  build(options = {}) {
+    this.ones.sort(ascending);
+    const builder = new RLERunBuilder();
+
+    let prev = -1;
+    for (const cur of this.ones) {
+      assert(prev < cur);
+      const numZeros = prev - cur;
+      builder.run(numZeros, 1);
+      prev = cur;
+    }
+
+    // pad out with zeros if needed
+    const numZeros = this.universeSize - prev;
+    builder.run(numZeros, 0);
+
+    return builder.build(options);
+  }
+}
+
+// note: does not implement BitVecBuilder since it is based on a run() method!
+// todo: figure out how to handle this
+export class RLERunBuilder {
   constructor() {
     /** @type number[] */
     this.z = [];
@@ -61,11 +93,11 @@ export class RLERunBitVectorBuilder {
   }
 
   build(options = {}) {
-
+    // todo: assert there are no options?
     // todo: i don't think these +1 are needed; test this theory.
     const z = new SparseBitVec(this.z, this.numZeros + 1);
     const zo = new SparseBitVec(this.zo, this.numZeros + this.numOnes + 1);
-    return new RLEBitVec(z, zo, length, this.numZeros, this.numOnes);
+    return new RLEBitVec(z, zo, this.length, this.numZeros, this.numOnes);
   }
 
   lastBlockContainsOnlyZeros() {
@@ -103,9 +135,6 @@ export class RLEBitVec {
     this.zo = zo;
 
     /** @readonly */
-    this.length = length;
-
-    /** @readonly */
     this.numZeros = numZeros;
 
     /** @readonly */
@@ -125,14 +154,112 @@ export class RLEBitVec {
 
   }
 
+
   /**
- * @param {number[]} ones
- * @param {number} universeSize
- */
-  // ones, universeSize
+   * @param {number} index
+   */
+  rank1(index) {
+    if (index < 0) {
+      return 0;
+    } else if (index >= this.universeSize) {
+      return this.numOnes;
+    }
 
+    // Number of complete 01-runs up to the virtual index `index`
+    const j = this.zo.rank1(index);
 
-  static fromBuilder() {
+    // Number of zeros including the j-th block
+    const numCumulativeZeros = this.z.select1(j);
 
+    // Number of zeros preceding the j-th block
+    const numPrecedingZeros = this.z.trySelect1(j - 1) ?? 0;
+      
+    // Number of zeros in the j-th block
+    const numZeros = numCumulativeZeros - numPrecedingZeros;
+
+    // Start index of the j-th block
+    const blockStart = this.zo.trySelect1(j - 1) ?? 0;
+
+    // Number of ones preceding the j-th block
+    const numPrecedingOnes = blockStart - numPrecedingZeros;
+
+    // Start index of ones in the j-th block
+    const onesStart = blockStart + numZeros;
+
+    const adjustment = Math.max(0, index - onesStart + 1);
+    return numPrecedingOnes + adjustment;
   }
+
+  /**
+   * @param {number} n
+   */
+  trySelect1(n) {
+    if (n < 0 || n >= this.numOnes) {
+      return null;
+    }
+
+    // The n-th one is in the j-th 01-block.
+    const j = bits.partitionPoint(this.z.numOnes, i => this.zo.select1(i) - this.z.select1(i) <= n);
+
+    // Number of zeros up to and including the j-th block
+    const numCumulativeZeros = this.z.select1(j);
+
+    return numCumulativeZeros + n;
+  }
+
+
+  /**
+   * @param {number} n
+   */
+  trySelect0(n) {
+    if (n < 0 || n >= this.numZeros) {
+      return null;
+    };
+
+    // The n-th zero is in the j-th 01-block.
+    let j = this.z.rank1(n + 1);
+
+    // If we're in the first 01-block, the n-th zero is at index n.
+    if (j === 0) {
+      return n;
+    };
+
+    // Start index of the j-th 01-block
+    let blockStart = this.zo.select1(j - 1);
+
+    // Number of zeros preceding the j-th 01-block
+    let numPrecedingZeros = this.z.select1(j - 1);
+
+    // Return the index of the (n - numPrecedingZeros)-th zero in the j-th 01-block.
+    return blockStart + (n - numPrecedingZeros);
+  }
+
+  /**
+   * @param {number} index
+   */
+  rank0(index) {
+    return defaults.rank0(this, index);
+  }
+
+  /**
+   * @param {number} n
+   */
+  select0(n) {
+    return defaults.select0(this, n);
+  };
+  
+  /**
+   * @param {number} n
+   */
+  select1(n) {
+    return defaults.select1(this, n);
+  }
+
+  /**
+   * @param {number} index
+   */
+  get(index) {
+    return defaults.get(this, index);
+  }
+
 }

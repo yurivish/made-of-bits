@@ -6,6 +6,9 @@ import { partitionPoint } from './bits.js';
 // Using this approach more pervasively would cause lots of megamorphic impls, 
 // so we only implement relatively slow fallback methods here, and not common 
 // impls that should be fast, eg. definitions of select1 in terms of trySelect1.
+// Edit: Actually, the cost of the dynamic dispatch to trySelect1 is probably
+// not significant relative to the implementation of trySelect1.
+//
 
 /**
  * @param {BitVec} bv
@@ -66,4 +69,28 @@ export function get(bv, index) {
     assert(value === 0 || value === 1);
   }
   return value; 
+}
+
+/**
+* @param {BitVec} bv
+* @param {number} n
+*/
+export function select0(bv, n) {
+  const result = bv.trySelect0(n);
+  if (result === null) {
+    throw new Error(`n (${n}) is not a valid 0-bit index`);
+  }
+  return result;
+};
+
+/**
+* @param {BitVec} bv
+* @param {number} n
+*/
+export function select1(bv, n) {
+  const result = bv.trySelect1(n);
+  if (result === null) {
+    throw new Error(`n (${n}) is not a valid 1-bit index`);
+  }
+  return result;
 }

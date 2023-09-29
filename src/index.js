@@ -4,6 +4,8 @@ import './debug.js';
 
 export { BitBuf } from './bitbuf.js';
 export * as bits from './bits.js';
-export { DenseBitVec } from './densebitvec.js';
-export { SortedArrayBitVec } from './sortedarraybitvec.js';
-export { SparseBitVec } from './sparsebitvec.js';
+export { DenseBitVec, DenseBitVecBuilder } from './densebitvec.js';
+export { RLEBitVec, RLEBitVecBuilder } from './rlebitvec.js';
+export { SortedArrayBitVec, SortedArrayBitVecBuilder } from './sortedarraybitvec.js';
+export { SparseBitVec, SparseBitVecBuilder } from './sparsebitvec.js';
+

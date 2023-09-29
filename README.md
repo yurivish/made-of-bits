@@ -1,3 +1,7 @@
+# Visualizations
+
+- https://observablehq.com/@yurivish/bitvectors-with-runs-3
+
 # Notes
 
 - Allow greater than two to the 32 bits in sparse vector by controlling the split point 

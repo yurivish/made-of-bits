@@ -1,3 +1,4 @@
+import * as defaults from './defaults';
 
 // todo:
 // - transfer more comments from the rust code
@@ -286,29 +287,6 @@ export class DenseBitVec {
   }
 
   /**
-   * @param {number} index
-   */
-  rank0(index) {
-    if (index < 0) {
-      return 0;
-    } else if (index >= this.universeSize) {
-      return this.numZeros;
-    }
-    return index - this.rank1(index);
-  }
-
-  /**
-   * @param {number} n
-   */
-  select1(n) {
-    const result = this.trySelect1(n);
-    if (result === null) {
-      throw new Error(`n (${n}) is not a valid 1-bit index`);
-    }
-    return result;
-  }
-
-  /**
    * @param {number} n
    */
   trySelect1(n) {
@@ -397,15 +375,25 @@ export class DenseBitVec {
   }
 
   /**
+   * @param {number} index
+   */
+  rank0(index) {
+    return defaults.rank0(this, index);
+  }
+  
+  /**
    * @param {number} n
    */
   select0(n) {
-    const result = this.trySelect0(n);
-    if (result === null) {
-      throw new Error(`n (${n}) is not a valid 0-bit index`);
-    }
-    return result;
+    return defaults.select0(this, n);
   };
+  
+  /**
+   * @param {number} n
+   */
+  select1(n) {
+    return defaults.select1(this, n);
+  }
 
   /**
    * @param {number} n - we are looking for the n-th bit of the particular kind (1-bit or 0-bit)

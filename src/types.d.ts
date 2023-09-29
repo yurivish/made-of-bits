@@ -3,7 +3,8 @@ interface BitVecBuilderConstructable {
 }
 
 interface BitVecBuilder {
-  one(index: number, count: number): void;
+  // The second argument is optional and customarily filled in with a default value of 1.
+  one(index: number, count?: number): void;
   build(options: object): BitVec;
 }
 
