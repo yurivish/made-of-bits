@@ -14,7 +14,7 @@ interface BitVecBuilder {
 // this simple and just do a runtime check.
 interface BitVec {
 
-  // Return the total count of 1-bits strictly below `index`.
+  // Return the total count of 1-bits strictly below the`index`.
   // In the case of multiplicity, each set 1-bit may contribute more than 1 unit of count.
   // In the case of a multiset, there may be multiple 1-bits at each index.
   rank1(index: number): number;
@@ -23,8 +23,8 @@ interface BitVec {
   select1(n: number): number;
   select0(n: number): number;
 
-  maybeSelect1(n: number): number | null;
-  maybeSelect0(n: number): number | null;
+  trySelect1(n: number): number | null;
+  trySelect0(n: number): number | null;
 
   get(index: number): number;
 

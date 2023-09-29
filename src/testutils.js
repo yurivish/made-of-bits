@@ -28,19 +28,12 @@ export function testBitVec(bv) {
   expect(() => bv.get(-1)).toThrow();
   expect(() => bv.get(bv.numZeros + bv.numOnes + 1)).toThrow();
 
-  // Check `get` behavior for all valid inputs
-  const ones = Array.from({ length: bv.numOnes }, (_, n) => bv.select1(n));
-  const g = d3.rollup(ones, g => g.length, d => d);
-  for (let i = 0; i < bv.universeSize; i++) {
-    const count = g.get(i) ?? 0;
-    expect(bv.get(i)).toEqual(count);
-  }
-
   // Run an adjusted set of tests in the case of multiplicity.
   // In particular, all of the bit vectors that allow multiplicity
-  // Only allow it for 1 bits and disallow duplicate 0-bits. Additionally,
-  // these vectors typically do not expose efficient operations on zeros,
-  // so we test rank0 and select0 only in the non-multiplicity case.
+  // Only allow it for 1 bits and disallow duplicate 0-bits. 
+  //
+  // !!! Note: We do not test rank0 / select0 in the multiplicity case, since
+  // these vectors typically do not expose efficient operations on zeros.
   if (bv.hasMultiplicity) { 
     expect(bv.numZeros + bv.numOnes).toBeGreaterThanOrEqual(bv.universeSize);
 
@@ -89,6 +82,18 @@ export function testBitVec(bv) {
       expect(bv.get(select0)).toBe(0);
     }
   }
+
+  // Check `get` behavior for all valid inputs.
+  // We run this test last because the default implementation of `get` 
+  // relies on `rank1`, and thus it is useful to specifically test `rank1` before
+  // running the test for `get`.
+  const ones = Array.from({ length: bv.numOnes }, (_, n) => bv.select1(n));
+  const g = d3.rollup(ones, g => g.length, d => d);
+  for (let i = 0; i < bv.universeSize; i++) {
+    const count = g.get(i) ?? 0;
+    expect(bv.get(i)).toEqual(count);
+  }
+
 }
 
 /**
@@ -231,14 +236,14 @@ export function testBitVecType(BitVecBuilder, buildOptions = {}) {
       }
 
       if (bitIndex === universeSize - 1) {
-        expect(bv.maybeSelect0(bitIndex)).toBe(null);
+        expect(bv.trySelect0(bitIndex)).toBe(null);
       } else {
         expect(bv.select0(bitIndex)).toBe(bitIndex + 1);
       }
 
       // select1
       expect(bv.select1(0)).toBe(bitIndex);
-      expect(bv.maybeSelect1(1)).toBe(null);
+      expect(bv.trySelect1(1)).toBe(null);
       expect(() => bv.select1(-1)).toThrow();
       expect(() => bv.select1(1)).toThrow();
 

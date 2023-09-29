@@ -293,7 +293,7 @@ export class DenseBitVec {
       return 0;
     } else if (index >= this.universeSize) {
       return this.numZeros;
-    };
+    }
     return index - this.rank1(index);
   }
 

@@ -9,7 +9,7 @@ import './debug.js';
 export class BitBuf {
   /**
    * Construct a new `BitBuf` containing all 0-bits.
-   * @param {number} universeSize
+   * @param {number} universeSize - the length of this bit buffer, in bits
  */
   constructor(universeSize) {
     assertSafeInteger(universeSize);

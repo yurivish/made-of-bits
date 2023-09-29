@@ -1,8 +1,8 @@
 import * as d3 from 'd3';
 import { assert, assertNonNegative, assertNotUndefined, assertSafeInteger, log } from "./assert.js";
 import { partitionPoint } from './bits';
-
-// todo: test the multi bit vec nature of this type
+import * as defaults from './defaults';
+import { ascending } from './sort.js';
 
 /**
  * @implements {BitVecBuilder}
@@ -28,7 +28,7 @@ export class SortedArrayBitVecBuilder {
   }
   
   build(options = {}) {
-    this.ones.sort(d3.ascending);
+    this.ones.sort(ascending);
     return new SortedArrayBitVec(this.ones, this.universeSize);
   }
 }
@@ -55,7 +55,7 @@ export class SortedArrayBitVecBuilder {
 // [1, 1, 5, 8, 8, 8]
 // 
 /**
- * @implements {BitVec}
+ * @implements {BitVec} 
  */
 export class SortedArrayBitVec {
   /**
@@ -63,18 +63,17 @@ export class SortedArrayBitVec {
    * @param {number} universeSize
    */
   constructor(ones, universeSize) {
+    let numUniqueOnes = 0;
     let hasMultiplicity = false;
-    let numUniqueOnes = ones.length > 0 ? 1 : 0;
-    if (ones.length > 0) {
-      assertNonNegative(ones[0]);
-    }
-    for (let i = 1; i < ones.length; i++) {
-      const prev = ones[i - 1];
+    let prev = -1;
+    for (let i = 0; i < ones.length; i++) {
       const cur = ones[i];
       hasMultiplicity ||= prev === cur;
       numUniqueOnes += Number(prev !== cur);
+      assertNonNegative(cur);
       assertSafeInteger(cur);
       assert(prev <= cur, 'expected monotonically nondecreasing sequence');
+      prev = cur;
     }
 
     /** @readonly */
@@ -114,13 +113,7 @@ export class SortedArrayBitVec {
    * @param {number} index
    */
   rank0(index) {
-    assert(!this.hasMultiplicity, 'cannot take rank0 in the presence of multiplicity (repeated elements)');
-    if (index <= 0) {
-      return 0;
-    } else if (index >= this.universeSize) {
-      return this.numZeros;
-    };
-    return index - this.rank1(index);
+    return defaults.rank0(this, index);
   }
 
   /**
@@ -136,19 +129,6 @@ export class SortedArrayBitVec {
   /**
    * @param {number} n
    */
-  trySelect0(n) {
-    assert(!this.hasMultiplicity, 'cannot take select0 in the presence of multiplicity (repeated elements)');
-    if (n < 0 || n >= this.numZeros) {
-      return null;
-    }
-    // Binary search over rank0 to determine the position of the n-th 0-bit.
-    const index = partitionPoint(this.universeSize, i => this.rank0(i) <= n);
-    return index - 1;
-  }
-
-  /**
-   * @param {number} n
-   */
   select1(n) {
     const result = this.trySelect1(n);
     if (result === null) throw new Error(`n ${n} is not a valid 1-bit index`);
@@ -156,29 +136,29 @@ export class SortedArrayBitVec {
   }
 
   /**
+   * @param {number} index
+   */
+  trySelect0(index) {
+    // for some reason declaring the const type-checks, while returning
+    // this value directly does not. Even though the same approach works
+    // for rank0 (see above).
+    const ret = defaults.trySelect0(this, index);
+    return ret; 
+  }
+
+  /**
    * @param {number} n
    */
   select0(n) {
     const result = this.trySelect0(n);
-    if (result === null) throw new Error('n is not a valid 0-bit index');
+    if (result === null) throw new Error(`n = ${n} is not a valid 0-bit index`);
     return result;
   };
 
   /**
-   * Get the value of the bit at the specified index (0 or 1).
-   * Note: This is rather inefficient since it does two rank calls,
-   * each of which takes O(log(n)) time.
-   * 
-   * In the presence of multiplicity, returns the count of the bit.
-   * 
    * @param {number} index
    */
   get(index) {
-    assert(index >= 0 && index <= this.universeSize);
-    const value = this.rank1(index + 1) - this.rank1(index);
-    if (DEBUG && !this.hasMultiplicity) {
-      assert(value === 0 || value === 1);
-    }
-    return value; 
+    return defaults.get(this, index); 
   }
 }
