@@ -47,7 +47,8 @@ export class SparseBitVec {
    * @param {number} universeSize
    */
   constructor(ones, universeSize) {
-    assert(universeSize < 2 ** 32);
+    // disallow humungous universes because JS only supports efficient bit ops for 32-bit integers
+    assert(universeSize < 2 ** 32, () => `universeSize (${universeSize}) cannot exceed 2^32 - 1`);
     // todo: understand the comments in the paper "On Elias-Fano for Rank Queries in FM-Indexes"
     // but for now do the more obvious thing. todo: explain.
     // this is nice because we don't need the number of high bits explicitly so can avoid computing them
@@ -70,7 +71,7 @@ export class SparseBitVec {
       numUniqueOnes += Number(prev !== cur);
       assertNonNegative(cur);
       assertSafeInteger(cur);
-      assert(cur < universeSize, () => `expected 1-bit (${cur}) to not exceed the universeSize (${universeSize})`);
+      assert(cur < universeSize, () => `expected 1 - bit(${cur}) to not exceed the universeSize(${universeSize})`);
       assert(prev <= cur, 'expected monotonically nondecreasing sequence');
       prev = cur;
 
@@ -201,7 +202,7 @@ export class SparseBitVec {
     }
     const quotient = this.high.rank0(pos);
     const remainder = this.low.get(n);
-    return (quotient << this.lowBitWidth) + remainder;
+    return (bits.u32(quotient << this.lowBitWidth) + remainder);
   }
 
   /**
@@ -238,4 +239,4 @@ export class SparseBitVec {
     return result;
   }
 
-};
+};;
