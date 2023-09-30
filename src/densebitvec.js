@@ -54,6 +54,7 @@ export class DenseBitVecBuilder {
    */
   constructor(universeSize) {
     this.buf = new BitBuf(universeSize);
+    this.universeSize = universeSize;
   }
 
   /**
