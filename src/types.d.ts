@@ -1,4 +1,7 @@
 interface BitVecBuilderConstructable {
+  // todo: consider number | undefined for the constructor,
+  // with undefined indicating that the maximum 1-bit position
+  // should determine the universe size (or 0 if no 1-bits).
   new(universeSize: number): BitVecBuilder;
 }
 
