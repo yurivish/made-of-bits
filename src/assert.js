@@ -8,8 +8,6 @@
 // Solution: DEBUG &&: https://github.com/evanw/esbuild/issues/2063
 // - can have DEBUG && assertInteger(x);
 
-// todo: consider making message a function, or accepting it as a function or string
-// so that dynamic (friendly) assert messages are not expensive
 /**
  * 
  * Note: The function form of the message is to allow deferring the evaluation of
