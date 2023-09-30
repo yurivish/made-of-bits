@@ -1,7 +1,9 @@
 import * as defaults from './defaults';
 
-// TODO: This type is a multiset but allows rank0; we need to
-// updated our tests to handle this case.
+// todo: This type is a multiset but allows rank0; we need to
+// update our tests to handle this case.
+
+// todo: test
 
 /**
  * This is a bitvec that encodes multiplicity explicitly,
@@ -10,17 +12,30 @@ import * as defaults from './defaults';
  * Only 1-bits are allowed to be repeated.
  * 
  * Maybe there's a better name.
+ *
+ * @implements {BitVec}
  */
-class MultiBitVec {
+export class MultiBitVec {
   /**
-   * @param {BitVec} occupancy
-   * @param {BitVec} multiplicity
+   * @param {BitVec} occupancy - bitset with a 1 at every position where the count is greater than zero
+   * @param {BitVec} multiplicity - for every set 1-bit in `occupancy`, contains the cumulative count up to and including that bit position.
    */
   constructor(occupancy, multiplicity) {
     this.occupancy = occupancy;
     this.multiplicity = multiplicity;
 
-    // todo: all the standard fields
+
+    // The number of ones represented by this bit vector is the largest set bit in multiplicity.
+    this.numOnes = multiplicity.numOnes === 0 ? 0 : multiplicity.select1(multiplicity.numOnes - 1);
+    this.numZeros = occupancy.numZeros;
+
+    this.numUniqueOnes = this.occupancy.numOnes;
+    this.numUniqueZeros = this.numZeros;
+
+    this.universeSize = occupancy.universeSize;
+
+    this.hasMultiplicity = this.numOnes > this.numUniqueOnes;
+
     // todo: formally implement the bitvec interface
   }
 
@@ -55,7 +70,7 @@ class MultiBitVec {
    * @param {number} index
    */
   rank0(index) {
-    return defaults.rank0(this, index);
+    return this.occupancy.rank0(index);
   }
 
   /**
