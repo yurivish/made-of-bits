@@ -95,7 +95,9 @@ export class RLERunBuilder {
 
   build(options = {}) {
     // todo: assert there are no options?
-    // todo: i don't think these +1 are needed; test this theory.
+    // The +1 to the universe size is needed because the 1-bit marker in z
+    // comes at the position after `this.numZeros` zeros, and the same idea
+    // applies to zo, which marks with a 1-bit the position after each 01-run.
     const z = new SparseBitVec(this.z, this.numZeros + 1);
     const zo = new SparseBitVec(this.zo, this.numZeros + this.numOnes + 1);
     return new RLEBitVec(z, zo, this.numZeros, this.numOnes);
@@ -119,7 +121,6 @@ export class RLERunBuilder {
  * @implements {BitVec}
  */
 export class RLEBitVec {
-
   /**
    * @param {SparseBitVec} z
    * @param {SparseBitVec} zo
@@ -127,11 +128,18 @@ export class RLEBitVec {
    * @param {number} numOnes
    */
   constructor(z, zo, numZeros, numOnes) {
-
-    /** @readonly */
+    /**
+     * Sparse bit vector marking the cumulative number of zeros
+     * after every 0-run.
+     * 
+     * @readonly */
     this.z = z;
 
-    /** @readonly */
+    /**
+     * Sparse bit vector marking the cumulative number of zeros
+     * and ones after every 01-run.
+     * 
+     * @readonly */
     this.zo = zo;
 
     /** @readonly */
