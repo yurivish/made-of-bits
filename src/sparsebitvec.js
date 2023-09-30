@@ -42,7 +42,7 @@ export class SparseBitVecBuilder {
  */
 export class SparseBitVec {
   /**
-   * @param {number[]} ones
+   * @param {number[] | Uint32Array | Float64Array} ones
    * @param {number} universeSize
    */
   constructor(ones, universeSize) {

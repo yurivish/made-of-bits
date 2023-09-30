@@ -12,7 +12,7 @@ export default defineConfig({
       entry: resolve(__dirname, 'src/index.js'),
       name: 'Bit Structures',
       // the proper extensions will be added
-      fileName: 'bit-structures',
+      fileName: 'made-of-bits',
     },
     rollupOptions: {
       // make sure to externalize deps that shouldn't be bundled

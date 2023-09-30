@@ -1,9 +1,54 @@
+import { assert, assertSafeInteger } from './assert.js';
+import { BitBuf } from './bitbuf.js';
 import * as defaults from './defaults';
+import { DenseBitVec } from './densebitvec.js';
+import { ascending } from './sort.js';
+import { SparseBitVec } from './sparsebitvec.js';
 
 // todo: This type is a multiset but allows rank0; we need to
 // update our tests to handle this case.
 
 // todo: test
+/**
+ * @implements {BitVecBuilder}
+ */
+export class MultiBitVecBuilder {
+  /**
+   * @param {number} universeSize
+   */
+  constructor(universeSize) {
+    this.buf = new BitBuf(universeSize);
+    /**
+     * Stores a map from 1-bit index to its multiplicity (count).
+     * @type Map<number, number> */
+    this.counts = new Map();
+  }
+
+  /**
+   * @param {number} index
+   */
+  one(index, count = 1) {
+    assert(count > 0);
+    assertSafeInteger(count);
+    this.buf.setOne(index);
+    this.counts.set(index, (this.counts.get(index) ?? 0) + count);
+  }
+
+  build({ occupancyRank1SamplesPow2 = 10, occupancySelectSamplesPow2 = 10 } = {}) {
+    console.log();
+    // sort 
+    const entries = Array.from(this.counts.entries()).sort((a, b) => ascending(a[0], b[0]));
+    const cumulativeCounts = new Float64Array(entries.map(kv => kv[1]));
+    const len = cumulativeCounts.length;
+    for (let i = 1; i < len; i++) {
+      cumulativeCounts[i] += cumulativeCounts[i - 1];
+    }
+
+    const occupancy = new DenseBitVec(this.buf, occupancyRank1SamplesPow2, occupancySelectSamplesPow2);
+    const multiplicity = new SparseBitVec(cumulativeCounts, len > 0 ? cumulativeCounts[len - 1] + 1 : 0);
+    return new MultiBitVec(occupancy, multiplicity);
+  }
+}
 
 /**
  * This is a bitvec that encodes multiplicity explicitly,
@@ -56,6 +101,10 @@ export class MultiBitVec {
    * @param {number} n
    */
   trySelect1(n) {
+    // We need this check here because rank1 returns 0 if its argument is negative.
+    if (n < 0) {
+      return null;
+    }
     const i = this.multiplicity.rank1(n + 1);
     return this.occupancy.trySelect1(i);
   }
@@ -94,7 +143,7 @@ export class MultiBitVec {
    * @param {number} index
    */
   get(index) {
-    return this.occupancy.get(index);
+    return defaults.get(this, index);
+    // return this.occupancy.get(index);
   }
-
 }

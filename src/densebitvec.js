@@ -63,7 +63,7 @@ export class DenseBitVecBuilder {
     assert(count === 1);
     // we do this to catch errors, and to be compatible with the multiset case
     // where setting a bit multiple times should add to its multiplicity.
-    assert(this.buf.get(index) === 0, 'each bit should be set only once');
+    assert(this.buf.get(index) === 0, 'each 1-bit should be set only once');
     this.buf.setOne(index);
   }
 

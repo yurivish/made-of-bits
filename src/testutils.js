@@ -21,6 +21,7 @@ import { SortedArrayBitVec, SortedArrayBitVecBuilder } from './sortedarraybitvec
  * @param {BitVec} bv
  */
 export function testBitVec(bv) {
+
   expect(bv.rank1(-1)).toBe(0);
   expect(bv.rank1(0)).toBe(0);
   expect(bv.rank1(bv.numZeros + bv.numOnes + 1)).toBe(bv.numOnes);
@@ -37,6 +38,20 @@ export function testBitVec(bv) {
   if (bv.hasMultiplicity) { 
     expect(bv.numZeros + bv.numOnes).toBeGreaterThanOrEqual(bv.universeSize);
 
+    // Most bit vectors with multiplicity do not support operations on zero bits.
+    // Check the simplest case to find out if this one allows rank0.
+    // There is a chance that this hides legitimate errors, but in practice I think it's fine,
+    // since we test all multi-bit vecs with the regular non-multiplicity tests as well, where
+    // an incorrectly thrown error will fail the test.
+    // We only test whether rank 0 throws because if you can support rank 0 then you can also
+    // support select0 via binary search over ranks.
+    let throwsOnRank0 = false;
+    try { 
+      bv.rank0(0);
+    } catch { 
+      throwsOnRank0 = true;
+    }
+
     for (let n = 0; n < bv.numOnes; n++) {
       const select1 = bv.select1(n);
       // Verifies the multiplicity rank-select invariant
@@ -44,9 +59,21 @@ export function testBitVec(bv) {
       expect(bv.rank1(select1 + 1)).toBeGreaterThanOrEqual(n + 1);    
     }
 
-    // Bit vectors with multiplicity do not support operations on zero bits.
-    expect(() => bv.rank0(0)).toThrow();
-    expect(() => bv.select0(0)).toThrow();
+    if (throwsOnRank0) {
+      expect(() => bv.rank0(0)).toThrow();
+      expect(() => bv.select0(0)).toThrow();
+    } else {
+      for (let n = 0; n < bv.numZeros; n++) {
+        const select0 = bv.select0(n);
+
+        // Verifies that rank0(select0(n)) === n
+        expect(bv.rank0(select0)).toBe(n);
+        expect(bv.rank0(select0 + 1)).toBe(n + 1);
+
+        // Check `get` behavior for valid indices
+        expect(bv.get(select0)).toBe(0);
+      }
+    }
   } else {
     // we're in the non-multiplicity case
 

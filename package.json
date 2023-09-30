@@ -1,10 +1,10 @@
 {
-  "name": "bit-structures",
+  "name": "made-of-bits",
   "type": "module",
   "files": [
     "dist"
   ],
-  "module": "./dist/bit-structures.js",
+  "module": "./dist/made-of-bits.js",
   "version": "0.0.0",
   "description": "",
   "main": "index.js",

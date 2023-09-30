@@ -31,7 +31,7 @@ const ctx = await esbuild.context({
 
   },
   plugins: [examplePlugin],
-  outfile: 'dist/bit-structures.js', 
+  outfile: 'dist/made-of-bits.js', 
   sourcemap: 'inline'
 });
 
