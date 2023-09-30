@@ -222,6 +222,12 @@ export function testMultiBitVecType(BitVecBuilder, buildOptions = {}) {
  * @param {object} buildOptions - options passed to the builder's `build` method
  */
 export function testBitVecType(BitVecBuilder, buildOptions = {}) {  
+  test('builder', () => {
+    const builder = new BitVecBuilder(0);
+    expect(() => builder.one(0)).toThrow();
+    // expect(() => builder.build(0)).toThrow();
+  });
+
   test('property tests', () => {
     testBitVecProperties(BitVecBuilder, buildOptions);
   });

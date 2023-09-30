@@ -61,6 +61,8 @@ export class DenseBitVecBuilder {
    */
   one(index, count = 1) {
     assert(count === 1);
+    assert(index < this.universeSize, () => `index (${index}) cannot exceed universeSize (${this.universeSize})`);
+    
     // we do this to catch errors, and to be compatible with the multiset case
     // where setting a bit multiple times should add to its multiplicity.
     assert(this.buf.get(index) === 0, 'each 1-bit should be set only once');

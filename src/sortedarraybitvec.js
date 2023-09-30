@@ -21,6 +21,7 @@ export class SortedArrayBitVecBuilder {
    * @param {number} index
    */
   one(index, count = 1) {
+    assert(index < this.universeSize, () => `index (${index}) cannot exceed universeSize (${this.universeSize})`);
     for (let i = 0; i < count; i++) {
       this.ones.push(index);
     }
