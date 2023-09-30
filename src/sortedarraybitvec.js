@@ -1,4 +1,3 @@
-import * as d3 from 'd3';
 import { assert, assertNonNegative, assertNotUndefined, assertSafeInteger, log } from "./assert.js";
 import { partitionPoint } from './bits';
 import * as defaults from './defaults';
