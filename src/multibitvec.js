@@ -5,11 +5,8 @@ import { DenseBitVec } from './densebitvec.js';
 import { ascending } from './sort.js';
 import { SparseBitVec } from './sparsebitvec.js';
 
-// todo: This type is a multiset but allows rank0; we need to
-// update our tests to handle this case.
-
-// todo: test
 /**
+ * 
  * @implements {BitVecBuilder}
  */
 export class MultiBitVecBuilder {
@@ -56,6 +53,8 @@ export class MultiBitVecBuilder {
  * 
  * Only 1-bits are allowed to be repeated.
  * 
+ * Unlike many other multiplicity-capable structures, this one allows rank0/select0.
+ * 
  * Maybe there's a better name.
  * 
  * This is effectively the histogram, minus index<>bin translation.
@@ -81,8 +80,6 @@ export class MultiBitVec {
     this.universeSize = occupancy.universeSize;
 
     this.hasMultiplicity = this.numOnes > this.numUniqueOnes;
-
-    // todo: formally implement the bitvec interface
   }
 
   /**
