@@ -2,8 +2,8 @@ import { describe, expect, it, test } from 'vitest';
 import { SparseBitVec, SparseBitVecBuilder } from './sparsebitvec.js';
 import { testBitVecType, testMultiBitVecType } from './testutils.js';
 
-// testBitVecType(SparseBitVecBuilder);
-// testMultiBitVecType(SparseBitVecBuilder);
+testBitVecType(SparseBitVecBuilder);
+testMultiBitVecType(SparseBitVecBuilder);
 
 describe('SparseBitVec', () => {
   test('can be very large', () => {
