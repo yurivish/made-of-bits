@@ -20,14 +20,14 @@ const ctx = await esbuild.context({
     // This should be defined to true or false, depending on whether we want to turn
     // on debug checks. These will slow down the code but help to catch implementation
     // bugs and invariant violations.
-    DEBUG: 'true',
+    // DEBUG: 'false',
+    // globalThis: "false",
     // In order for code that uses the global debug flag to work correctly, we define
     // the attribute on `globalThis` so that `DEBUG && ...` statements resolve properly
     // during testing. In production, the debug variable will be replaced, so we need not
     // reference globalThis.
     // Hence, we define this replacement in order that our module not mutate global state.
     // This is all a bit ugly, but it works until I figure out a better way.
-    globalThis: "false",
 
   },
   plugins: [examplePlugin],

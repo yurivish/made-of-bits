@@ -1,4 +1,3 @@
-import { unicodeString } from 'fast-check';
 import { assert, assertNonNegative, assertSafeInteger } from './assert.js';
 import * as defaults from './defaults';
 import { trySelect0 } from './defaults.js';
@@ -52,8 +51,10 @@ export class RLEBitVecBuilder {
   }
 }
 
-// note: does not implement BitVecBuilder since it is based on a run() method!
-// todo: figure out how to handle this
+
+/**
+ *  Run-specific bitvector builder. Does not implement the BitVecBuilder interface.
+ */
 export class RLERunBuilder {
   constructor() {
     /** @type number[] */
@@ -96,7 +97,9 @@ export class RLERunBuilder {
   }
 
   build(options = {}) {
-    // todo: assert there are no options?
+    // We expect no options.
+    DEBUG && assert(Object.keys(options).length === 0);
+    
     // The +1 to the universe size is needed because the 1-bit marker in z
     // comes at the position after `this.numZeros` zeros, and the same idea
     // applies to zo, which marks with a 1-bit the position after each 01-run.
