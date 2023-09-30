@@ -39,7 +39,6 @@ export function testBitVec(bv) {
 
     for (let n = 0; n < bv.numOnes; n++) {
       const select1 = bv.select1(n);
-
       // Verifies the multiplicity rank-select invariant
       expect(bv.rank1(select1)).toBeLessThanOrEqual(n);
       expect(bv.rank1(select1 + 1)).toBeGreaterThanOrEqual(n + 1);    
@@ -62,7 +61,6 @@ export function testBitVec(bv) {
 
     for (let n = 0; n < bv.numOnes; n++) {
       const select1 = bv.select1(n);
-
       // Verifies that rank1(select1(n)) === n
       expect(bv.rank1(select1)).toBe(n);
       expect(bv.rank1(select1 + 1)).toBe(n + 1);
@@ -143,11 +141,6 @@ function sparseFisherYatesSample(k, n, rng) {
  * @param {object} buildOptions - options passed to the builder's `build` method
  */
 export function testBitVecProperties(BitVecBuilder, buildOptions = {}) {
-
-  // 🌶️ todo: delete!
-  // if (true) return;
-
-
   // Generate random bitvectors with an arbitrary density of uniformly-distributed ones
   // and run them through basic consistency checks.
   fc.assert(fc.property(
@@ -202,7 +195,9 @@ export function testMultiBitVecType(BitVecBuilder, buildOptions = {}) {
  * @param {object} buildOptions - options passed to the builder's `build` method
  */
 export function testBitVecType(BitVecBuilder, buildOptions = {}) {  
-  testBitVecProperties(BitVecBuilder, buildOptions);
+  test('property tests', () => {
+    testBitVecProperties(BitVecBuilder, buildOptions);
+  });
 
   // large enough to span many blocks
   const universeSize = bits.BasicBlockSize * 10;
@@ -215,17 +210,17 @@ export function testBitVecType(BitVecBuilder, buildOptions = {}) {
       const bv = builder.build(buildOptions);
       testBitVec(bv);
 
-      // rank0
-      expect(bv.rank0(0)).toBe(0);
-      expect(bv.rank0(bitIndex)).toBe(bitIndex);
-      expect(bv.rank0(bitIndex + 1)).toBe(bitIndex);
-      expect(bv.rank0(1e6)).toBe(bv.universeSize - 1);
-
       // rank1
       expect(bv.rank1(0)).toBe(0);
       expect(bv.rank1(bitIndex)).toBe(0);
       expect(bv.rank1(bitIndex + 1)).toBe(1);
       expect(bv.rank1(bitIndex + 1e6)).toBe(1);
+
+      // rank0
+      expect(bv.rank0(0)).toBe(0);
+      expect(bv.rank0(bitIndex)).toBe(bitIndex);
+      expect(bv.rank0(bitIndex + 1)).toBe(bitIndex);
+      expect(bv.rank0(1e6)).toBe(bv.universeSize - 1);
 
       // select0
       if (bitIndex === 0) {

@@ -1,4 +1,4 @@
-import { assert } from './assert.js';
+import { assert, assertNonNegative, assertSafeInteger } from './assert.js';
 import * as defaults from './defaults';
 import { trySelect0 } from './defaults.js';
 import { bits } from './index.js';
@@ -34,14 +34,16 @@ export class RLEBitVecBuilder {
 
     let prev = -1;
     for (const cur of this.ones) {
-      assert(prev < cur);
-      const numZeros = prev - cur;
+      assertNonNegative(cur);
+      assertSafeInteger(cur);
+      const numZeros = cur - prev - 1;
+      assert(numZeros >= 0);
       builder.run(numZeros, 1);
       prev = cur;
     }
 
     // pad out with zeros if needed
-    const numZeros = this.universeSize - prev;
+    const numZeros = this.universeSize - Math.max(0, prev);
     builder.run(numZeros, 0);
 
     return builder.build(options);
@@ -58,7 +60,6 @@ export class RLERunBuilder {
     /** @type number[] */
     this.zo = [];
 
-    this.length = 0;
     this.numZeros = 0;
     this.numOnes = 0;
   }
@@ -74,7 +75,7 @@ export class RLERunBuilder {
     const length = this.z.length;
     this.numZeros += numZeros;
     this.numOnes += numOnes;
-    if (numZeros === 0 && 0 < length) {
+    if (numZeros === 0 && length > 0) {
       // this run consists of only ones; coalesce it with the
       // previous run (since all runs contain ones at their end).
       this.zo[length - 1] += numOnes;
@@ -88,7 +89,7 @@ export class RLERunBuilder {
       // Append the cumulative number of zeros to the Z array
       this.z.push(this.numZeros);
       // Append the cumulative number of ones and zeros to the ZO array
-      this.zo.push(this.length);
+      this.zo.push(this.numZeros + this.numOnes);
     }
   }
 
@@ -97,7 +98,7 @@ export class RLERunBuilder {
     // todo: i don't think these +1 are needed; test this theory.
     const z = new SparseBitVec(this.z, this.numZeros + 1);
     const zo = new SparseBitVec(this.zo, this.numZeros + this.numOnes + 1);
-    return new RLEBitVec(z, zo, this.length, this.numZeros, this.numOnes);
+    return new RLEBitVec(z, zo, this.numZeros, this.numOnes);
   }
 
   lastBlockContainsOnlyZeros() {
@@ -105,7 +106,7 @@ export class RLERunBuilder {
     if (length === 0) {
       return false;
     } else if (length === 1) {
-      return this.z[0] - this.zo[0];
+      return this.z[0] === this.zo[0];
     } else {
       const lastBlockLength = this.zo[length - 1] - this.zo[length - 2];
       const lastBlockNumZeros = this.z[length - 1] - this.z[length - 2];
@@ -122,11 +123,10 @@ export class RLEBitVec {
   /**
    * @param {SparseBitVec} z
    * @param {SparseBitVec} zo
-   * @param {number} length
    * @param {number} numZeros
    * @param {number} numOnes
    */
-  constructor(z, zo, length, numZeros, numOnes) {
+  constructor(z, zo, numZeros, numOnes) {
 
     /** @readonly */
     this.z = z;
@@ -141,25 +141,23 @@ export class RLEBitVec {
     this.numOnes = numOnes;
 
     /** @readonly */
-    this.universeSize = this.numOnes + this.numZeros;
+    this.universeSize = numZeros + numOnes;
 
     /** @readonly */
     this.hasMultiplicity = false;
-
-    /** @readonly */
-    this.numUniqueOnes = this.numOnes;
     
     /** @readonly */
     this.numUniqueZeros = this.numZeros;
 
+    /** @readonly */
+    this.numUniqueOnes = this.numOnes;
   }
-
 
   /**
    * @param {number} index
    */
   rank1(index) {
-    if (index < 0) {
+    if (index <= 0) {
       return 0;
     } else if (index >= this.universeSize) {
       return this.numOnes;
@@ -186,7 +184,7 @@ export class RLEBitVec {
     // Start index of ones in the j-th block
     const onesStart = blockStart + numZeros;
 
-    const adjustment = Math.max(0, index - onesStart + 1);
+    const adjustment = Math.max(0, index - onesStart);
     return numPrecedingOnes + adjustment;
   }
 
