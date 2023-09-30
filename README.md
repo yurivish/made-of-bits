@@ -1,6 +1,7 @@
 # Visualizations
 
 - https://observablehq.com/@yurivish/bitvectors-with-runs-3
+- explore amit's page here: https://www.redblobgames.com/making-of/little-things/
 
 # Notes
 
