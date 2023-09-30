@@ -12,6 +12,8 @@ import * as defaults from './defaults';
  * Only 1-bits are allowed to be repeated.
  * 
  * Maybe there's a better name.
+ * 
+ * This is effectively the histogram, minus index<>bin translation.
  *
  * @implements {BitVec}
  */
@@ -23,7 +25,6 @@ export class MultiBitVec {
   constructor(occupancy, multiplicity) {
     this.occupancy = occupancy;
     this.multiplicity = multiplicity;
-
 
     // The number of ones represented by this bit vector is the largest set bit in multiplicity.
     this.numOnes = multiplicity.numOnes === 0 ? 0 : multiplicity.select1(multiplicity.numOnes - 1);
@@ -75,6 +76,7 @@ export class MultiBitVec {
 
   /**
    * @param {number} n
+   * @returns {number}
    */
   select0(n) {
     return defaults.select0(this, n);
@@ -82,6 +84,7 @@ export class MultiBitVec {
   
   /**
    * @param {number} n
+   * @returns {number}
    */
   select1(n) {
     return defaults.select1(this, n);
