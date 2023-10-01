@@ -130,7 +130,8 @@ export class SortedArrayBitVec {
    */
   select1(n) {
     return defaults.select1(this, n); 
-  };
+  }
+  
   /**
    * @param {number} index
    */

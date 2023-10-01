@@ -40,10 +40,12 @@ import * as defaults from './defaults';
 // - Unless the index of the rank block is ahead of the hinted block
 // - If a hint is present, it is used instead of the rank or select block
 // - Document the meaning of the bit vec interface elements. Incl select0. Can we have a selectUnique, for bit vecs that store occupancy and count data separately?
+// - consider not directly accessing `this.data.blocks`
 
 import { assert, assertNotUndefined, assertSafeInteger, log } from "./assert.js";
 import { BitBuf } from './bitbuf.js';
 import * as bits from './bits.js';
+import { trackedArray } from './introspection.js';
 
 /**
  * @implements {BitVecBuilder}
@@ -442,5 +444,40 @@ export class DenseBitVec {
    */
   get(index) {
     return defaults.get(this, index);
+  }
+
+  track() {
+    if (this.log === undefined) {
+      /** @type {object[]} */ 
+      this.log = [];
+      // @ts-ignore
+      this.rank1Samples = trackedArray(this.rank1Samples, this.log, 'rank1Samples');
+      // @ts-ignore
+      this.select1Samples = trackedArray(this.select1Samples, this.log, 'select1Samples');
+      // @ts-ignore
+      this.select0Samples = trackedArray(this.select0Samples, this.log, 'select0Samples');
+      // @ts-ignore
+      // note: this is sus since we are reaching into the internals of the bitbuf...
+      this.data.blocks = trackedArray(this.data.blocks, this.log, 'data.blocks');
+    } else {
+      // Keep the identity of the subject because the tracked arrays have a reference to it.
+      this.log.length = 0;
+    }
+  }
+
+  untrack() {
+    const { log } = this;
+    assert(log !== undefined);
+
+    // @ts-ignore
+    this.rank1Samples = this.rank1Samples.__target__;
+    // @ts-ignore
+    this.select1Samples = this.select1Samples.__target__;
+    // @ts-ignore
+    this.select0Samples = this.select0Samples.__target__;
+    // @ts-ignore
+    this.data.blocks = this.data.blocks.__target__;
+    this.log = undefined;
+    return log;
   }
 };

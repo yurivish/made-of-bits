@@ -65,7 +65,7 @@
 [] Document it is for static data.
 
 # Creating a Live Development Experience
-## Removing friction'
+## Removing friction
 
 [] figure out how to jump to my local files, w/ sourcemaps etc.: https://developer.chrome.com/docs/devtools/workspaces/?utm_source=devtools
   - answer so far: enable inline sourcemaps & drag the folder into the workspace in the Sources tab in Chrome

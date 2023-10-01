@@ -153,6 +153,7 @@ export function trailing0(n) {
  * Return the index of the `k`-th 1-bit of `n`, from the LSB upwards.
  * Returns 32 if there is no k-th 1-bit.
  * Note that the time complexity is linear in k, but constant since k <= 31.
+ * https://lemire.me/blog/2018/02/21/iterating-over-set-bits-quickly/
  * @param {number} n
  * @param {number} k
  */
