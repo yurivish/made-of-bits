@@ -6,7 +6,6 @@ import { DenseBitVec, DenseBitVecBuilder } from './densebitvec.js';
 import { IntBuf } from './intbuf.js';
 import { ascending } from './sort.js';
 
-// todo: decide how to choose the optimal split point (& document it)
 /**
  * @implements {BitVecBuilder}
  */
@@ -50,10 +49,13 @@ export class SparseBitVec {
     // disallow humungous universes because JS only supports efficient bit ops for 32-bit integers
     assert(universeSize < 2 ** 32, () => `universeSize (${universeSize}) cannot exceed 2^32 - 1`);
 
-    // The paper "On Elias-Fano for Rank Queries in FM-Indexes" recommends a formulat to compute
+    // The paper "On Elias-Fano for Rank Queries in FM-Indexes" recommends a formula to compute
     // the number of low bits that is mostly equivalent to the version used below, except that
     // sometimes theirs suggests slightly worse choices, e.g. when numOnes === 25 and universeSize === 51.
     // https://observablehq.com/@yurivish/ef-split-points
+    // This approach chooses the split point by noting that the trade-off effectively is between having numOnes
+    // low bits, or the next power of two of the universe size separators in the high bits. Hopefully this will
+    // be explained clearly in the accompanying design & background documentation.
     const numOnes = ones.length;
     const lowBitWidth = numOnes === 0 ? 0 : Math.floor(Math.log2(Math.max(1, universeSize / numOnes))); 
 

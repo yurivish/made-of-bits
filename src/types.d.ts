@@ -8,11 +8,6 @@ interface BitVecBuilder {
   build(options: object): BitVec;
 }
 
-// TODO: Split this trait into multiple traits.
-// MultiBitVecs may not have rank0 or select0.
-// Of course, they _do_ if they happen to not
-// contain multiplicities, so maybe we can keep
-// this simple and just do a runtime check.
 interface BitVec {
 
   // Return the total count of 1-bits strictly below the`index`.
@@ -30,7 +25,6 @@ interface BitVec {
   get(index: number): number;
 
   // todo: approxSizeInBytes() // ignoring fixed-width fields
-  // todo: batchRank0/1 and batchSelect0/1
 
   readonly numOnes: number;
   readonly numZeros: number;
@@ -61,7 +55,7 @@ interface BitVec {
   readonly hasMultiplicity: boolean;
 
   // these differ from their non-unique counterparts 
-  // in the presence of multiplicity
+  // only in the presence of multiplicity
   readonly numUniqueOnes: number;
   readonly numUniqueZeros: number;
 
