@@ -1,3 +1,8 @@
+# To do
+[] rename this to notes
+[] make a plain README.md noting this is wip
+[] do a pass through the files to ensure it is all ready to be made public (eg. remove gen.js and other unused code?)
+
 # Visualizations
 
 - https://observablehq.com/@yurivish/bitvectors-with-runs-3
@@ -26,6 +31,7 @@
 
 
 # MultiSet
+[] consider calling it 'repetition' rather than 'multiplicity'?
 [] call it set or vec?
 [] how to allow/disallow rank0?
 [] should we distinguish multisets at the type level? feels weird

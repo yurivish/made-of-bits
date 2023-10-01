@@ -49,18 +49,22 @@ export class SparseBitVec {
   constructor(ones, universeSize) {
     // disallow humungous universes because JS only supports efficient bit ops for 32-bit integers
     assert(universeSize < 2 ** 32, () => `universeSize (${universeSize}) cannot exceed 2^32 - 1`);
-    // todo: understand the comments in the paper "On Elias-Fano for Rank Queries in FM-Indexes"
-    // but for now do the more obvious thing. todo: explain.
-    // this is nice because we don't need the number of high bits explicitly so can avoid computing them
-    const numOnes = ones.length;
-    const bitsPerOne = numOnes === 0 ? 0 : Math.floor(universeSize / numOnes);
-    const lowBitWidth = Math.floor(Math.log2(Math.max(bitsPerOne, 1)));
-    const lowMask = bits.oneMask(lowBitWidth);
 
-    // unary coding; 1 denotes values and 0 denotes separators
+    // The paper "On Elias-Fano for Rank Queries in FM-Indexes" recommends a formulat to compute
+    // the number of low bits that is mostly equivalent to the version used below, except that
+    // sometimes theirs suggests slightly worse choices, e.g. when numOnes === 25 and universeSize === 51.
+    // https://observablehq.com/@yurivish/ef-split-points
+    const numOnes = ones.length;
+    const lowBitWidth = numOnes === 0 ? 0 : Math.floor(Math.log2(Math.max(1, universeSize / numOnes))); 
+
+    // unary coding; 1 denotes values and 0 denotes separators, since that way
+    // encoding becomes more efficient.
+    // By default, values are never more than 50% of the bits due to the way the split point is chosen.
+    // Note that this expression automatically adapts to non-power-of-two universe sizes.
     const highLength = numOnes + (universeSize >>> lowBitWidth);
     const high = new BitBuf(highLength);
     const low = new IntBuf(numOnes, lowBitWidth);
+    const lowMask = bits.oneMask(lowBitWidth);
 
     let numUniqueOnes = 0;
     let hasMultiplicity = false;
@@ -112,7 +116,6 @@ export class SparseBitVec {
     
     /** @readonly */
     this.numUniqueZeros = this.numZeros;
-
   }
 
   /**
