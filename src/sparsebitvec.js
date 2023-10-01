@@ -87,6 +87,9 @@ export class SparseBitVec {
     }
 
     // todo: allow tuning of the block parameters
+    // todo: explore passing a highBuilder here, so that you can eg. specify the options
+    // to the bitvec type. We would have to change the above loop to use the builder, and
+    // then say this.high = builder.build(buildOptions) with the options we were passed.
     /** @readonly */
     this.high = new DenseBitVec(high, 10, 10);
 
