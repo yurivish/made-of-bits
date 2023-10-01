@@ -129,11 +129,8 @@ export class SortedArrayBitVec {
    * @param {number} n
    */
   select1(n) {
-    const result = this.trySelect1(n);
-    if (result === null) throw new Error(`n (${n}) is not a valid 1-bit index`);
-    return result;
-  }
-
+    return defaults.select1(this, n); 
+  };
   /**
    * @param {number} index
    */
@@ -149,9 +146,7 @@ export class SortedArrayBitVec {
    * @param {number} n
    */
   select0(n) {
-    const result = this.trySelect0(n);
-    if (result === null) throw new Error(`n (${n}) is not a valid 0-bit index`);
-    return result;
+    return defaults.select0(this, n); 
   };
 
   /**

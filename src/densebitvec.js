@@ -441,9 +441,6 @@ export class DenseBitVec {
    * @param {number} index
    */
   get(index) {
-    assert(index >= 0 && index <= this.universeSize);
-    const value = this.rank1(index + 1) - this.rank1(index);
-    DEBUG && assert(value === 0 || value === 1, `expected 0 or 1, got ${value}`);
-    return value;
+    return defaults.get(this, index);
   }
 };

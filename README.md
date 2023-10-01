@@ -29,7 +29,7 @@
 
 [] We should test all zeros vector, and all ones bit vector   
 [] try imlementing a simple fm index: https://drops.dagstuhl.de/opus/volltexte/2023/18357/
-
+[] for compressed bitvecs, Either implement the idea from the same paper that our plain bit vector is from, or make something kind of like roaring that uses our dense sparse and run length vectors to encode blocks. 
 
 # MultiSet
 [] consider calling it 'repetition' rather than 'multiplicity'?
@@ -61,6 +61,8 @@
 
 # Documentation
 [] Change all comments that say "returns ..." to use @returns doc syntax
+[] Express that this library is primarily about rank and select, and not bitwise set operations and such like, because I haven't had the need for those in the work I've done.
+[] Document it is for static data.
 
 # Creating a Live Development Experience
 ## Removing friction'

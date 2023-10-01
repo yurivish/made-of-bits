@@ -66,7 +66,7 @@ export function get(bv, index) {
   assert(index >= 0 && index <= bv.universeSize);
   const value = bv.rank1(index + 1) - bv.rank1(index);
   if (DEBUG && !bv.hasMultiplicity) {
-    assert(value === 0 || value === 1);
+    assert(value === 0 || value === 1, () => `expected 0 or 1, got ${value}`);
   }
   return value; 
 }
