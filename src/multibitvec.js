@@ -6,7 +6,6 @@ import { ascending } from './sort.js';
 import { SparseBitVec } from './sparsebitvec.js';
 
 /**
- * 
  * @implements {BitVecBuilder}
  */
 export class MultiBitVecBuilder {
@@ -59,6 +58,13 @@ export class MultiBitVecBuilder {
  * 
  * This is effectively the histogram, minus index<>bin translation.
  *
+ * This structure allows us to implement uniqueRank0/1 and uniqueSelect0/1 by
+ * operating purely on the occupancy vector, which could be useful in some circumstances.
+ * 
+ * Another extension would be to add another bitvector to count the multiplicity of zeros,
+ * which turns this into the multiset analog of the run-length-encoded bitset where runs
+ * are encoded 'vertically' (via repetition) rather than 'horizontally' (via contiguous bits).
+ * 
  * @implements {BitVec}
  */
 export class MultiBitVec {
@@ -140,7 +146,7 @@ export class MultiBitVec {
    * @param {number} index
    */
   get(index) {
-    return defaults.get(this, index);
     // return this.occupancy.get(index);
+    return defaults.get(this, index);
   }
 }
