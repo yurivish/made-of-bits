@@ -1,4 +1,5 @@
 # To do
+[] probably remove `src/gen.js` since it is not used
 [] rename this to notes
 [] make a plain README.md noting this is wip
 [] do a pass through the files to ensure it is all ready to be made public (eg. remove gen.js and other unused code?)
