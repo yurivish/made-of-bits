@@ -146,7 +146,6 @@ export class MultiBitVec {
    * @param {number} index
    */
   get(index) {
-    // return this.occupancy.get(index);
     return defaults.get(this, index);
   }
 }
