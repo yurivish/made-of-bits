@@ -446,38 +446,38 @@ export class DenseBitVec {
     return defaults.get(this, index);
   }
 
-  track() {
-    if (this.log === undefined) {
-      /** @type {object[]} */ 
-      this.log = [];
-      // @ts-ignore
-      this.rank1Samples = trackedArray(this.rank1Samples, this.log, 'rank1Samples');
-      // @ts-ignore
-      this.select1Samples = trackedArray(this.select1Samples, this.log, 'select1Samples');
-      // @ts-ignore
-      this.select0Samples = trackedArray(this.select0Samples, this.log, 'select0Samples');
-      // @ts-ignore
-      // note: this is sus since we are reaching into the internals of the bitbuf...
-      this.data.blocks = trackedArray(this.data.blocks, this.log, 'data.blocks');
-    } else {
-      // Keep the identity of the subject because the tracked arrays have a reference to it.
-      this.log.length = 0;
-    }
-  }
-
-  untrack() {
-    const { log } = this;
-    assert(log !== undefined);
+  /**
+   * Track and return array accesses to samples and data blocks incurred
+   * during the execution of `f`. The log is passed to `f` so that it can
+   * add its own delimiters to the log, e.g. in between calls to rank/select.
+   * @param {(log: object[]) => void} f
+   */
+  track(f) {
+    /** @type {object[]} */ 
+    const log = [];
+    const { rank1Samples, select1Samples, select0Samples } = this;
+    const dataBlocks = this.data.blocks;
 
     // @ts-ignore
-    this.rank1Samples = this.rank1Samples.__target__;
+    this.rank1Samples = trackedArray(rank1Samples, log, 'rank1Samples');
     // @ts-ignore
-    this.select1Samples = this.select1Samples.__target__;
+    this.select1Samples = trackedArray(select1Samples, log, 'select1Samples');
     // @ts-ignore
-    this.select0Samples = this.select0Samples.__target__;
+    this.select0Samples = trackedArray(select0Samples, log, 'select0Samples');
     // @ts-ignore
-    this.data.blocks = this.data.blocks.__target__;
-    this.log = undefined;
+    this.data.blocks = trackedArray(dataBlocks, log, 'data.blocks');
+
+    f(log);
+
+    // @ts-ignore
+    this.rank1Samples = rank1Samples;
+    // @ts-ignore
+    this.select1Samples = select1Samples;
+    // @ts-ignore
+    this.select0Samples = select0Samples;
+    // @ts-ignore
+    this.data.blocks = dataBlocks;
+
     return log;
   }
 };

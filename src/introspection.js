@@ -11,6 +11,7 @@ export function trackedArray(arr, log, tag) {
      * @param {any[]} target
      * @param {any} prop
      * @param {any} receiver
+     * @returns {any}
      */
     get(target, prop, receiver) {
       assert(target === arr);
@@ -27,7 +28,6 @@ export function trackedArray(arr, log, tag) {
       return Reflect.get(target, prop, receiver === proxy ? target : receiver);
     }
   };
-  Object.assign(arr, { __target__: arr });
   // @ts-ignore
   const proxy = new Proxy(arr, handler);
   return proxy;
