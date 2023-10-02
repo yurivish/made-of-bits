@@ -42,7 +42,7 @@ import * as defaults from './defaults';
 // - Document the meaning of the bit vec interface elements. Incl select0. Can we have a selectUnique, for bit vecs that store occupancy and count data separately?
 // - consider not directly accessing `this.data.blocks`
 
-import { assert, assertNotUndefined, assertSafeInteger, log } from "./assert.js";
+import { assert, assertDefined, assertSafeInteger, log } from "./assert.js";
 import { BitBuf } from './bitbuf.js';
 import * as bits from './bits.js';
 import { trackedArray } from './introspection.js';
@@ -450,6 +450,11 @@ export class DenseBitVec {
    * Track and return array accesses to samples and data blocks incurred
    * during the execution of `f`. The log is passed to `f` so that it can
    * add its own delimiters to the log, e.g. in between calls to rank/select.
+   * 
+   * Note: tracking will probably permanently lower performance on the bit vector
+   * instance (or maybe all instances?) due to the fact that the field is now has
+   * multiple potential types.
+   * 
    * @param {(log: object[]) => void} f
    */
   track(f) {

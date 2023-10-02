@@ -1,4 +1,4 @@
-import { assert, assertNonNegative, assertNotUndefined, assertSafeInteger, log } from "./assert.js";
+import { assert, assertDefined, assertNonNegative, assertSafeInteger, log } from "./assert.js";
 import { partitionPoint } from './bits';
 import * as defaults from './defaults';
 import { ascending } from './sort.js';

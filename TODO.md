@@ -1,4 +1,6 @@
 # To do
+[] test with large numbers near the limits (eg. 2^53, 2^32)
+[] Try a container based approach compressing every 2^16 consecutive bits separately. Add an option for 16 bit blocks in dense & high bits of sparse
 [] probably remove `src/gen.js` since it is not used
 [] rename this to notes
 [] make a plain README.md noting this is wip

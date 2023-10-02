@@ -28,28 +28,28 @@ export function assert(condition, message) {
  * @param {number} x
  */
 export function assertSafeInteger(x) {
-  assert(Number.isSafeInteger(x), `expected safe integer, got ${x}`);
+  assert(Number.isSafeInteger(x), () => `expected safe integer, got ${x}`);
 }
 
 /**
  * @param {number} x
  */
 export function assertNonNegative(x) {
-  assert(x >= 0, 'expected non-negative number');
+  assert(x >= 0, () => `expected non-negative number, got ${x}`);
 };
 
 /**
  * @param {number} x
  */
 export function assertInteger(x) {
-  assert(Number.isInteger(x), 'expected integer');
+  assert(Number.isInteger(x), () => `expected integer, got ${x}`);
 };
 
 /**
  * @param {any} x
  */
-export function assertNotUndefined(x) {
-  assert(x !== undefined, 'expected non-undefined');
+export function assertDefined(x) {
+  assert(x !== undefined, 'expected a defined value, got undefined');
 };
 
 
