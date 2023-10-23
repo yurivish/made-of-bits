@@ -10,11 +10,9 @@
 
 /**
  * 
- * Note: The function form of the message is to allow deferring the evaluation of
- * a string template literal until the time an error occurs.
- * 
  * @param {boolean} condition
- * @param {string | (() => string) } [message] - error message as a string or zero-argument function
+ * @param {string | (() => string) } [message] - error message as a string or zero-argument function, 
+ * to allow deferring the evaluation of an expensive message until the time an error occurs.
  */
 export function assert(condition, message) {
   const prefix = 'assertion error';

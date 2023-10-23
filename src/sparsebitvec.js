@@ -6,6 +6,16 @@ import { DenseBitVec, DenseBitVecBuilder } from './densebitvec.js';
 import { IntBuf } from './intbuf.js';
 import { ascending } from './sort.js';
 
+// https://observablehq.com/@yurivish/ef-split-points
+//
+// todo
+// - consider how we can support values up to 2^53 so long as neither
+// the high nor low bits are themselves above 2^32. We can store 32-bit
+// low entries with 23-bit high groups
+//   - this would require a user-specified split point
+//   - and it does mean 8 million separator bits in the highs
+
+
 /**
  * @implements {BitVecBuilder}
  */

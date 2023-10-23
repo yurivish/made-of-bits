@@ -95,9 +95,6 @@ export class SortedArrayBitVec {
     
     /** @readonly */
     this.numUniqueZeros = this.numZeros;
-
-    /** @readonly */
-    this.size = this.numZeros + this.numOnes;
   }
 
   /**

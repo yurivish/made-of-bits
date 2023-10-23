@@ -163,3 +163,38 @@ export function select1(n, k) {
   for (let i = 0; i < k; i++) n &= n - 1;
   return trailing0(n);
 }
+
+
+// todo: test
+// Adapted from https://graphics.stanford.edu/~seander/bithacks.html#ReverseParallel
+/**
+ * @param {number} v
+ */
+export function reverseBits32(v) {
+  DEBUG && assert(
+    v <= 0xffffffff,
+    "cannot reverse bits of an integer greater than 2^32-1"
+  );
+  // unsigned int v; // 32-bit word to reverse bit order
+  // swap odd and even bits
+  v = ((v >>> 1) & 0x55555555) | ((v & 0x55555555) << 1);
+  // swap consecutive pairs
+  v = ((v >>> 2) & 0x33333333) | ((v & 0x33333333) << 2);
+  // swap nibbles ...
+  v = ((v >>> 4) & 0x0f0f0f0f) | ((v & 0x0f0f0f0f) << 4);
+  // swap bytes
+  v = ((v >>> 8) & 0x00ff00ff) | ((v & 0x00ff00ff) << 8);
+  // swap 2-byte long pairs
+  v = (v >>> 16) | (v << 16);
+  return v >>> 0;
+}
+
+// todo: test
+/**
+ * @param {number} v
+ * @param {number} numBits
+ */
+export function reverseLowBits(v, numBits) {
+  DEBUG && assert(numBits <= 32, "reverse more than 32 bits");
+  return reverseBits32(v) >>> (32 - numBits);
+}
