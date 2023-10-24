@@ -17,13 +17,16 @@ import { DenseBitVec } from './densebitvec.js';
 // Paper: New algorithms on wavelet trees and applications to information retrieval:
 //   https://www.sciencedirect.com/science/article/pii/S0304397511009625/pdf?md5=32fe86d035e8a0859fd3a4b045e8b36b&pid=1-s2.0-S0304397511009625-main.pdf
 
-class WaveletMatrix {
+export class WaveletMatrix {
 
   /**
    * @param {number[]} data
-   * @param {number} maxSymbol
+   * @param {number} [maxSymbol]
    */
   constructor(data, maxSymbol) {
+    if (maxSymbol === undefined) {
+      maxSymbol = data.reduce((a, b) => Math.max(a, b), 0);
+    }
     assert(maxSymbol < 2 ** 32);
     const alphabetSize = maxSymbol + 1;
     const numLevels = Math.max(1, Math.ceil(Math.log2(alphabetSize)));
@@ -51,17 +54,18 @@ class WaveletMatrix {
     this.length = bitVecs[0].universeSize;
     this.levels = bitVecs.map((bv, index) => ({
       nz: bv.numZeros,
-      bit: u32(1 << (bitVecs.length - index)),
+      bit: u32(1 << (this.maxLevel - index)),
       bv
     }));
   }
 
   /**
    * @param {number} symbol
-   * @param {{ start: any; end: any; }} range
-   * @param {number} ignoreBits
+   * @param {Object} [options]
+   * @param {{ start: any; end: any; }} [options.range]
+   * @param {number} [options.ignoreBits]
    */
-  locate(symbol, range, ignoreBits) {
+  locate(symbol, { range = Range(0, this.length), ignoreBits = 0 } = {}) {
     let precedingCount = 0;
     const numLevels = this.numLevels - ignoreBits;
     for (let i = 0; i < numLevels; i++) {
@@ -85,26 +89,30 @@ class WaveletMatrix {
   /**
    * Number of symbols less than this one, restricted to the query range
    * @param {number} symbol
-   * @param {{ start: any; end: any; }} range
+   * @param {Object} [options]
+   * @param {{ start: any; end: any; }} [options.range]
    */
-  precedingCount(symbol, range) {
-    return this.locate(symbol, range, 0).precedingCount;
+  precedingCount(symbol, { range = Range(0, this.length) } = {}) {
+    return this.locate(symbol, { range }).precedingCount;
   }
 
   /**
    * Number of times the symbol appears in the query range
    * @param {number} symbol
-   * @param {{ start: any; end: any; }} range
+   * @param {Object} [options]
+   * @param {{ start: any; end: any; }} [options.range]
    */
-  count(symbol, range) {
-    return this.locate(symbol, range, 0).precedingCount;
+  count(symbol, { range = Range(0, this.length) } = {}) {
+    const loc = this.locate(symbol, { range });
+    return loc.range.end - loc.range.start;
   }
 
   /**
    * @param {number} k
-   * @param {{ start: any; end: any; }} range
+   * @param {Object} [options]
+   * @param {{ start: any; end: any; }} [options.range]
    */
-  quantile(k, range) {
+  quantile(k, { range = Range(0, this.length) } = {}) {
     let symbol = 0;
     for (const level of this.levels) {
       let start = ranks(level, range.start);
@@ -130,9 +138,11 @@ class WaveletMatrix {
    * We make this a pub fn since it could allow eg. external users of `locate` to efficiently
    * select their chosen element. For example, perhaps we should remove `select_last`...
    * @param {number} index
-   * @param {number} ignoreBits
+   * @param {Object} [options]
+   * @param {number} [options.ignoreBits]
    */
-  selectUpwards(index, ignoreBits) {
+  selectUpwards(index, { ignoreBits = 0 } = {}) {
+    console.log('selectUpwards', index);
     for (let i = this.numLevels - ignoreBits; i-- > 0;) {
       const level = this.levels[i];
       // `index` represents an index on the level below this one, which may be
@@ -164,17 +174,18 @@ class WaveletMatrix {
 
   /**
    * @param {number} symbol
-   * @param {number} k
-   * @param {{ start: any; end: any; }} range
-   * @param {number} ignoreBits
+   * @param {Object} [options]
+   * @param {number} [options.k]
+   * @param {{ start: any; end: any; }} [options.range]
+   * @param {number} [options.ignoreBits]
    */
-  select(symbol, k, range, ignoreBits) {
+  select(symbol, { k = 0, range = Range(0, this.length), ignoreBits = 0 } = {}) {
     if (symbol > this.maxSymbol) { 
       return null;
     }
 
     // Track the symbol down to a range on the bottom-most level we're interested in
-    let loc = this.locate(symbol, range, ignoreBits);
+    let loc = this.locate(symbol, { range, ignoreBits });
     let count = loc.range.end - loc.range.start;
 
     // If there are fewer than `k+1` copies of `symbol` in the range, return early.
@@ -185,24 +196,25 @@ class WaveletMatrix {
 
     // Track the k-th occurrence of the symbol up from the bottom-most virtual level
     // or higher, if ignore_bits is non-zero.
-    let index = range.start + k;
-    return this.selectUpwards(index, ignoreBits);
+    let index = loc.range.start + k;
+    return this.selectUpwards(index, { ignoreBits });
   }
 
   /**
    * Same as select, but select the k-th instance from the back of the range
    * @param {number} symbol
-   * @param {number} k
-   * @param {{ start: any; end: any; }} range
-   * @param {number} ignoreBits
+   * @param {Object} [options]
+   * @param {number} [options.k]
+   * @param {{ start: any; end: any; }} [options.range]
+   * @param {number} [options.ignoreBits]
    */
-  selectFromEnd(symbol, k, range, ignoreBits) {
+  selectFromEnd(symbol, { k = 0, range = Range(0, this.length), ignoreBits = 0 } = {}) {
     if (symbol > this.maxSymbol) { 
       return null;
     }
 
     // Track the symbol down to a range on the bottom-most level we're interested in
-    let loc = this.locate(symbol, range, ignoreBits);
+    let loc = this.locate(symbol, { range, ignoreBits });
     let count = loc.range.end - loc.range.start;
 
     // If there are fewer than `k+1` copies of `symbol` in the range, return early.
@@ -214,8 +226,8 @@ class WaveletMatrix {
     // Track the k-th occurrence of the symbol up from the bottom-most virtual level
     // or higher, if ignore_bits is non-zero.
     // The `- 1` is because the end of the range is exclusive
-    let index = range.end - k - 1;
-    return this.selectUpwards(index, ignoreBits);
+    let index = loc.range.end - k - 1;
+    return this.selectUpwards(index, { ignoreBits });
   }
 
   /**
@@ -226,7 +238,7 @@ class WaveletMatrix {
   simpleMajority(range) {
     const length = range.end - range.start;
     const halfLength = length >>> 1;
-    const result = this.quantile(halfLength, range);
+    const result = this.quantile(halfLength, { range });
     if (result.count > halfLength) {
       return result;
     } else {
@@ -319,18 +331,18 @@ function buildBitVecsSmallAlphabet(data, numLevels) {
 
     // Get starting positions of intervals from the new histogram
     borders[0] = 0;
-    for (let i = 0; i < numNodes; i++) {
+    for (let i = 1; i < numNodes; i++) {
       // Update the positions in-place. The bit reversals map from wavelet tree
       // node order to wavelet matrix node order, with all left children preceding
       // the right children.
-      let prev_index = reverseLowBits(i - 1, l);
-      borders[reverseLowBits(i, l)] = borders[prev_index] + hist[prev_index];
+      let prevIndex = reverseLowBits(i - 1, l);
+      borders[reverseLowBits(i, l)] = borders[prevIndex] + hist[prevIndex];
     }
 
     // Fill the bit vector of the current level
     const level = levels[l];
     const levelBitIndex = maxLevel - l;
-    const levelBit = 1 << levelBitIndex;
+    const levelBit = u32(1 << levelBitIndex);
 
     // This mask contains all ones except for the lowest levelBitIndex bits.
     // This is a bit subtle since the negation operates only on the 32-bit value,
