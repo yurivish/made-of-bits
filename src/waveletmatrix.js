@@ -3,6 +3,20 @@ import { BitBuf } from './bitbuf.js';
 import { oneMask, reverseLowBits, u32 } from './bits.js';
 import { DenseBitVec } from './densebitvec.js';
 
+// Implements a wavelet matrix, which is an efficient data structure for
+// wavelet tree operations on top of a levelwise bitvector representation
+//
+// Nice description of wavelet trees:
+//   https://www.alexbowe.com/wavelet-trees/
+// Overview and uses of the wavelet tree:
+//   https://www.sciencedirect.com/science/article/pii/S1570866713000610
+// Original wavelet matrix paper:
+//   https://users.dcc.uchile.cl/~gnavarro/ps/spire12.4.pdf
+// Paper: Practical Wavelet Tree Construction:
+//   https://dl.acm.org/doi/fullHtml/10.1145/3457197/
+// Paper: New algorithms on wavelet trees and applications to information retrieval:
+//   https://www.sciencedirect.com/science/article/pii/S0304397511009625/pdf?md5=32fe86d035e8a0859fd3a4b045e8b36b&pid=1-s2.0-S0304397511009625-main.pdf
+
 class WaveletMatrix {
 
   /**
@@ -30,14 +44,8 @@ class WaveletMatrix {
       bitVecs = buildBitVecsLargeAlphabet(data, numLevels);
     };
 
-    this.initFromBitVecs(bitVecs);
-  }
-
-  /**
-   * @param {BitVec[]} bitVecs
-   */
-  initFromBitVecs(bitVecs) {
     assert(bitVecs.length > 0);
+    this.maxSymbol = maxSymbol;
     this.numLevels = bitVecs.length;
     this.maxLevel = this.numLevels - 1;
     this.length = bitVecs[0].universeSize;
@@ -47,9 +55,233 @@ class WaveletMatrix {
       bv
     }));
   }
+
+  /**
+   * @param {number} symbol
+   * @param {{ start: any; end: any; }} range
+   * @param {number} ignoreBits
+   */
+  locate(symbol, range, ignoreBits) {
+    let precedingCount = 0;
+    const numLevels = this.numLevels - ignoreBits;
+    for (let i = 0; i < numLevels; i++) {
+      const level = this.levels[i];
+      const start = ranks(level, range.start);
+      const end = ranks(level, range.end);
+      // Check if the symbol's level bit is set to determine whether it should be mapped
+      // to the left or right child node
+      if ((symbol & level.bit) === 0) {
+        // Go left
+        range = Range(start.zeros, end.zeros);
+      } else {
+        // Count the symbols in the left child before going right
+        precedingCount += end.zeros - start.zeros;
+        range = Range(level.nz + start.ones, level.nz + end.ones);
+      }
+    }
+    return { precedingCount, range };
+  }
+
+  /**
+   * Number of symbols less than this one, restricted to the query range
+   * @param {number} symbol
+   * @param {{ start: any; end: any; }} range
+   */
+  precedingCount(symbol, range) {
+    return this.locate(symbol, range, 0).precedingCount;
+  }
+
+  /**
+   * Number of times the symbol appears in the query range
+   * @param {number} symbol
+   * @param {{ start: any; end: any; }} range
+   */
+  count(symbol, range) {
+    return this.locate(symbol, range, 0).precedingCount;
+  }
+
+  /**
+   * @param {number} k
+   * @param {{ start: any; end: any; }} range
+   */
+  quantile(k, range) {
+    let symbol = 0;
+    for (const level of this.levels) {
+      let start = ranks(level, range.start);
+      let end = ranks(level, range.end);
+      let leftCount = end.zeros - start.zeros;
+      if (k < leftCount) {
+        // Go left
+        range = Range(start.zeros, end.zeros);
+      } else {
+        k -= leftCount;
+        symbol += level.bit;
+        range = Range(level.nz + start.ones, level.nz + end.ones);
+      }
+    }
+    let count = range.end - range.start;
+    return { symbol, count };
+  }
+
+  /**
+   * This function abstracts the common second half of the select algorithm, once you've
+   * identified an index on the "bottom" level and want to bubble it back up to translate
+   * the "sorted" index from the bottom level to the index of that element in sequence order.
+   * We make this a pub fn since it could allow eg. external users of `locate` to efficiently
+   * select their chosen element. For example, perhaps we should remove `select_last`...
+   * @param {number} index
+   * @param {number} ignoreBits
+   */
+  selectUpwards(index, ignoreBits) {
+    for (let i = this.numLevels - ignoreBits; i-- > 0;) {
+      const level = this.levels[i];
+      // `index` represents an index on the level below this one, which may be
+      // the bottom-most 'virtual' layer that contains all symbols in sorted order.
+      //
+      // We want to determine the position of the element represented by `index` on
+      // this level, which we can do by "mapping" the index up to its parent node.
+      //
+      // `level.nz` tells us how many bits on the level below come from left children of
+      // the wavelet tree (represented by this wavelet matrix). If the index < nz, that
+      // means that the index on the level below came from a left child on this level,
+      // which means that it must be represented by a 0-bit on this level; specifically,
+      // the `index`-th 0-bit, since the WT always represents a stable sort of its elements.
+      //
+      // On the other hand, if `index` came from a right child on this level, then it
+      // is represented by a 1-bit on this level; specifically, the `index - nz`-th 1-bit.
+      //
+      // In either case, we can use bitvector select to compute the index on this level.
+      if (index < level.nz) {
+        // `index` represents a left child on this level, represented by the `index`-th 0-bit.
+        index = level.bv.select0(index);
+      } else {
+        // `index` represents a right child on this level, represented by the `index-nz`-th 1-bit.
+        index = level.bv.select1(index - level.nz);
+      }
+    }
+    return index;
+  }
+
+  /**
+   * @param {number} symbol
+   * @param {number} k
+   * @param {{ start: any; end: any; }} range
+   * @param {number} ignoreBits
+   */
+  select(symbol, k, range, ignoreBits) {
+    if (symbol > this.maxSymbol) { 
+      return null;
+    }
+
+    // Track the symbol down to a range on the bottom-most level we're interested in
+    let loc = this.locate(symbol, range, ignoreBits);
+    let count = loc.range.end - loc.range.start;
+
+    // If there are fewer than `k+1` copies of `symbol` in the range, return early.
+    // `k` is zero-indexed, so our check includes equality.
+    if (count <= k) {
+      return null;
+    }
+
+    // Track the k-th occurrence of the symbol up from the bottom-most virtual level
+    // or higher, if ignore_bits is non-zero.
+    let index = range.start + k;
+    return this.selectUpwards(index, ignoreBits);
+  }
+
+  /**
+   * Same as select, but select the k-th instance from the back of the range
+   * @param {number} symbol
+   * @param {number} k
+   * @param {{ start: any; end: any; }} range
+   * @param {number} ignoreBits
+   */
+  selectFromEnd(symbol, k, range, ignoreBits) {
+    if (symbol > this.maxSymbol) { 
+      return null;
+    }
+
+    // Track the symbol down to a range on the bottom-most level we're interested in
+    let loc = this.locate(symbol, range, ignoreBits);
+    let count = loc.range.end - loc.range.start;
+
+    // If there are fewer than `k+1` copies of `symbol` in the range, return early.
+    // `k` is zero-indexed, so our check includes equality.
+    if (count <= k) {
+      return null;
+    }
+
+    // Track the k-th occurrence of the symbol up from the bottom-most virtual level
+    // or higher, if ignore_bits is non-zero.
+    // The `- 1` is because the end of the range is exclusive
+    let index = range.end - k - 1;
+    return this.selectUpwards(index, ignoreBits);
+  }
+
+  /**
+   * Return the majority element as `{ symbol, count }` if it exists, or `null` if it doesn't.
+   * The majority element is one whose frequency (count) is larger than 50% of the range.
+   * @param {{ end: any; start: any; }} range
+   */
+  simpleMajority(range) {
+    const length = range.end - range.start;
+    const halfLength = length >>> 1;
+    const result = this.quantile(halfLength, range);
+    if (result.count > halfLength) {
+      return result;
+    } else {
+      return null;
+    }
+  }
+
+  // todo: fn k_majority(&self, k, range) { ... }
+  // Returns the 1/k-majority. Ie. for k = 4, return the elements (if any) with
+  // frequency larger than 1/4th (25%) of the specified index range.
+  //   - note: could we use this with ignore_bits to check if eg. half of the values are in the bottom half/quarter?
+  //   - ie. doing majority queries on the high bits lets us make some statements about the density of values across
+  //     *ranges*. so rather than saying "these symbols have frequency >25%" we can say "these symbol ranges have
+  //     frequency >25%", for power of two frequencies (or actually arbitrary ones, based on the quantiles...right?)
+  // note: even more useful would be a k_majority_candidates function that returns all the samples, which can then be filtered down.
+
+  /**
+   * @param {number} index
+   */
+  get(index) {
+    let symbol = 0;
+    for (const level of this.levels) {
+      if (level.bv.get(index) === 0) {
+        // Go left
+        index = level.bv.rank0(index);
+      } else {
+        symbol += level.bit;
+        index = level.nz + level.bv.rank1(index);
+      }
+      return symbol;
+    }
+  }
 }
 
 /**
+ * @param {{ nz: number; bit: number; bv: BitVec; }} level
+ * @param {number} index
+ */
+function ranks(level, index) {
+  let numOnes = level.bv.rank1(index);
+  let numZeros = index - numOnes;
+  return { zeros: numZeros, ones: numOnes };
+}
+
+/**
+ * @param {number} start
+ * @param {number} end
+ */
+function Range(start, end) {
+  return { start, end };
+}
+
+/**
+ * Wavelet matrix construction algorithm that takes space proportional to the alphabet size (2^numLevels).
+ * From the paper "Practical Wavelet Tree Construction" (see link in comment at the top of this file)
  * @param {number[]} data
  * @param {number} numLevels
  */
@@ -123,6 +355,9 @@ function buildBitVecsSmallAlphabet(data, numLevels) {
 }
 
 /**
+ * Wavelet matrix construction algorithm that takes space proportional to the amount of data rather
+ * than the alphabet size, allowing for sparse alphabets up to [0, 2^32).
+ * From the paper "Practical Wavelet Tree Construction" (see link in comment at the top of this file)
  * @param {number[]} data
  * @param {number} numLevels
  */
@@ -154,7 +389,7 @@ function buildBitVecsLargeAlphabet(data, numLevels) {
       }
     }
 
-    // append right to data then clear it
+    // append `right` to `data`, then clear `right`
     for (let i = 0; i < right.length; i++) {
       data[n++] = right[i];
     }
@@ -162,7 +397,6 @@ function buildBitVecsLargeAlphabet(data, numLevels) {
 
     levels.push(new DenseBitVec(bits, 5, 5));
   }
-
 
   // For the last level we don't need to do anything but build the bitvector
   {
