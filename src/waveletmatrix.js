@@ -20,6 +20,8 @@ import { DenseBitVec } from './densebitvec.js';
 // todo:
 // - debug asserts (eg. validate ranges)
 // - explain and test behavior of selectUpwards. I tried writing tests but couldn't actually figure out what it's supposed to do.
+// - impl batch count function for density plots, using masks.
+
 
 export class WaveletMatrix {
 
