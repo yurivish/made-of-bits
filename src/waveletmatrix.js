@@ -1,7 +1,9 @@
+import { symbol } from 'd3';
 import { assert } from './assert.js';
 import { BitBuf } from './bitbuf.js';
 import { oneMask, reverseLowBits, u32 } from './bits.js';
 import { DenseBitVec } from './densebitvec.js';
+import { bits } from './index.js';
 
 // Implements a wavelet matrix, which is an efficient data structure for
 // wavelet tree operations on top of a levelwise bitvector representation
@@ -287,8 +289,69 @@ export class WaveletMatrix {
     }
     return symbol;
   }
+
+  // Question. What happens when our search symbol range is contiguous either in 1D or 2D?
+  // Does this have any implications for the rank cache, or other methods of reducing rank calls?
+  // Especially if we assume that the original search range is the full dataset.
+  // todo: rank cache or similar
+  // todo: consider using extent for symbol?
+  counts({ range = Range(0, this.length), symbolRange = Range(0, this.maxSymbol + 1), ignoreBits = 0 } = {}) {
+    let xs = [{
+      symbol: 0, // the leftmost symbol in the current node
+      start: range.start,
+      end: range.end
+    }];
+    let nextLeft = xs.slice(0, 0);  // create these empty arrays via slicing 
+    let nextRight = xs.slice(0, 0); // for type inference purposes
+
+    let numLevels = this.numLevels - ignoreBits;
+    for (let i = 0; i < numLevels; i++) {
+      const mask = bits.oneMask(32);
+      const level = this.levels[i];
+      const levelSymbolRange = MaskRange(symbolRange.start, symbolRange.end, mask);
+
+      for (const x of xs) {
+        const symbol = x.symbol;
+        const start = ranks(level, x.start);
+        const end = ranks(level, x.end);
+        const { left, right } = childSymbolRanges(level, symbol, mask);
+
+        // if there are any left children, go left
+        if (start.zeros !== end.zeros && rangesOverlap(levelSymbolRange, left)) {
+          nextLeft.push({
+            symbol, 
+            start: start.zeros, 
+            end: end.zeros
+          });
+        }
+
+        // if there are any right children, set the level bit and go right
+        if (start.ones !== end.ones && rangesOverlap(levelSymbolRange, right)) {
+          nextRight.push({
+            symbol: symbol + level.bit, 
+            start: level.nz + start.ones, 
+            end: level.nz + end.ones
+          });
+        }
+      }
+
+      // swap xs and nextLeft
+      let tmp = xs;
+      xs = nextLeft;
+      nextLeft = tmp;
+
+      // append the right to the left
+      xs.push(...nextRight);
+
+      // clear both for the next iteration
+      nextLeft.length = 0;
+      nextRight.length = 0;
+    }
+    return xs;
+  }
 }
 
+// todo: document
 /**
  * @param {{ nz: number; bit: number; bv: BitVec; }} level
  * @param {number} index
@@ -299,12 +362,60 @@ function ranks(level, index) {
   return { zeros: numZeros, ones: numOnes };
 }
 
+// todo: document
 /**
  * @param {number} start
  * @param {number} end
  */
 function Range(start, end) {
   return { start, end };
+}
+
+// todo: document
+/**
+ * @param {{ start: number; end: number; }} a
+ * @param {{ end: number; start: number; }} b
+ */
+function rangesOverlap(a, b) {
+  return a.start < b.end && b.start < a.end;
+}
+
+// todo: document
+/**
+ * @param {number} start
+ * @param {number} end
+ * @param {number} mask
+ */
+function MaskRange(start, end, mask) {
+  // The end is exclusive so we need to make sure to mask the true end point.
+  return { start: start & mask, end: ((end - 1) & mask) + 1 };
+}
+
+// todo: document
+/**
+ * @param {{ nz: number; bit: number; bv: BitVec; }} level
+ * @param {number} leftSymbol
+ */
+function split(level, leftSymbol) {
+  return {
+    left: leftSymbol, 
+    mid: leftSymbol + level.bit,
+    right: leftSymbol + level.bit + level.bit 
+  };
+}
+
+// todo: document
+/**
+ * @param {{ nz: number; bit: number; bv: BitVec; }} level
+ * @param {number} leftSymbol
+ * @param {number} mask
+ */
+function childSymbolRanges(level, leftSymbol, mask) {
+  const { left, mid, right } = split(level, leftSymbol);
+  return {
+    left: MaskRange(left, mid, mask),
+    right: MaskRange(mid, right, mask),
+  };
 }
 
 /**

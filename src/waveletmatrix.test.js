@@ -130,4 +130,7 @@ describe('WaveletMatrix', () => {
     expect(wm.simpleMajority({ start: 3, end: wm.length })).toMatchObject({ symbol: 1, count: 3 });
     expect(wm.simpleMajority({ start: 2, end: 3 })).toMatchObject({ symbol: 2, count: 1 });
   });
+
+  // console.log(wm.counts());
+  // expect(wm.counts()).toMatchObject({});
 });
