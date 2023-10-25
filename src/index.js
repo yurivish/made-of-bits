@@ -9,4 +9,5 @@ export { MultiBitVec, MultiBitVecBuilder } from './multibitvec.js';
 export { RLEBitVec, RLEBitVecBuilder, RLERunBuilder } from './rlebitvec.js';
 export { SortedArrayBitVec, SortedArrayBitVecBuilder } from './sortedarraybitvec.js';
 export { SparseBitVec, SparseBitVecBuilder } from './sparsebitvec.js';
+export { WaveletMatrix } from './waveletmatrix.js';
 

@@ -40,20 +40,20 @@ describe('WaveletMatrix', () => {
   it('quantile', () => {
     // [0, 1, 2, 1, 0, 1, 4, 1] sorted is
     // [0, 0, 1, 1, 1, 1, 2, 4]
-    expect(wm.quantile(0)).toMatchObject({ symbol: 0, count: 2 });
-    expect(wm.quantile(1)).toMatchObject({ symbol: 0, count: 2 });
-    expect(wm.quantile(2)).toMatchObject({ symbol: 1, count: 4 });
-    expect(wm.quantile(3)).toMatchObject({ symbol: 1, count: 4 });
-    expect(wm.quantile(4)).toMatchObject({ symbol: 1, count: 4 });
-    expect(wm.quantile(5)).toMatchObject({ symbol: 1, count: 4 });
-    expect(wm.quantile(6)).toMatchObject({ symbol: 2, count: 1 });
-    expect(wm.quantile(7)).toMatchObject({ symbol: 4, count: 1 });
+    expect(wm.quantile(0)).toEqual({ symbol: 0, count: 2 });
+    expect(wm.quantile(1)).toEqual({ symbol: 0, count: 2 });
+    expect(wm.quantile(2)).toEqual({ symbol: 1, count: 4 });
+    expect(wm.quantile(3)).toEqual({ symbol: 1, count: 4 });
+    expect(wm.quantile(4)).toEqual({ symbol: 1, count: 4 });
+    expect(wm.quantile(5)).toEqual({ symbol: 1, count: 4 });
+    expect(wm.quantile(6)).toEqual({ symbol: 2, count: 1 });
+    expect(wm.quantile(7)).toEqual({ symbol: 4, count: 1 });
     expect(() => wm.quantile(8)).toThrow();
 
     const options = { range: { start: 3, end: 6 } };
-    expect(wm.quantile(0, options)).toMatchObject({ symbol: 0, count: 1 });
-    expect(wm.quantile(1, options)).toMatchObject({ symbol: 1, count: 2 });
-    expect(wm.quantile(2, options)).toMatchObject({ symbol: 1, count: 2 });
+    expect(wm.quantile(0, options)).toEqual({ symbol: 0, count: 1 });
+    expect(wm.quantile(1, options)).toEqual({ symbol: 1, count: 2 });
+    expect(wm.quantile(2, options)).toEqual({ symbol: 1, count: 2 });
   });
 
   it('select', () => {
@@ -126,11 +126,43 @@ describe('WaveletMatrix', () => {
   it('simpleMajority', () => {
     expect(wm.simpleMajority({ start: 0, end: wm.length })).toBe(null);
     expect(wm.simpleMajority({ start: 0, end: wm.length - 1 })).toBe(null);
-    expect(wm.simpleMajority({ start: 1, end: wm.length })).toMatchObject({ symbol: 1, count: 4 });
-    expect(wm.simpleMajority({ start: 3, end: wm.length })).toMatchObject({ symbol: 1, count: 3 });
-    expect(wm.simpleMajority({ start: 2, end: 3 })).toMatchObject({ symbol: 2, count: 1 });
+    expect(wm.simpleMajority({ start: 1, end: wm.length })).toEqual({ symbol: 1, count: 4 });
+    expect(wm.simpleMajority({ start: 3, end: wm.length })).toEqual({ symbol: 1, count: 3 });
+    expect(wm.simpleMajority({ start: 2, end: 3 })).toEqual({ symbol: 2, count: 1 });
   });
 
-  // console.log(wm.counts());
-  // expect(wm.counts()).toMatchObject({});
+  it('counts', () => {
+    expect(wm.counts()).toEqual([
+      { symbol: 0, start: 0, end: 2 },
+      { symbol: 4, start: 2, end: 3 },
+      { symbol: 2, start: 3, end: 4 },
+      { symbol: 1, start: 4, end: 8 }
+    ]);
+
+    expect(wm.counts({ range: { start: 1, end: wm.length - 1 } })).toEqual([
+      { symbol: 0, start: 1, end: 2 },
+      { symbol: 4, start: 2, end: 3 },
+      { symbol: 2, start: 3, end: 4 },
+      { symbol: 1, start: 4, end: 7 }
+    ]);
+
+    expect(wm.counts({ masks: wm.defaultLevelMasks.slice(0, 1) })).toEqual([
+      { symbol: 0, start: 0, end: 7 }, 
+      { symbol: 4, start: 7, end: 8 } 
+    ]);
+
+    expect(wm.counts({ masks: wm.defaultLevelMasks.slice(0, 2) })).toEqual([
+      { symbol: 0, start: 0, end: 6 },
+      { symbol: 4, start: 6, end: 7 },
+      { symbol: 2, start: 7, end: 8 }
+    ]);
+
+    expect(wm.counts({ range: { start: 1, end: wm.length - 1 }, masks: wm.defaultLevelMasks.slice(0, 2) })).toEqual([
+      { symbol: 0, start: 1, end: 5 },
+      { symbol: 4, start: 6, end: 7 },
+      { symbol: 2, start: 7, end: 8 }
+    ]);
+  });
+ 
+  
 });

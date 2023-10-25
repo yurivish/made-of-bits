@@ -47,7 +47,7 @@ export class WaveletMatrix {
     let /** @type {BitVec[]} */ bitVecs;
     if (data.length === 0) {
       // Create an empty bitvec since numLevels is 1
-      bitVecs = [new DenseBitVec(new BitBuf(0), 5, 5)];
+      bitVecs = [new DenseBitVec(new BitBuf(0), 10, 10)];
     } else if (numLevels <= Math.floor(Math.log2(data.length))) {
       bitVecs = buildBitVecsSmallAlphabet(data, numLevels);
     } else {
@@ -64,6 +64,7 @@ export class WaveletMatrix {
       bit: u32(1 << (this.maxLevel - index)),
       bv
     }));
+    this.defaultLevelMasks = bitVecs.map(() => bits.oneMask(32));
   }
 
   /**
@@ -290,30 +291,34 @@ export class WaveletMatrix {
     return symbol;
   }
 
-  // Question. What happens when our search symbol range is contiguous either in 1D or 2D?
-  // Does this have any implications for the rank cache, or other methods of reducing rank calls?
-  // Especially if we assume that the original search range is the full dataset.
   // todo: rank cache or similar
   // todo: consider using extent for symbol?
-  counts({ range = Range(0, this.length), symbolRange = Range(0, this.maxSymbol + 1), ignoreBits = 0 } = {}) {
+  // todo: consider using MaskExtent to avoid the extra sub/add instructions
+  counts({ range = Range(0, this.length), symbolRange = Range(0, this.maxSymbol + 1), masks = this.defaultLevelMasks } = {}) {
     let xs = [{
       symbol: 0, // the leftmost symbol in the current node
-      start: range.start,
-      end: range.end
+      start: range.start, // index  range start
+      end: range.end // index range end
     }];
     let nextLeft = xs.slice(0, 0);  // create these empty arrays via slicing 
-    let nextRight = xs.slice(0, 0); // for type inference purposes
+    const nextRight = xs.slice(0, 0); // for type inference purposes
 
-    let numLevels = this.numLevels - ignoreBits;
-    for (let i = 0; i < numLevels; i++) {
-      const mask = bits.oneMask(32);
+    for (let i = 0; i < masks.length; i++) {
+      const mask = masks[i];
       const level = this.levels[i];
       const levelSymbolRange = MaskRange(symbolRange.start, symbolRange.end, mask);
 
+      // cache the results of the previous end rank query
+      // in case the next range starts where the previous one ends
+      let end = { zeros: -1, ones: -1 };
+      let prevEnd = this.maxSymbol + 1;
+
       for (const x of xs) {
         const symbol = x.symbol;
-        const start = ranks(level, x.start);
-        const end = ranks(level, x.end);
+        // const start = ranks(level, x.start);
+        const start = x.start == prevEnd ? end : ranks(level, x.start);
+        end = ranks(level, x.end);
+        prevEnd = x.end;
         const { left, right } = childSymbolRanges(level, symbol, mask);
 
         // if there are any left children, go left
@@ -340,12 +345,10 @@ export class WaveletMatrix {
       xs = nextLeft;
       nextLeft = tmp;
 
-      // append the right to the left
-      xs.push(...nextRight);
-
+      // append the right to the left, then 
       // clear both for the next iteration
-      nextLeft.length = 0;
-      nextRight.length = 0;
+      xs.push(...nextRight);
+      nextLeft.length = nextRight.length = 0;
     }
     return xs;
   }
@@ -490,7 +493,7 @@ function buildBitVecsSmallAlphabet(data, numLevels) {
   }
 
   // todo: configurable dense bitvec parameters
-  return levels.map(d => new DenseBitVec(d, 5, 5));
+  return levels.map(d => new DenseBitVec(d, 10, 10));
 }
 
 /**
@@ -534,7 +537,7 @@ function buildBitVecsLargeAlphabet(data, numLevels) {
     }
     right.length = 0;
 
-    levels.push(new DenseBitVec(bits, 5, 5));
+    levels.push(new DenseBitVec(bits, 10, 10));
   }
 
   // For the last level we don't need to do anything but build the bitvector
@@ -547,7 +550,7 @@ function buildBitVecsLargeAlphabet(data, numLevels) {
         bits.setOne(i);
       }
     }
-    levels.push(new DenseBitVec(bits, 5, 5));
+    levels.push(new DenseBitVec(bits, 10, 10));
   }
 
   return levels;
