@@ -308,17 +308,10 @@ export class WaveletMatrix {
       const level = this.levels[i];
       const levelSymbolRange = MaskRange(symbolRange.start, symbolRange.end, mask);
 
-      // cache the results of the previous end rank query
-      // in case the next range starts where the previous one ends
-      let end = { zeros: -1, ones: -1 };
-      let prevEnd = this.maxSymbol + 1;
-
       for (const x of xs) {
         const symbol = x.symbol;
-        // const start = ranks(level, x.start);
-        const start = x.start == prevEnd ? end : ranks(level, x.start);
-        end = ranks(level, x.end);
-        prevEnd = x.end;
+        const start = ranks(level, x.start);
+        const end = ranks(level, x.end);
         const { left, right } = childSymbolRanges(level, symbol, mask);
 
         // if there are any left children, go left
