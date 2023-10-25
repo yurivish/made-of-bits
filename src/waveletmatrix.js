@@ -276,7 +276,9 @@ export class WaveletMatrix {
     // We find the first left node that is fully contained in the [0, symbol] symbol range,
     // and then we recurse into the right child if it is partly contained, and repeat.
     //
-    // todo: implement select[First|Last][Less|Greater]ThanOrEqual.
+    // todo:
+    // implement select[First|Last][Less|Greater]ThanOrEqual, Or perhaps a version that gets
+    // the k-th element from the start/end of the range.
 
     for (let i = 0; i < this.numLevels; i++) {
       if (rangeIsEmpty(range)) {
