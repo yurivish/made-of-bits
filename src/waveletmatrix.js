@@ -17,6 +17,10 @@ import { DenseBitVec } from './densebitvec.js';
 // Paper: New algorithms on wavelet trees and applications to information retrieval:
 //   https://www.sciencedirect.com/science/article/pii/S0304397511009625/pdf?md5=32fe86d035e8a0859fd3a4b045e8b36b&pid=1-s2.0-S0304397511009625-main.pdf
 
+// todo:
+// - debug asserts (eg. validate ranges)
+// - explain The behavior of selectUpwards and test it. I tried writing tests but couldn't actually figure out what it's supposed to do.
+
 export class WaveletMatrix {
 
   /**
@@ -36,8 +40,7 @@ export class WaveletMatrix {
     // It also requires O(2^num_levels) space. So, we check whether the number of data points
     // is less than 2^num_levels, and if so use the scalable algorithm, and otherise use the
     // the efficient algorithm.
-    /** @type {BitVec[]} */
-    let bitVecs;
+    let /** @type {BitVec[]} */ bitVecs;
     if (data.length === 0) {
       // Create an empty bitvec since numLevels is 1
       bitVecs = [new DenseBitVec(new BitBuf(0), 5, 5)];
@@ -83,6 +86,8 @@ export class WaveletMatrix {
         range = Range(level.nz + start.ones, level.nz + end.ones);
       }
     }
+    // precedingCount is the number of symbols less than `symbol`, restricted to the query range
+    // range is the range of the symbol on the virtual bottom-most level, accounting for `ignoreBits`
     return { precedingCount, range };
   }
 
@@ -97,7 +102,9 @@ export class WaveletMatrix {
   }
 
   /**
-   * Number of times the symbol appears in the query range
+   * Number of times the symbol appears in the query range.
+   * We could also provide a more efficient rank operation that takes
+   * an index and only does one rank per level.
    * @param {number} symbol
    * @param {Object} [options]
    * @param {{ start: any; end: any; }} [options.range]
@@ -113,6 +120,7 @@ export class WaveletMatrix {
    * @param {{ start: any; end: any; }} [options.range]
    */
   quantile(k, { range = Range(0, this.length) } = {}) {
+    assert(0 <= k && k < this.length);
     let symbol = 0;
     for (const level of this.levels) {
       let start = ranks(level, range.start);
@@ -135,14 +143,16 @@ export class WaveletMatrix {
    * This function abstracts the common second half of the select algorithm, once you've
    * identified an index on the "bottom" level and want to bubble it back up to translate
    * the "sorted" index from the bottom level to the index of that element in sequence order.
-   * We make this a pub fn since it could allow eg. external users of `locate` to efficiently
-   * select their chosen element. For example, perhaps we should remove `select_last`...
+   * This function allows eg. external users of `locate` to efficiently select their chosen element.
+   * 
+   * Note that this function returns absolute indices. So all functions that rely on it also
+   * return absolute indices, even when the user passes in a range.
+   * 
    * @param {number} index
    * @param {Object} [options]
    * @param {number} [options.ignoreBits]
    */
   selectUpwards(index, { ignoreBits = 0 } = {}) {
-    console.log('selectUpwards', index);
     for (let i = this.numLevels - ignoreBits; i-- > 0;) {
       const level = this.levels[i];
       // `index` represents an index on the level below this one, which may be
@@ -173,6 +183,9 @@ export class WaveletMatrix {
   }
 
   /**
+   * Return the index of the k-th occurrence of the symbol in this wavelet matrix.
+   * Note that this returns an absolute index, even if a range is specified.
+   * 
    * @param {number} symbol
    * @param {Object} [options]
    * @param {number} [options.k]
@@ -201,7 +214,8 @@ export class WaveletMatrix {
   }
 
   /**
-   * Same as select, but select the k-th instance from the back of the range
+   * Same as select, but select the k-th instance from the back of the range.
+   * 
    * @param {number} symbol
    * @param {Object} [options]
    * @param {number} [options.k]
@@ -268,8 +282,8 @@ export class WaveletMatrix {
         symbol += level.bit;
         index = level.nz + level.bv.rank1(index);
       }
-      return symbol;
     }
+    return symbol;
   }
 }
 
