@@ -19,7 +19,7 @@ import { DenseBitVec } from './densebitvec.js';
 
 // todo:
 // - debug asserts (eg. validate ranges)
-// - explain The behavior of selectUpwards and test it. I tried writing tests but couldn't actually figure out what it's supposed to do.
+// - explain and test behavior of selectUpwards. I tried writing tests but couldn't actually figure out what it's supposed to do.
 
 export class WaveletMatrix {
 
@@ -306,7 +306,7 @@ function Range(start, end) {
 }
 
 /**
- * Wavelet matrix construction algorithm that takes space proportional to the alphabet size (2^numLevels).
+ * Wavelet matrix construction algorithm that takes space proportional to the alphabet size (which is 2^numLevels).
  * From the paper "Practical Wavelet Tree Construction" (see link in comment at the top of this file)
  * @param {number[]} data
  * @param {number} numLevels
@@ -381,8 +381,8 @@ function buildBitVecsSmallAlphabet(data, numLevels) {
 }
 
 /**
- * Wavelet matrix construction algorithm that takes space proportional to the amount of data rather
- * than the alphabet size, allowing for sparse alphabets up to [0, 2^32).
+ * Wavelet matrix construction algorithm that takes space proportional to data.length rather
+ * than the alphabet size, allowing for sparse alphabets up to 2^32, eg. a symbol space of [0, 2^32).
  * From the paper "Practical Wavelet Tree Construction" (see link in comment at the top of this file)
  * @param {number[]} data
  * @param {number} numLevels
