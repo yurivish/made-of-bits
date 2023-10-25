@@ -112,6 +112,45 @@ describe('WaveletMatrix', () => {
     })).toBe(4);
   });
 
+  test('selectFirstLessThanOrEqual', () => {
+    const selectFirstLessThanOrEqual = (
+      /** @type {any[]} */  arr, 
+      /** @type {number} */ p, 
+      /** @type {any} */    lo, 
+      /** @type {any} */    hi
+    ) => {
+      let i = arr.slice(lo, hi).findIndex((x) => x <= p);
+      return i === -1 ? null : lo + i;
+    };
+
+    // a few manual point samples
+    expect(wm.selectFirstLessThanOrEqual(1, { range: { start: 2, end: wm.length } })).toEqual(3);
+    expect(selectFirstLessThanOrEqual(symbols, 1, 2, wm.length)).toEqual(3);
+
+    expect(wm.selectFirstLessThanOrEqual(0, { range: { start: 5, end: wm.length } })).toEqual(null);
+    expect(selectFirstLessThanOrEqual(symbols, 5, wm.length)).toEqual(null);
+
+    // exhaustively test all inputs in our small symbols array
+    for (let start = 0; start < wm.length; start++) {
+      for (let end = start; end <= wm.length; end++) {
+        for (let symbol = 0; symbol <= wm.maxSymbol + 1; symbol++) {
+          const a = wm.selectFirstLessThanOrEqual(1, { range: { start: 2, end: wm.length } });
+          const b = selectFirstLessThanOrEqual(symbols, 1, 2, wm.length);
+          expect(a).toBe(b);
+        }
+      }
+    }
+
+  });
+
+  it('simpleMajority', () => {
+    expect(wm.simpleMajority({ start: 0, end: wm.length })).toBe(null);
+    expect(wm.simpleMajority({ start: 0, end: wm.length - 1 })).toBe(null);
+    expect(wm.simpleMajority({ start: 1, end: wm.length })).toEqual({ symbol: 1, count: 4 });
+    expect(wm.simpleMajority({ start: 3, end: wm.length })).toEqual({ symbol: 1, count: 3 });
+    expect(wm.simpleMajority({ start: 2, end: 3 })).toEqual({ symbol: 2, count: 1 });
+  });
+
   it('get', () => {
     expect(wm.get(0)).toBe(0);
     expect(wm.get(1)).toBe(1);
@@ -121,14 +160,6 @@ describe('WaveletMatrix', () => {
     expect(wm.get(5)).toBe(1);
     expect(wm.get(6)).toBe(4);
     expect(wm.get(7)).toBe(1);
-  });
-
-  it('simpleMajority', () => {
-    expect(wm.simpleMajority({ start: 0, end: wm.length })).toBe(null);
-    expect(wm.simpleMajority({ start: 0, end: wm.length - 1 })).toBe(null);
-    expect(wm.simpleMajority({ start: 1, end: wm.length })).toEqual({ symbol: 1, count: 4 });
-    expect(wm.simpleMajority({ start: 3, end: wm.length })).toEqual({ symbol: 1, count: 3 });
-    expect(wm.simpleMajority({ start: 2, end: 3 })).toEqual({ symbol: 2, count: 1 });
   });
 
   it('counts', () => {
@@ -163,6 +194,6 @@ describe('WaveletMatrix', () => {
       { symbol: 2, start: 7, end: 8 }
     ]);
   });
- 
+  
   
 });

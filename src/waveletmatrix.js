@@ -70,7 +70,7 @@ export class WaveletMatrix {
   /**
    * @param {number} symbol
    * @param {Object} [options]
-   * @param {{ start: any; end: any; }} [options.range]
+   * @param {{ start: number; end: number; }} [options.range]
    * @param {number} [options.ignoreBits]
    */
   locate(symbol, { range = Range(0, this.length), ignoreBits = 0 } = {}) {
@@ -100,7 +100,7 @@ export class WaveletMatrix {
    * Number of symbols less than this one, restricted to the query range
    * @param {number} symbol
    * @param {Object} [options]
-   * @param {{ start: any; end: any; }} [options.range]
+   * @param {{ start: number; end: number; }} [options.range]
    */
   precedingCount(symbol, { range = Range(0, this.length) } = {}) {
     return this.locate(symbol, { range }).precedingCount;
@@ -112,7 +112,7 @@ export class WaveletMatrix {
    * an index and only does one rank per level.
    * @param {number} symbol
    * @param {Object} [options]
-   * @param {{ start: any; end: any; }} [options.range]
+   * @param {{ start: number; end: number; }} [options.range]
    */
   count(symbol, { range = Range(0, this.length) } = {}) {
     const loc = this.locate(symbol, { range });
@@ -122,7 +122,7 @@ export class WaveletMatrix {
   /**
    * @param {number} k
    * @param {Object} [options]
-   * @param {{ start: any; end: any; }} [options.range]
+   * @param {{ start: number; end: number; }} [options.range]
    */
   quantile(k, { range = Range(0, this.length) } = {}) {
     assert(0 <= k && k < this.length);
@@ -194,7 +194,7 @@ export class WaveletMatrix {
    * @param {number} symbol
    * @param {Object} [options]
    * @param {number} [options.k]
-   * @param {{ start: any; end: any; }} [options.range]
+   * @param {{ start: number; end: number; }} [options.range]
    * @param {number} [options.ignoreBits]
    */
   select(symbol, { k = 0, range = Range(0, this.length), ignoreBits = 0 } = {}) {
@@ -224,7 +224,7 @@ export class WaveletMatrix {
    * @param {number} symbol
    * @param {Object} [options]
    * @param {number} [options.k]
-   * @param {{ start: any; end: any; }} [options.range]
+   * @param {{ start: number; end: number; }} [options.range]
    * @param {number} [options.ignoreBits]
    */
   selectFromEnd(symbol, { k = 0, range = Range(0, this.length), ignoreBits = 0 } = {}) {
@@ -247,6 +247,83 @@ export class WaveletMatrix {
     // The `- 1` is because the end of the range is exclusive
     let index = loc.range.end - k - 1;
     return this.selectUpwards(index, { ignoreBits });
+  }
+
+  /**
+   * Returns the index of the first symbol less than `symbol` in the index range `range`.
+   * ("First" here is based on sequence order; we will return the leftmost such index).
+   * Implements the following logic:
+   * selectFirstLessThanOrEqual = (arr, symbol, lo, hi) => {
+   *   let i = arr.slice(lo, hi).findIndex((x) => x <= symbol);
+   *   return i === -1 ? null : lo + i;
+   * }
+   * @param {number} symbol
+   * @param {Object} [options]
+   * @param {{ start: number; end: number; }} [options.range]
+   */
+  selectFirstLessThanOrEqual(symbol, { range = Range(0, this.length) } = {}) {
+    let leftmostSymbol = 0; // leftmost symbol in the currently-considered wavelet tree node
+    let best = bits.oneMask(32);
+    let found = false;
+
+    // The target range is a conceptual `Range(0, symbol + 1)`;
+    // since the left extent of the target is always zero, we could optimize the containment checks.
+    let targetEnd = symbol + 1;
+
+    // The idea is to return the minimum select position across all the nodes that could
+    // potentially contain the first symbol <= symbol.
+    //
+    // We find the first left node that is fully contained in the [0, symbol] symbol range,
+    // and then we recurse into the right child if it is partly contained, and repeat.
+    //
+    // todo: implement select[First|Last][Less|Greater]ThanOrEqual.
+
+    for (let i = 0; i < this.numLevels; i++) {
+      if (rangeIsEmpty(range)) {
+        break;
+      }
+      // ignore all levels below this one when selecting
+      const ignoreBits = this.numLevels - i;
+
+      const level = this.levels[i];
+      // value split points of left/right children
+      const { left, mid, right } = split(level, leftmostSymbol);
+      // range of left/right children
+      // if this wavelet tree node is fully contained in the target range, update best and return.
+      
+      if (right <= targetEnd) {
+        // The if condition above is conceptually equivalent to `rangeFullyContains(target, Range(left, right)))`
+        // it's a simplified version of that since the target range always starts at zero.
+        const candidate = this.selectUpwards(range.start, { ignoreBits });
+        return Math.min(best, candidate);
+      }
+
+      const start = ranks(level, range.start);
+      const end = ranks(level, range.end);
+
+      // otherwise, we know that there are two possibilities:
+      // 1. the left node is partly contained and the right node does not overlap the target
+      // 2. the left node is fully contained and the right node may overlap the target
+      if (targetEnd < mid) {
+        // The `if` condition above is conceptually equivalent to `!rangeFullyContains(target, Range(left, mid))`
+        // it's a simplified version of that since the target range always starts at zero.
+
+        // we're in case 1, so refine our search range by going left
+        range = Range(start.zeros, end.zeros);
+      } else {
+        if (start.zeros !== end.zeros) {
+          // since this select is happening on the child level, un-ignore that level.
+          const candidate = this.selectUpwards(start.zeros, { ignoreBits: ignoreBits - 1 });
+          best = Math.min(best, candidate);
+          found = true;
+        }
+        // go right
+        leftmostSymbol += level.bit;
+        range = Range(level.nz + start.ones, level.nz + end.ones);
+      }
+    }
+
+    return found ? best : null;
   }
 
   /**
@@ -294,6 +371,7 @@ export class WaveletMatrix {
   // todo: rank cache or similar
   // todo: consider using extent for symbol?
   // todo: consider using MaskExtent to avoid the extra sub/add instructions
+  // todo: consider using an array with 3 consecutive u32 elements per (symbol, start, end)
   counts({ range = Range(0, this.length), symbolRange = Range(0, this.maxSymbol + 1), masks = this.defaultLevelMasks } = {}) {
     let xs = [{
       symbol: 0, // the leftmost symbol in the current node
@@ -347,6 +425,10 @@ export class WaveletMatrix {
   }
 }
 
+function rangeIsEmpty(range) {
+  return !(range.start < range.end);
+}
+
 // todo: document
 /**
  * @param {{ nz: number; bit: number; bv: BitVec; }} level
@@ -374,6 +456,16 @@ function Range(start, end) {
  */
 function rangesOverlap(a, b) {
   return a.start < b.end && b.start < a.end;
+}
+
+/**
+ * Return true if range `a` fully contains range `b`
+ * @param {{ start: number; end: number; }} a
+ * @param {{ start: number; end: number; }} b
+ */
+function rangeFullyContains(a, b) {
+  // if a starts before b, and a ends after b.
+  return a.start <= b.start && a.end >= b.end;
 }
 
 // todo: document
