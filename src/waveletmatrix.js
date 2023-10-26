@@ -390,10 +390,20 @@ export class WaveletMatrix {
       const level = this.levels[i];
       const levelSymbolRange = MaskedRange(symbolRange.start, symbolRange.end, mask);
 
+      // cache `ranks` results when contiguous ranges share an endpoint
+      let xEnd = 0; // cache key
+      let rankCache = ranks(level, xEnd); // cached value
+
       for (const x of xs) {
-        const symbol = x.symbol;
-        const start = ranks(level, x.start);
+        // use the cache if the cache key matches
+        const start = x.start == xEnd ? rankCache : ranks(level, x.start);
         const end = ranks(level, x.end);
+
+        // update the cache
+        xEnd = x.end;
+        rankCache = end; 
+
+        const symbol = x.symbol;
         const { left, right } = childSymbolRanges(level, symbol, mask);
 
         // if there are any left children, go left
@@ -402,7 +412,7 @@ export class WaveletMatrix {
             symbol, 
             start: start.zeros, 
             end: end.zeros
-          });
+          }); 
         }
 
         // if there are any right children, set the level bit and go right

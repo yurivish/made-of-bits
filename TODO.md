@@ -1,6 +1,6 @@
 # To do
+[] idea: Right only the dense bit vector and rest because that's where the time is spent in the wavelet matrix.
 [] test reverseLowBits and reverseBits32
-[] test wavelet matrix
 [] Could I reuse the “Dense” sampling for compressed bit vec? Basically, don’t store the data blocks; instead, take a function to call for the “last mile”, which gets called with an index and numOnesSoFar, assuming you do a linear search from there. I guess we need that for each of rank, select1/0. Maybe subclasses? 
 [] dense: investigate interleaving rank blocks with data blocks?
 [] test with large numbers near the limits (eg. 2^53, 2^32)
