@@ -6,6 +6,8 @@
 // @ts-ignore
 // ESBuild's constant propagation will remove this if statement at build time
 // if `DEBUG` is set to false.
+const DEBUG = true;
+
 globalThis && !('DEBUG' in globalThis) &&
-  Object.defineProperty(globalThis, 'DEBUG', { value: true });
+  Object.defineProperty(globalThis, 'DEBUG', { value: DEBUG });
 
