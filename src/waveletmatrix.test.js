@@ -200,5 +200,5 @@ describe('WaveletMatrix', () => {
       { "symbol": 0, "start": 0, "end": 1 }, 
       { "symbol": 4294967295, "start": 1, "end": 2 }
     ]);
-  }
+  });
 });
