@@ -49,12 +49,14 @@ describe('BitBuf', () => {
       expect(buf.get(offset + 2)).toBe(0);
     });
 
-    it('should throw errors if the index is out of bounds.', () => {
-      expect(() => buf.get(-2)).toThrow();
-      expect(() => buf.get(-1)).toThrow();
-      expect(() => buf.get(buf.universeSize)).toThrow();
-      expect(() => buf.get(buf.universeSize + 1)).toThrow();
-    });
+    if (DEBUG) {
+      it('should throw errors if the index is out of bounds.', () => {
+        expect(() => buf.get(-2)).toThrow();
+        expect(() => buf.get(-1)).toThrow();
+        expect(() => buf.get(buf.universeSize)).toThrow();
+        expect(() => buf.get(buf.universeSize + 1)).toThrow();
+      });
+    }
   }
 
   check(new BitBuf(3), 0);
