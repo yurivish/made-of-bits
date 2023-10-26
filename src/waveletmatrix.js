@@ -377,11 +377,13 @@ export class WaveletMatrix {
   // todo: consider using MaskExtent to avoid the extra sub/add instructions
   // todo: consider using an array with 3 consecutive u32 elements per (symbol, start, end)
   counts({ range = Range(0, this.length), symbolRange = Range(0, this.maxSymbol + 1), masks = this.defaultLevelMasks } = {}) {
-    let xs = [{
-      symbol: 0, // the leftmost symbol in the current node
-      start: range.start, // index  range start
-      end: range.end // index range end
-    }];
+    // This represents an array of { symbol, start, end } objects as an unsigned 32-bit integer array.
+    // The is an experimental change was made for performance.
+    let xs = [
+      u32(0), // the leftmost symbol in the current node
+      u32(range.start),  // index  range start
+      u32(range.end), // index range end
+    ];
     let nextLeft = xs.slice(0, 0);  // create these empty arrays via slicing 
     const nextRight = xs.slice(0, 0); // for type inference purposes
 
@@ -390,28 +392,28 @@ export class WaveletMatrix {
       const level = this.levels[i];
       const levelSymbolRange = MaskedRange(symbolRange.start, symbolRange.end, mask);
 
-      for (const x of xs) {
-        const symbol = x.symbol;
-        const start = ranks(level, x.start);
-        const end = ranks(level, x.end);
+      for (let j = 0; j < xs.length; j += 3) {
+        const symbol = xs[j];
+        const start = ranks(level, xs[j + 1]);
+        const end = ranks(level, xs[j + 2]);
         const { left, right } = childSymbolRanges(level, symbol, mask);
 
         // if there are any left children, go left
         if (start.zeros !== end.zeros && rangesOverlap(levelSymbolRange, left)) {
-          nextLeft.push({
-            symbol, 
-            start: start.zeros, 
-            end: end.zeros
-          });
+          nextLeft.push(
+            u32(symbol), // symbol
+            u32(start.zeros), // start
+            u32(end.zeros), // end
+          );
         }
 
         // if there are any right children, set the level bit and go right
         if (start.ones !== end.ones && rangesOverlap(levelSymbolRange, right)) {
-          nextRight.push({
-            symbol: symbol + level.bit, 
-            start: level.nz + start.ones, 
-            end: level.nz + end.ones
-          });
+          nextRight.push(
+            u32(symbol + level.bit), // symbol
+            u32(level.nz + start.ones), // start
+            u32(level.nz + end.ones), // end
+          );
         }
       }
 
@@ -428,7 +430,11 @@ export class WaveletMatrix {
       // clear both for the next iteration
       nextLeft.length = nextRight.length = 0;
     }
-    return xs;
+    const ret = [];
+    for (let j = 0; j < xs.length; j += 3) {
+      ret.push({ symbol: xs[j], start: xs[j + 1], end: xs[j + 2] });
+    }
+    return ret;
   }
 }
 
