@@ -286,7 +286,7 @@ export class DenseBitVec {
       rankBasicBlockIndex = selectBasicBlockIndex;
       selectCount += selectSampleRate;
     }
-
+    
     // Increment the count by the number of ones in every subsequent block
     for (let i = rankBasicBlockIndex; i < lastBasicBlockIndex; i++) {
       count += bits.popcount(this.data.blocks[i]);

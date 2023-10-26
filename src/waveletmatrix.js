@@ -481,7 +481,7 @@ function rangeFullyContains(a, b) {
  * @param {number} end
  * @param {number} mask
  */
-function MaskRange(start, end, mask) {
+function MaskedRange(start, end, mask) {
   // The end is exclusive so we need to make sure to mask the true endpoint.
   return { start: start & mask, end: ((end - 1) & mask) + 1 };
 }
@@ -508,8 +508,8 @@ function split(level, leftSymbol) {
 function childSymbolRanges(level, leftSymbol, mask) {
   const { left, mid, right } = split(level, leftSymbol);
   return {
-    left: MaskRange(left, mid, mask),
-    right: MaskRange(mid, right, mask),
+    left: MaskedRange(left, mid, mask),
+    right: MaskedRange(mid, right, mask),
   };
 }
 
