@@ -224,8 +224,7 @@ export function testMultiBitVecType(BitVecBuilder, buildOptions = {}) {
 export function testBitVecType(BitVecBuilder, buildOptions = {}) {  
   test('builder', () => {
     const builder = new BitVecBuilder(0);
-    expect(() => builder.one(0)).toThrow();
-    // expect(() => builder.build(0)).toThrow();
+    DEBUG && expect(() => builder.one(0)).toThrow();
   });
 
   test('property tests', () => {
