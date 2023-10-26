@@ -432,6 +432,9 @@ export class WaveletMatrix {
   }
 }
 
+/**
+ * @param {{ start: number; end: number; }} range
+ */
 function rangeIsEmpty(range) {
   return !(range.start < range.end);
 }
