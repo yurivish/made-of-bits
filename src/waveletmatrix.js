@@ -25,8 +25,7 @@ import { bits } from './index.js';
 // - impl batch count function for density plots, using masks.
 
 const rank1SamplesPow2 = 10;
-const selectSamplesPow2 = 10; 
-
+const selectSamplesPow2 = 10;
 
 export class WaveletMatrix {
 
@@ -389,7 +388,7 @@ export class WaveletMatrix {
     for (let i = 0; i < masks.length; i++) {
       const mask = masks[i];
       const level = this.levels[i];
-      const levelSymbolRange = MaskRange(symbolRange.start, symbolRange.end, mask);
+      const levelSymbolRange = MaskedRange(symbolRange.start, symbolRange.end, mask);
 
       for (const x of xs) {
         const symbol = x.symbol;
@@ -482,8 +481,8 @@ function rangeFullyContains(a, b) {
  * @param {number} end
  * @param {number} mask
  */
-function MaskRange(start, end, mask) {
-  // The end is exclusive so we need to make sure to mask the true end point.
+function MaskedRange(start, end, mask) {
+  // The end is exclusive so we need to make sure to mask the true endpoint.
   return { start: start & mask, end: ((end - 1) & mask) + 1 };
 }
 
@@ -509,8 +508,8 @@ function split(level, leftSymbol) {
 function childSymbolRanges(level, leftSymbol, mask) {
   const { left, mid, right } = split(level, leftSymbol);
   return {
-    left: MaskRange(left, mid, mask),
-    right: MaskRange(mid, right, mask),
+    left: MaskedRange(left, mid, mask),
+    right: MaskedRange(mid, right, mask),
   };
 }
 
