@@ -267,18 +267,23 @@ export class DenseBitVec {
     let rankBasicBlockIndex = u32(rankIndex << this.basicBlocksPerRank1SamplePow2);
     const lastBasicBlockIndex = bits.basicBlockIndex(index);
 
-    // Scan any intervening select blocks to skip past multiple basic blocks at a time
-    let selectSampleRate = u32(1 << this.select1SamplesPow2);
-
+    // Scan any intervening select blocks to skip past multiple basic blocks at a time.
+    //
     // Synthesize a fictitious initial select sample located squarely at the position
     // designated by the rank sample.
-    let selectSample = { basicBlockIndex: rankBasicBlockIndex, precedingCount: count };
-    let selectCount = selectSample.precedingCount + selectSampleRate;
-    while (selectCount < this.numOnes && selectSample.basicBlockIndex < lastBasicBlockIndex) {
-      selectSample = this.selectSample(selectCount, this.select1Samples, this.select1SamplesPow2);
-      if (selectSample.basicBlockIndex >= lastBasicBlockIndex) break;
-      count = selectSample.precedingCount;
-      rankBasicBlockIndex = selectSample.basicBlockIndex;
+    //
+    let selectSampleRate = u32(1 << this.select1SamplesPow2);
+    let selectBasicBlockIndex = rankBasicBlockIndex;
+    let selectPrecedingCount = count;
+    let selectCount = selectPrecedingCount + selectSampleRate;
+    while (selectCount < this.numOnes && selectBasicBlockIndex < lastBasicBlockIndex) {
+      const { 
+        precedingCount: selectPrecedingCount,
+        basicBlockIndex: selectBasicBlockIndex
+      } = this.selectSample(selectCount, this.select1Samples, this.select1SamplesPow2);
+      if (selectBasicBlockIndex >= lastBasicBlockIndex) break;
+      count = selectPrecedingCount;
+      rankBasicBlockIndex = selectBasicBlockIndex;
       selectCount += selectSampleRate;
     }
 
