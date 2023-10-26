@@ -372,10 +372,8 @@ export class WaveletMatrix {
     return symbol;
   }
 
-  // todo: rank cache or similar
   // todo: consider using extent for symbol?
-  // todo: consider using MaskExtent to avoid the extra sub/add instructions
-  // todo: consider using an array with 3 consecutive u32 elements per (symbol, start, end)
+  // todo: consider using MaskedExtent to avoid the extra sub/add instructions
   counts({ range = Range(0, this.length), symbolRange = Range(0, this.maxSymbol + 1), masks = this.defaultLevelMasks } = {}) {
     let xs = [{
       symbol: 0, // the leftmost symbol in the current node
@@ -391,12 +389,13 @@ export class WaveletMatrix {
       const levelSymbolRange = MaskedRange(symbolRange.start, symbolRange.end, mask);
 
       // cache `ranks` results when contiguous ranges share an endpoint
+      // (ie. next start === prev end)
       let xEnd = 0; // cache key
       let rankCache = ranks(level, xEnd); // cached value
 
       for (const x of xs) {
         // use the cache if the cache key matches
-        const start = x.start == xEnd ? rankCache : ranks(level, x.start);
+        const start = x.start === xEnd ? rankCache : ranks(level, x.start);
         const end = ranks(level, x.end);
 
         // update the cache
