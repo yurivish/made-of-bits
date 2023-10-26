@@ -45,6 +45,7 @@ import * as defaults from './defaults';
 import { assert, assertDefined, assertSafeInteger, log } from "./assert.js";
 import { BitBuf } from './bitbuf.js';
 import * as bits from './bits.js';
+import { u32 } from './bits.js';
 import { trackedArray } from './introspection.js';
 
 /**
@@ -107,10 +108,12 @@ export class DenseBitVec {
     assertSafeInteger(selectSamplesPow2);
     assert(rank1SamplesPow2 >= bits.BasicBlockSizePow2, 'rank1SamplesPow2 must be a positive multiple of the block size');
     assert(selectSamplesPow2 >= bits.BasicBlockSizePow2, 'selectSamplesPow2 must be a positive multiple of the block size');
+    assert(rank1SamplesPow2 <= 31, 'rank1SamplesPow2 must be less than 32');
+    assert(selectSamplesPow2 <= 31, 'selectSamplesPow2 must be less than 32');
 
-    const select1SampleRate = 1 << selectSamplesPow2; // Sample every `select1SampleRate` 1-bits
-    const select0SampleRate = 1 << selectSamplesPow2; // Sample every `select0SampleRate` 0-bits
-    const rank1SampleRate = 1 << rank1SamplesPow2; // Sample every `rank1SampleRate` bits
+    const select1SampleRate = u32(1 << selectSamplesPow2); // Sample every `select1SampleRate` 1-bits
+    const select0SampleRate = u32(1 << selectSamplesPow2); // Sample every `select0SampleRate` 0-bits
+    const rank1SampleRate = u32(1 << rank1SamplesPow2); // Sample every `rank1SampleRate` bits
 
     // Each rank sample identifies a particular basic block. 
     // 
@@ -261,11 +264,11 @@ export class DenseBitVec {
     // Start with the prefix count from the rank block
     let rankIndex = index >>> this.rank1SamplesPow2;
     let count = this.rank1Samples[rankIndex];
-    let rankBasicBlockIndex = rankIndex << this.basicBlocksPerRank1SamplePow2;
+    let rankBasicBlockIndex = u32(rankIndex << this.basicBlocksPerRank1SamplePow2);
     const lastBasicBlockIndex = bits.basicBlockIndex(index);
 
     // Scan any intervening select blocks to skip past multiple basic blocks at a time
-    let selectSampleRate = 1 << this.select1SamplesPow2;
+    let selectSampleRate = u32(1 << this.select1SamplesPow2);
 
     // Synthesize a fictitious initial select sample located squarely at the position
     // designated by the rank sample.
@@ -312,7 +315,7 @@ export class DenseBitVec {
       let nextCount = this.rank1Samples[rankIndex];
       if (nextCount > n) break;
       count = nextCount;
-      basicBlockIndex = rankIndex << this.basicBlocksPerRank1SamplePow2;
+      basicBlockIndex = u32(rankIndex << this.basicBlocksPerRank1SamplePow2);
       rankIndex++;
     }
     
@@ -328,7 +331,7 @@ export class DenseBitVec {
     }; 
 
     // Compute and return its bit index
-    const basicBlockBitIndex = basicBlockIndex << bits.BasicBlockSizePow2;
+    const basicBlockBitIndex = u32(basicBlockIndex << bits.BasicBlockSizePow2);
     const bitOffset = bits.select1(basicBlock, n - count);
     return basicBlockBitIndex + bitOffset;
   }
@@ -352,10 +355,10 @@ export class DenseBitVec {
     // Scan rank blocks to skip past multiple basic blocks at a time
     let rankIndex = (basicBlockIndex >>> this.basicBlocksPerRank1SamplePow2) + 1;
     while (rankIndex < this.rank1Samples.length) {
-      let nextCount = (rankIndex << this.rank1SamplesPow2) - this.rank1Samples[rankIndex];
+      let nextCount = u32(rankIndex << this.rank1SamplesPow2) - this.rank1Samples[rankIndex];
       if (nextCount > n) break;
       count = nextCount;
-      basicBlockIndex = rankIndex << this.basicBlocksPerRank1SamplePow2;
+      basicBlockIndex = u32(rankIndex << this.basicBlocksPerRank1SamplePow2);
       rankIndex++;
     }
     
@@ -374,7 +377,7 @@ export class DenseBitVec {
     }; 
 
     // Compute and return its bit index
-    const basicBlockBitIndex = basicBlockIndex << bits.BasicBlockSizePow2;
+    const basicBlockBitIndex = u32(basicBlockIndex << bits.BasicBlockSizePow2);
     const bitOffset = bits.select1(~basicBlock, n - count);
     return basicBlockBitIndex + bitOffset;
   }
@@ -429,7 +432,7 @@ export class DenseBitVec {
     // since the k-th sample represents the (k*sr + 1)-th bit and this tells us the (k*sr)-th
     // The second term allows us to identify how may 1-bits precede the basic block containing
     // the bit identified by this select sample.
-    const precedingCount = (sampleIndex << sampleRate) - correction;
+    const precedingCount = u32(sampleIndex << sampleRate) - correction;
 
     return {
       basicBlockIndex: bits.basicBlockIndex(cumulativeBits),
