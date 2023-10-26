@@ -24,6 +24,9 @@ import { bits } from './index.js';
 // - explain and test behavior of selectUpwards. I tried writing tests but couldn't actually figure out what it's supposed to do.
 // - impl batch count function for density plots, using masks.
 
+const rank1SamplesPow2 = 10;
+const selectSamplesPow2 = 10; 
+
 
 export class WaveletMatrix {
 
@@ -47,7 +50,7 @@ export class WaveletMatrix {
     let /** @type {BitVec[]} */ bitVecs;
     if (data.length === 0) {
       // Create an empty bitvec since numLevels is 1
-      bitVecs = [new DenseBitVec(new BitBuf(0), 10, 10)];
+      bitVecs = [new DenseBitVec(new BitBuf(0), rank1SamplesPow2, selectSamplesPow2)];
     } else if (numLevels <= Math.floor(Math.log2(data.length))) {
       bitVecs = buildBitVecsSmallAlphabet(data, numLevels);
     } else {
@@ -418,9 +421,12 @@ export class WaveletMatrix {
       xs = nextLeft;
       nextLeft = tmp;
 
-      // append the right to the left, then 
+      // append the right to the left
+      for (let i = 0; i < nextRight.length; i++) {
+        xs.push(nextRight[i]);
+      }
+
       // clear both for the next iteration
-      xs.push(...nextRight);
       nextLeft.length = nextRight.length = 0;
     }
     return xs;
@@ -580,7 +586,7 @@ function buildBitVecsSmallAlphabet(data, numLevels) {
   }
 
   // todo: configurable dense bitvec parameters
-  return levels.map(d => new DenseBitVec(d, 10, 10));
+  return levels.map(d => new DenseBitVec(d, rank1SamplesPow2, selectSamplesPow2));
 }
 
 /**
@@ -624,7 +630,7 @@ function buildBitVecsLargeAlphabet(data, numLevels) {
     }
     right.length = 0;
 
-    levels.push(new DenseBitVec(bits, 10, 10));
+    levels.push(new DenseBitVec(bits, rank1SamplesPow2, selectSamplesPow2));
   }
 
   // For the last level we don't need to do anything but build the bitvector
@@ -637,7 +643,7 @@ function buildBitVecsLargeAlphabet(data, numLevels) {
         bits.setOne(i);
       }
     }
-    levels.push(new DenseBitVec(bits, 10, 10));
+    levels.push(new DenseBitVec(bits, rank1SamplesPow2, selectSamplesPow2));
   }
 
   return levels;
