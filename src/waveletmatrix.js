@@ -496,7 +496,7 @@ function rangeFullyContains(a, b) {
  */
 function MaskedRange(start, end, mask) {
   // The end is exclusive so we need to make sure to mask the true endpoint.
-  return { start: start & mask, end: ((end - 1) & mask) + 1 };
+  return { start: start & mask, end: u32((end - 1) & mask) + 1 };
 }
 
 // todo: document
