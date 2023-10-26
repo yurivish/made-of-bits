@@ -140,7 +140,6 @@ describe('WaveletMatrix', () => {
         }
       }
     }
-
   });
 
   it('simpleMajority', () => {

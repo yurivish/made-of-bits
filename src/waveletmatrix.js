@@ -294,7 +294,7 @@ export class WaveletMatrix {
       // if this wavelet tree node is fully contained in the target range, update best and return.
       
       if (right <= targetEnd) {
-        // The if condition above is conceptually equivalent to `rangeFullyContains(target, Range(left, right)))`
+        // The if condition above is conceptually equivalent to `rangeFullyContains(targetRange, Range(left, right)))`
         // it's a simplified version of that since the target range always starts at zero.
         const candidate = this.selectUpwards(range.start, { ignoreBits });
         return Math.min(best, candidate);
@@ -307,7 +307,7 @@ export class WaveletMatrix {
       // 1. the left node is partly contained and the right node does not overlap the target
       // 2. the left node is fully contained and the right node may overlap the target
       if (targetEnd < mid) {
-        // The `if` condition above is conceptually equivalent to `!rangeFullyContains(target, Range(left, mid))`
+        // The `if` condition above is conceptually equivalent to `!rangeFullyContains(targetRange, Range(left, mid))`
         // it's a simplified version of that since the target range always starts at zero.
 
         // we're in case 1, so refine our search range by going left
