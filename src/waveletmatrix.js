@@ -374,7 +374,24 @@ export class WaveletMatrix {
 
   // todo: consider using extent for symbol?
   // todo: consider using MaskedExtent to avoid the extra sub/add instructions
-  counts({ range = Range(0, this.length), symbolRange = Range(0, this.maxSymbol + 1), masks = this.defaultLevelMasks } = {}) {
+  /**
+   * Returns the index of the first symbol less than `symbol` in the index range `range`.
+   * ("First" here is based on sequence order; we will return the leftmost such index).
+   * Implements the following logic:
+   * selectFirstLessThanOrEqual = (arr, symbol, lo, hi) => {
+   *   let i = arr.slice(lo, hi).findIndex((x) => x <= symbol);
+   *   return i === -1 ? null : lo + i;
+   * }
+   * @param {Object} [options]
+   * @param {{ start: number; end: number; }} [options.range]
+   * @param {{ start: number; end: number; }} [options.symbolRange]
+   * @param {number | number[]} [options.ignoreBits]
+   */
+  counts({ range = Range(0, this.length), symbolRange = Range(0, this.maxSymbol + 1), ignoreBits = 0 } = {}) {
+    const masks = typeof ignoreBits === 'number'
+      ? ignoreBits === 0 ? this.defaultLevelMasks : this.defaultLevelMasks.slice(0, -ignoreBits)
+      : ignoreBits;
+
     let xs = [{
       symbol: 0, // the leftmost symbol in the current node
       start: range.start, // index  range start
