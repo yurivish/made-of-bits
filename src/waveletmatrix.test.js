@@ -176,18 +176,23 @@ describe('WaveletMatrix', () => {
       { symbol: 1, start: 4, end: 7 }
     ]);
 
-    expect(wm.counts({ masks: wm.defaultLevelMasks.slice(0, 1) })).toEqual([
+    expect(wm.counts({ ignoreBits: wm.defaultLevelMasks.slice(0, 1) })).toEqual([
       { symbol: 0, start: 0, end: 7 }, 
       { symbol: 4, start: 7, end: 8 } 
     ]);
 
-    expect(wm.counts({ masks: wm.defaultLevelMasks.slice(0, 2) })).toEqual([
+    expect(wm.counts({ ignoreBits: 2 })).toEqual([
+      { symbol: 0, start: 0, end: 7 }, 
+      { symbol: 4, start: 7, end: 8 } 
+    ]);
+
+    expect(wm.counts({ ignoreBits: wm.defaultLevelMasks.slice(0, 2) })).toEqual([
       { symbol: 0, start: 0, end: 6 },
       { symbol: 4, start: 6, end: 7 },
       { symbol: 2, start: 7, end: 8 }
     ]);
 
-    expect(wm.counts({ range: { start: 1, end: wm.length - 1 }, masks: wm.defaultLevelMasks.slice(0, 2) })).toEqual([
+    expect(wm.counts({ range: { start: 1, end: wm.length - 1 }, ignoreBits: wm.defaultLevelMasks.slice(0, 2) })).toEqual([
       { symbol: 0, start: 1, end: 5 },
       { symbol: 4, start: 6, end: 7 },
       { symbol: 2, start: 7, end: 8 }
