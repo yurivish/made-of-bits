@@ -1,5 +1,8 @@
 // Morton codes
 //
+// todo:
+// - add tests for all exported functions here.
+//
 // JavaScript bitwise operations work on 32-bit integers, so we can use the functions
 // from [this blog post](https://fgiesen.wordpress.com/2009/12/13/decoding-morton-codes/). 
 // See the comments there for a good explanation of how these work.
@@ -7,37 +10,37 @@
 // We can encode up to 16-bit codes 2d and 10-bit codes in 3d. Note that the order is 
 // like a reflected Z, traversed from bottom left to top right : *bl*, *br*, *tl*, *tr*.
 
-function encode2(x, y) { 
+export function encode2(x, y) { 
   return ((part1By1(y) << 1) + part1By1(x)) >>> 0;
 }
 
-function encode3(x, y, z) { 
+export function encode3(x, y, z) { 
   return ((part1By2(z) << 2) + (part1By2(y) << 1) + part1By2(x)) >>> 0;; 
 }
 
 
-function decode2x(code) { 
+export function decode2x(code) { 
   return compact1By1(code >> 0);
 }
 
-function decode2y(code) { 
+export function decode2y(code) { 
   return compact1By1(code >> 1);
 }
 
 // convenience function
-function decode2(d) { 
+export function decode2(d) { 
   return [decode2x(d), decode2y(d)];
 }
 
-function decode3x(code) { 
+export function decode3x(code) { 
   return compact1By2(code >> 0);
 }
 
-function decode3y(code) { 
+export function decode3y(code) { 
   return compact1By2(code >> 1);
 }
 
-function decode3z(code) { 
+export function decode3z(code) { 
   return compact1By2(code >> 2);
 }
 
@@ -94,7 +97,7 @@ function compact1By2(x) {
 // using the common prefix together with  a calculation for the new y/x
 // positions indicating the split point.
 // See also: https://snorrwe.onrender.com/posts/morton-table/#range-query-splitting
-function litMaxBigMin(uMin, uMax) {
+export function litMaxBigMin(uMin, uMax) {
   const xor = uMin ^ uMax;
   const uMSBD = 1 << (31 - Math.clz32(xor)); // note: fails for xor = 0 (31-clz is negative)
   const xMask = 0x55555555;
