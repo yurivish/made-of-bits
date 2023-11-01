@@ -165,7 +165,6 @@ export function select1(n, k) {
 }
 
 
-// todo: test
 // Adapted from https://graphics.stanford.edu/~seander/bithacks.html#ReverseParallel
 /**
  * @param {number} v
@@ -189,7 +188,6 @@ export function reverseBits32(v) {
   return v >>> 0;
 }
 
-// todo: test
 /**
  * @param {number} v
  * @param {number} numBits
