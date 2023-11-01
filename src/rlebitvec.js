@@ -51,7 +51,6 @@ export class RLEBitVecBuilder {
   }
 }
 
-
 /**
  *  Run-specific bitvector builder. Does not implement the BitVecBuilder interface.
  */
