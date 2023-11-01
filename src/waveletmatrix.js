@@ -60,6 +60,7 @@ export class WaveletMatrix {
     this.maxSymbol = maxSymbol;
     this.numLevels = bitVecs.length;
     this.maxLevel = this.numLevels - 1;
+    this.alphabetSize = 2 ** this.numLevels;
     this.length = bitVecs[0].universeSize;
     this.levels = bitVecs.map((bv, index) => ({
       nz: bv.numZeros,
@@ -517,6 +518,13 @@ function MaskedRange(start, end, mask) {
 
 // todo: document
 /**
+ * Given a wavelet matrix level and the leftmost symbol of a node at that level,
+ * return an object `{ left, mid, right }` in which `left` is the leftmost symbol,
+ * `mid` is the first symbol in the right child range, and `right`, which is the
+ * symbol one past the rightmost symbol.
+ * 
+ * The child symbol ranges are `[left, mid)` and `[mid, right)`.
+ * 
  * @param {{ nz: number; bit: number; bv: BitVec; }} level
  * @param {number} leftSymbol
  */
@@ -528,8 +536,10 @@ function split(level, leftSymbol) {
   };
 }
 
-// todo: document
 /**
+ * Given a wavelet matrix level and the leftmost symbol of a node at that level,
+ * as well as a bitmask `mask` for that level, return an object `{ left, right }`
+ * with the masked child symbol ranges.
  * @param {{ nz: number; bit: number; bv: BitVec; }} level
  * @param {number} leftSymbol
  * @param {number} mask
