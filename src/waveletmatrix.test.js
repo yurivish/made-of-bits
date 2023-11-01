@@ -206,4 +206,6 @@ describe('WaveletMatrix', () => {
       { "symbol": 4294967295, "start": 1, "end": 2 }
     ]);
   });
+
+  // todo: fails on implicitly- & explicitly-given symbols >= 2^32
 });

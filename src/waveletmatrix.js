@@ -22,7 +22,6 @@ import { bits } from './index.js';
 // todo:
 // - debug asserts (eg. validate ranges)
 // - explain and test behavior of selectUpwards. I tried writing tests but couldn't actually figure out what it's supposed to do.
-// - impl batch count function for density plots, using masks.
 
 const rank1SamplesPow2 = 10;
 const selectSamplesPow2 = 10;
@@ -373,16 +372,17 @@ export class WaveletMatrix {
     return symbol;
   }
 
-  // todo: consider using extent for symbol?
-  // todo: consider using MaskedExtent to avoid the extra sub/add instructions
+  // todo: consider using extent for symbols, ie. [start, end], and MaskedExtents to avoid the extra sub/add instructions
   /**
    * Returns the index of the first symbol less than `symbol` in the index range `range`.
    * ("First" here is based on sequence order; we will return the leftmost such index).
+   * 
    * Implements the following logic:
    * selectFirstLessThanOrEqual = (arr, symbol, lo, hi) => {
    *   let i = arr.slice(lo, hi).findIndex((x) => x <= symbol);
    *   return i === -1 ? null : lo + i;
    * }
+   * 
    * @param {Object} [options]
    * @param {{ start: number; end: number; }} [options.range]
    * @param {{ start: number; end: number; }} [options.symbolRange]
