@@ -73,7 +73,7 @@ export class DenseBitVecBuilder {
   }
 
   build({ rank1SamplesPow2 = 10, selectSamplesPow2 = 10 } = {}) {
-    return new DenseBitVec(this.buf.toZeroPadded(), rank1SamplesPow2, selectSamplesPow2);
+    return new DenseBitVec(this.buf.maybeZeroPadded(), rank1SamplesPow2, selectSamplesPow2);
   }
 }
 

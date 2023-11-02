@@ -21,7 +21,7 @@ describe('BitBuf', () => {
       expect(buf.get(offset + 1)).toBe(1);
       expect(buf.get(offset + 2)).toBe(0);
       {
-        const zp = buf.toZeroPadded();
+        const zp = buf.maybeZeroPadded();
         expect(zp.get(offset + 0)).toBe(0);
         expect(zp.get(offset + 1)).toBe(1);
         expect(zp.get(offset + 2)).toBe(0);
@@ -33,7 +33,7 @@ describe('BitBuf', () => {
       expect(buf.get(offset + 1)).toBe(1);
       expect(buf.get(offset + 2)).toBe(1);
       {
-        const zp = buf.toZeroPadded();
+        const zp = buf.maybeZeroPadded();
         expect(buf.get(offset + 0)).toBe(0);
         expect(buf.get(offset + 1)).toBe(1);
         expect(buf.get(offset + 2)).toBe(1);
@@ -44,7 +44,7 @@ describe('BitBuf', () => {
       expect(buf.get(offset + 1)).toBe(1);
       expect(buf.get(offset + 2)).toBe(1);
       {
-        const zp = buf.toZeroPadded();
+        const zp = buf.maybeZeroPadded();
         expect(zp.get(offset + 0)).toBe(1);
         expect(zp.get(offset + 1)).toBe(1);
         expect(zp.get(offset + 2)).toBe(1);
@@ -55,7 +55,7 @@ describe('BitBuf', () => {
       expect(buf.get(offset + 1)).toBe(1);
       expect(buf.get(offset + 2)).toBe(0);
       {
-        const zp = buf.toZeroPadded();
+        const zp = buf.maybeZeroPadded();
         expect(buf.get(offset + 0)).toBe(1);
         expect(buf.get(offset + 1)).toBe(1);
         expect(buf.get(offset + 2)).toBe(0);
@@ -66,7 +66,7 @@ describe('BitBuf', () => {
       expect(buf.get(offset + 1)).toBe(1);
       expect(buf.get(offset + 2)).toBe(0);
       {
-        const zp = buf.toZeroPadded();
+        const zp = buf.maybeZeroPadded();
         expect(buf.get(offset + 0)).toBe(0);
         expect(buf.get(offset + 1)).toBe(1);
         expect(buf.get(offset + 2)).toBe(0);
@@ -77,7 +77,7 @@ describe('BitBuf', () => {
       expect(buf.get(offset + 1)).toBe(0);
       expect(buf.get(offset + 2)).toBe(0);
       {
-        const zp = buf.toZeroPadded();
+        const zp = buf.maybeZeroPadded();
         expect(buf.get(offset + 0)).toBe(0);
         expect(buf.get(offset + 1)).toBe(0);
         expect(buf.get(offset + 2)).toBe(0);
@@ -91,7 +91,7 @@ describe('BitBuf', () => {
         expect(() => buf.get(buf.universeSize)).toThrow();
         expect(() => buf.get(buf.universeSize + 1)).toThrow();
 
-        const zp = buf.toZeroPadded();
+        const zp = buf.maybeZeroPadded();
         expect(() => zp.get(-2)).toThrow();
         expect(() => zp.get(-1)).toThrow();
         expect(() => zp.get(zp.universeSize)).toThrow();
@@ -114,7 +114,7 @@ describe('BitBuf', () => {
     buf.setOne(0 * 32000);
     buf.setOne(0.5 * 32000);
     buf.setOne(1 * 32000 - 1);
-    const zp = buf.toZeroPadded();
+    const zp = buf.maybeZeroPadded();
     expect(zp.blocks.length).toBe(1000);
   });
 });

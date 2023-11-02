@@ -82,8 +82,23 @@ export class BitBuf {
     return this.blocks[index];
   }
 
-  toZeroPadded() {
-    return new ZeroPaddedBitBuf(this);
+  /**
+   * @param {number} threshold - a number in [0, 1] controlling when to zero-compress
+   * if we "compressed" the blocks to less than `threshold` % of the original
+   * number of blocks, return the zero-padded buffer; otherwise, return the original.
+   * Set to 1.0 to always compress, or eg. 0.95 to compress if there is a 5% savings
+   * or more in the number of blocks. Set this to 0.0 to only compress if the vector
+   * is entirely full of zeros.
+   */
+  maybeZeroPadded(threshold = 1.0) {
+    const zp = new ZeroPaddedBitBuf(this);
+    const numCompressedBlocks = zp.right - zp.left;
+    return zp;
+    if (numCompressedBlocks / this.numBlocks <= threshold) {
+      return zp;
+    } else {
+      return this;
+    }
   }
 }
 
@@ -102,11 +117,11 @@ export class ZeroPaddedBitBuf {
     // Compute the left and right indices of the blocks
     // we would like to keep, ie. which are nonzero.
     let left = 0;
-    while (left < blocks.length && blocks[left] === 0) {
+    while (left < numBlocks && blocks[left] === 0) {
       left++;
     }
 
-    let right = blocks.length - 1;
+    let right = numBlocks - 1;
     while (right > 0 && blocks[right] === 0) {
       right--;
     }
@@ -115,7 +130,11 @@ export class ZeroPaddedBitBuf {
     this.numTrailingUnownedZeros = numTrailingUnownedZeros;
     this.numBlocks = numBlocks; // including (conceptual) zero blocks
 
-    this.blocks = blocks.slice(left, right + 1);
+    if (left === 0 && right === numBlocks - 1) {
+      this.blocks = blocks;
+    } else {
+      this.blocks = blocks.slice(left, right + 1);
+    }
     this.left = left;
     this.right = right + 1;
   }
