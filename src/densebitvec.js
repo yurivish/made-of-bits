@@ -40,10 +40,9 @@ import * as defaults from './defaults';
 // - Unless the index of the rank block is ahead of the hinted block
 // - If a hint is present, it is used instead of the rank or select block
 // - Document the meaning of the bit vec interface elements. Incl select0. Can we have a selectUnique, for bit vecs that store occupancy and count data separately?
-// - consider not directly accessing `this.data.blocks`
 
 import { assert, assertDefined, assertSafeInteger, log } from "./assert.js";
-import { BitBuf } from './bitbuf.js';
+import { BitBuf, ZeroPaddedBitBuf } from './bitbuf.js';
 import * as bits from './bits.js';
 import { u32 } from './bits.js';
 import { trackedArray } from './introspection.js';
@@ -74,7 +73,7 @@ export class DenseBitVecBuilder {
   }
 
   build({ rank1SamplesPow2 = 10, selectSamplesPow2 = 10 } = {}) {
-    return new DenseBitVec(this.buf, rank1SamplesPow2, selectSamplesPow2);
+    return new DenseBitVec(this.buf.toZeroPadded(), rank1SamplesPow2, selectSamplesPow2);
   }
 }
 
@@ -92,7 +91,7 @@ export class DenseBitVecBuilder {
  * */
 export class DenseBitVec {
   /**
-   * @param {BitBuf} data - bit buffer containing the underlying bit data
+   * @param {BitBuf | ZeroPaddedBitBuf} data - bit buffer containing the underlying bit data
    * @param {number} rank1SamplesPow2 - power of 2 of the rank sample rate
    * @param {number} selectSamplesPow2 - power of 2 of the select sample rate for both select0 and select1
    */
@@ -153,11 +152,10 @@ export class DenseBitVec {
     let onesThreshold = 0; // take a select1 sample at the (onesThreshold+1)th 1-bit
 
     const basicBlocksPerRank1Sample = rank1SampleRate >>> bits.BasicBlockSizePow2;
-    const blocks = data.blocks;
 
-    const maxBlockIndex = blocks.length - 1;
-    for (let blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
-      const block = blocks[blockIndex];
+    const maxBlockIndex = data.numBlocks - 1;
+    for (let blockIndex = 0; blockIndex < data.numBlocks; blockIndex++) {
+      const block = data.getBlock(blockIndex);
       if (blockIndex % basicBlocksPerRank1Sample === 0) {
         rank1Samples.push(cumulativeOnes);
       }
@@ -165,7 +163,7 @@ export class DenseBitVec {
       const blockOnes = bits.popcount(block);
       let blockZeros = bits.BasicBlockSize - blockOnes;
       // Don't count trailing zeros in the final data block towards the zero count
-      if (blockIndex === maxBlockIndex) blockZeros -= data.numTrailingZeros;
+      if (blockIndex === maxBlockIndex) blockZeros -= data.numTrailingUnownedZeros;
       const cumulativeZeros = cumulativeBits - cumulativeOnes;
 
 
@@ -289,12 +287,12 @@ export class DenseBitVec {
     
     // Increment the count by the number of ones in every subsequent block
     for (let i = rankBasicBlockIndex; i < lastBasicBlockIndex; i++) {
-      count += bits.popcount(this.data.blocks[i]);
+      count += bits.popcount(this.data.getBlock(i));
     }
 
     // Count any 1-bits in the last block up to `index`
     let bitOffset = bits.basicBlockBitOffset(index);
-    let maskedBlock = this.data.blocks[lastBasicBlockIndex] & bits.oneMask(bitOffset);
+    let maskedBlock = this.data.getBlock(lastBasicBlockIndex) & bits.oneMask(bitOffset);
     count += bits.popcount(maskedBlock);
     return count;
   }
@@ -326,9 +324,9 @@ export class DenseBitVec {
     
     // Scan basic blocks until we find the one that contains the n-th 1-bit
     let basicBlock = 0;
-    assert(basicBlockIndex < this.data.blocks.length); // the index is in-bounds for the first iteration
-    while (basicBlockIndex < this.data.blocks.length) {
-      basicBlock = this.data.blocks[basicBlockIndex];
+    assert(basicBlockIndex < this.data.numBlocks); // the index is in-bounds for the first iteration
+    while (basicBlockIndex < this.data.numBlocks) {
+      basicBlock = this.data.getBlock(basicBlockIndex);
       const nextCount = count + bits.popcount(basicBlock);
       if (nextCount > n) break;
       count = nextCount;
@@ -370,9 +368,9 @@ export class DenseBitVec {
     // Scan basic blocks until we find the one that contains the n-th 1-bit
     let basicBlock = 0;
     const basicBlockMask = bits.oneMask(bits.BasicBlockSize);
-    assert(basicBlockIndex < this.data.blocks.length); // the index is in-bounds for the first iteration
-    while (basicBlockIndex < this.data.blocks.length) {
-      basicBlock = this.data.blocks[basicBlockIndex];
+    assert(basicBlockIndex < this.data.numBlocks); // the index is in-bounds for the first iteration
+    while (basicBlockIndex < this.data.numBlocks) {
+      basicBlock = this.data.getBlock(basicBlockIndex);
       // The mask ensures that we only count 1-bits inside the basic block
       // even when the basic block size is less than 32 bits.
       const nextCount = count + bits.popcount(~basicBlock & basicBlockMask);

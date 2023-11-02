@@ -70,7 +70,8 @@ export class SparseBitVec {
     const lowBitWidth = numOnes === 0 ? 0 : Math.floor(Math.log2(Math.max(1, universeSize / numOnes))); 
 
     // unary coding; 1 denotes values and 0 denotes separators, since that way
-    // encoding becomes more efficient.
+    // encoding becomes more efficient and we have a chance of saving space due to runs of
+    // zeros at either end, if the values are clustered away from the domain edges.
     // By default, values are never more than 50% of the bits due to the way the split point is chosen.
     // Note that this expression automatically adapts to non-power-of-two universe sizes.
     const highLength = numOnes + (universeSize >>> lowBitWidth);
@@ -103,7 +104,7 @@ export class SparseBitVec {
     // to the bitvec type. We would have to change the above loop to use the builder, and
     // then say this.high = builder.build(buildOptions) with the options we were passed.
     /** @readonly */
-    this.high = new DenseBitVec(high, 10, 10);
+    this.high = new DenseBitVec(high.toZeroPadded(), 10, 10);
 
     /** @readonly */
     this.low = low;

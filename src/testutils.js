@@ -273,7 +273,6 @@ export function testBitVecType(BitVecBuilder, buildOptions = {}) {
       expect(bv.trySelect1(1)).toBe(null);
       expect(() => bv.select1(-1)).toThrow();
       expect(() => bv.select1(1)).toThrow();
-
     }
   });
 
