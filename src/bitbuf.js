@@ -93,7 +93,6 @@ export class BitBuf {
   maybeZeroPadded(threshold = 1.0) {
     const zp = new ZeroPaddedBitBuf(this);
     const numCompressedBlocks = zp.right - zp.left;
-    return zp;
     if (numCompressedBlocks / this.numBlocks <= threshold) {
       return zp;
     } else {

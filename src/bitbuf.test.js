@@ -114,7 +114,14 @@ describe('BitBuf', () => {
     buf.setOne(0 * 32000);
     buf.setOne(0.5 * 32000);
     buf.setOne(1 * 32000 - 1);
-    const zp = buf.maybeZeroPadded();
-    expect(zp.blocks.length).toBe(1000);
+
+    // a zero-padded buffer is returned
+    expect(buf.maybeZeroPadded().blocks.length).toBe(1000);
+    expect(buf.maybeZeroPadded(1.0).blocks.length).toBe(1000);
+    expect(buf.maybeZeroPadded(0.5).blocks.length).toBe(1000);
+
+    // the original is returned since the desired compression threshold is exceeded
+    expect(buf.maybeZeroPadded(0.0)).toBe(buf); 
+    expect(buf.maybeZeroPadded(0.1)).toBe(buf); 
   });
 });
