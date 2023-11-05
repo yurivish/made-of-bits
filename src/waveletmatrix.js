@@ -554,7 +554,7 @@ function childSymbolRanges(level, leftSymbol, mask) {
 
 /**
  * Wavelet matrix construction algorithm that takes space proportional to the alphabet size (which is 2^numLevels).
- * From the paper "Practical Wavelet Tree Construction" (see link in comment at the top of this file)
+ * Algorithm 1 (seq.pc) the paper "Practical Wavelet Tree Construction" (see link in comment at the top of this file)
  * @param {number[]} data
  * @param {number} numLevels
  */
@@ -607,7 +607,7 @@ function buildBitVecsSmallAlphabet(data, numLevels) {
 
     // This mask contains all ones except for the lowest levelBitIndex bits.
     // This is a bit subtle since the negation operates only on the 32-bit value,
-    // but this works so long as we never build elements with value greater than 2^32
+    // but this works so long as we never build elements with value >= 2^32
     const bitPrefixMask = ~oneMask(levelBitIndex);
     for (const d of data) {
       // Get and update position for bit by computing its bit prefix from the
@@ -630,6 +630,7 @@ function buildBitVecsSmallAlphabet(data, numLevels) {
 /**
  * Wavelet matrix construction algorithm that takes space proportional to data.length rather
  * than the alphabet size, allowing for sparse alphabets up to 2^32, eg. a symbol space of [0, 2^32).
+ * The basic idea is to do a 2-bucket bucket sort, and mark the values that went right with a 1-bit.
  * From the paper "Practical Wavelet Tree Construction" (see link in comment at the top of this file)
  * @param {number[]} data
  * @param {number} numLevels
