@@ -102,6 +102,24 @@ export class BitBuf {
 }
 
 /**
+ * @param {number[] | Uint32Array} array
+ * @param {number} value
+ */
+function countPadding(array, value) {
+  // Compute the left and right indices of the blocks
+  // we would like to keep, ie. which are non-padding.
+  let left = 0;
+  while (left < array.length && array[left] === value) {
+    left++;
+  }
+  let right = array.length - 1;
+  while (right > 0 && array[right] === value) {
+    right--;
+  }
+  return { left, right };
+}
+
+/**
  * Immutable buffer with zero padding on both ends. Effectively RLE-encodes zeros
  * at the start and end of a BitBuf, allowing us to save space when the buffer begins
  * and/or ends with a significant number of zeros. The padding is block-aligned.
@@ -113,17 +131,19 @@ export class PaddedBitBuf {
   constructor(buf) {
     const { blocks, universeSize, numBlocks, numTrailingUnownedZeros } = buf;
 
-    // Compute the left and right indices of the blocks
-    // we would like to keep, ie. which are nonzero.
-    let left = 0;
-    while (left < numBlocks && blocks[left] === 0) {
-      left++;
-    }
+    const zeroPadding = 0 >>> 0;
+    const onePadding = bits.oneMask(bits.BasicBlockSize);
+    const zero = countPadding(blocks, zeroPadding);
+    const one = countPadding(blocks, onePadding);
 
-    let right = numBlocks - 1;
-    while (right > 0 && blocks[right] === 0) {
-      right--;
-    }
+    // number of non-padding blocks in the 0-pad and 1-pad cases
+    const zeroLen = zero.right - zero.left;
+    const oneLen = one.right - one.left;
+
+    // pick the padding that results in the shorter blocks array,
+    // or zero in the case of a tie.
+    const padding = zeroLen <= oneLen ? zeroPadding : onePadding;
+    const { left, right } = zeroLen <= oneLen ? zero : one;
 
     this.universeSize = universeSize;
     this.numTrailingUnownedZeros = numTrailingUnownedZeros;
@@ -136,6 +156,7 @@ export class PaddedBitBuf {
     }
     this.left = left;
     this.right = right + 1;
+    this.padding = padding;
   }
 
   /**
@@ -144,7 +165,7 @@ export class PaddedBitBuf {
   getBlock(index) {
     DEBUG && assertSafeInteger(index);
     DEBUG && assert(index >= 0 && index < this.numBlocks, "invalid block index");
-    if (index < this.left || index >= this.right) return bits.u32(0);
+    if (index < this.left || index >= this.right) return this.padding;
     else return this.blocks[index - this.left];
   }
 
@@ -159,7 +180,7 @@ export class PaddedBitBuf {
     // and adjust the index to the stored blocks if the bit is inside
     // the padded region rather than a part of the padding.
     let index = bits.basicBlockIndex(bitIndex);
-    if (index < this.left || index >= this.right) return 0;
+    if (index < this.left || index >= this.right) return this.padding;
     index -= this.left;
 
     const block = this.blocks[index];

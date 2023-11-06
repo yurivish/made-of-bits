@@ -1,5 +1,6 @@
 import { describe, expect, it, test } from 'vitest';
 import { BitBuf } from './bitbuf.js';
+import { bits } from './index.js';
 
 describe('BitBuf', () => {
   /**
@@ -119,6 +120,27 @@ describe('BitBuf', () => {
     expect(buf.maybePadded().blocks.length).toBe(1000);
     expect(buf.maybePadded(1.0).blocks.length).toBe(1000);
     expect(buf.maybePadded(0.5).blocks.length).toBe(1000);
+    expect(buf.get(1)).toBe(0);
+    expect(buf.get(12345)).toBe(0);
+
+    // the original is returned since the desired compression threshold is exceeded
+    expect(buf.maybePadded(0.0)).toBe(buf); 
+    expect(buf.maybePadded(0.1)).toBe(buf); 
+  });
+
+  it('one-pads to the leftmost and rightmost one', () => {
+    const buf = new BitBuf(123456);
+    buf.blocks.fill(bits.oneMask(bits.BasicBlockSize));
+    buf.setZero(0 * 32000);
+    buf.setZero(0.5 * 32000);
+    buf.setZero(1 * 32000 - 1);
+
+    // a one-padded buffer is returned
+    expect(buf.maybePadded().blocks.length).toBe(1000);
+    expect(buf.maybePadded(1.0).blocks.length).toBe(1000);
+    expect(buf.maybePadded(0.5).blocks.length).toBe(1000);
+    expect(buf.get(1)).toBe(1);
+    expect(buf.get(12345)).toBe(1);
 
     // the original is returned since the desired compression threshold is exceeded
     expect(buf.maybePadded(0.0)).toBe(buf); 
