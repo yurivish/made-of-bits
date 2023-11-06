@@ -160,10 +160,18 @@ export class DenseBitVec {
         rank1Samples.push(cumulativeOnes);
       }
 
-      const blockOnes = bits.popcount(block);
+      let blockOnes = bits.popcount(block);
       let blockZeros = bits.BasicBlockSize - blockOnes;
-      // Don't count trailing zeros in the final data block towards the zero count
-      if (blockIndex === maxBlockIndex) blockZeros -= data.numTrailingUnownedZeros;
+      // Don't count trailing ones or zeros in the final data block towards the 0/1 count
+      if (blockIndex === maxBlockIndex) {
+        const numNonTrailingBits = bits.BasicBlockSize - data.numTrailingBits;
+        const trailingBits = block & ~bits.oneMask(numNonTrailingBits);
+        const trailingBitsOnes = bits.popcount(trailingBits);
+        const trailingBitsZeros = data.numTrailingBits - trailingBitsOnes;
+
+        blockOnes -= trailingBitsOnes;
+        blockZeros -= trailingBitsZeros;
+      }
       const cumulativeZeros = cumulativeBits - cumulativeOnes;
 
 

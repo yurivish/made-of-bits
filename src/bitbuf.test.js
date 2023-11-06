@@ -2,6 +2,12 @@ import { describe, expect, it, test } from 'vitest';
 import { BitBuf } from './bitbuf.js';
 import { bits } from './index.js';
 
+// todo: the padding code should be better-tested if we keep this approach.
+// tests in other files keep failing due to bugs in this code.
+
+// todo: figure out the issue with the final block.
+// - remove the use of numTrailingUnownedZeros in the dense bitvec
+
 describe('BitBuf', () => {
   /**
    * Test the given BitBuf by setting and un-setting 3 bits at indices offset + 0/1/2.
@@ -101,6 +107,11 @@ describe('BitBuf', () => {
     }
   }
 
+  it('handles zero-width bufs', () => {
+    const buf = new BitBuf(0);
+    expect(() => buf.get(0)).toThrow();
+  });
+
   check(new BitBuf(3), 0);
   check(new BitBuf(5), 2);
 
@@ -146,5 +157,14 @@ describe('BitBuf', () => {
     // the original is returned since the desired compression threshold is exceeded
     expect(buf.maybePadded(0.0)).toBe(buf); 
     expect(buf.maybePadded(0.1)).toBe(buf); 
+  });
+  it('one-pads even with trailing bits in the last block', () => {
+    const buf = new BitBuf(50);
+    for (let i = 0; i < 50; i++) {
+      buf.setOne(i);
+    }
+    const blocks = buf.blocks;
+    const zp = buf.maybePadded();
+    expect(zp.blocks.length).toBe(0);
   });
 });

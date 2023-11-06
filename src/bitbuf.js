@@ -32,9 +32,11 @@ export class BitBuf {
     const lastBlockOccupancy = universeSize % bits.BasicBlockSize;
     
     /** 
-     * Number of trailing zeros in the final block that do not belong to this buffer
+     * Number of trailing bits in the final block that do not belong to this buffer.
+     * These bits should not be assumed to be in any particular condition (eg. the
+     * padded bitvector may return them as 1-bits).
      * @readonly */
-    this.numTrailingUnownedZeros = lastBlockOccupancy === 0 ? 0 : bits.BasicBlockSize - lastBlockOccupancy;
+    this.numTrailingBits = lastBlockOccupancy === 0 ? 0 : bits.BasicBlockSize - lastBlockOccupancy;
   } 
 
   /**
@@ -131,15 +133,24 @@ export class PaddedBitBuf {
    * @param {BitBuf} buf
    */
   constructor(buf) {
-    const { blocks, universeSize, numBlocks, numTrailingUnownedZeros } = buf;
+    const { blocks, universeSize, numBlocks, numTrailingBits } = buf;
 
     const zeroBlockPadding = 0;
     const zero = countPadding(blocks, zeroBlockPadding);
     const zeroLen = zero.right - zero.left; // number of non-padding blocks
 
+    // when counting 1-padding, temporarily set the highest `numTrailingBits`
+    // of the last block to 1, since otherwise we would wrongly not compress that block.
+    if (blocks.length > 0) {
+      blocks[blocks.length - 1] |= ~bits.oneMask(bits.BasicBlockSize - numTrailingBits);
+    }
     const oneBlockPadding = bits.oneMask(bits.BasicBlockSize);
     const one = countPadding(blocks, oneBlockPadding);
     const oneLen = one.right - one.left;
+    // unset the highset `numTrailingBits` ones of the last block
+    if (blocks.length > 0) {
+      blocks[blocks.length - 1] &= bits.oneMask(bits.BasicBlockSize - numTrailingBits);
+    }
 
     // pick the padding that results in the shorter blocks array, or zero in case of a tie.
     const padding = zeroLen <= oneLen ? u32(0) : u32(1);
@@ -159,7 +170,7 @@ export class PaddedBitBuf {
     // These two properties are transferred from the original BitBuf
     // without modification, since they form part of the public interface.
     // Their meaning refers to the original BitBuf.
-    this.numTrailingUnownedZeros = numTrailingUnownedZeros;
+    this.numTrailingBits = numTrailingBits;
     this.numBlocks = numBlocks;
     this.universeSize = universeSize;
   }
