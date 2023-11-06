@@ -141,15 +141,17 @@ export class PaddedBitBuf {
 
     // when counting 1-padding, temporarily set the highest `numTrailingBits`
     // of the last block to 1, since otherwise we would wrongly not compress that block.
-    if (blocks.length > 0) {
-      blocks[blocks.length - 1] |= ~bits.oneMask(bits.BasicBlockSize - numTrailingBits);
+    const trailingMask = ~bits.oneMask(bits.BasicBlockSize - numTrailingBits);
+    const lastBlock = blocks[blocks.length - 1];
+    if (lastBlock !== undefined) {
+      blocks[blocks.length - 1] |= trailingMask;
     }
     const oneBlockPadding = bits.oneMask(bits.BasicBlockSize);
     const one = countPadding(blocks, oneBlockPadding);
     const oneLen = one.right - one.left;
-    // unset the highset `numTrailingBits` ones of the last block
-    if (blocks.length > 0) {
-      blocks[blocks.length - 1] &= bits.oneMask(bits.BasicBlockSize - numTrailingBits);
+    // Reset the last block to its original state
+    if (lastBlock !== undefined) {
+      blocks[blocks.length - 1] = lastBlock;
     }
 
     // pick the padding that results in the shorter blocks array, or zero in case of a tie.
