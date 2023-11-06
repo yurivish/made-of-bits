@@ -140,7 +140,8 @@ describe('BitBuf', () => {
     expect(buf.maybePadded(1.0).blocks.length).toBe(1000);
     expect(buf.maybePadded(0.5).blocks.length).toBe(1000);
     expect(buf.get(1)).toBe(1);
-    expect(buf.get(12345)).toBe(1);
+    expect(buf.get(123456 - 100)).toBe(1);
+    expect(buf.get(123450)).toBe(1);
 
     // the original is returned since the desired compression threshold is exceeded
     expect(buf.maybePadded(0.0)).toBe(buf); 

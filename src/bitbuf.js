@@ -1,5 +1,6 @@
 import { assert, assertSafeInteger } from './assert.js';
 import * as bits from './bits.js';
+import { u32 } from './bits.js';
 import './debug.js';
 
 // todo: Create a ZeroPaddedButBuf that is immutable and created with with a .trim() method
@@ -116,7 +117,8 @@ function countPadding(array, value) {
   while (right > 0 && array[right] === value) {
     right--;
   }
-  return { left, right };
+  // in the returned object, left is inclusive and right is exclusive
+  return { left, right: right + 1 };
 }
 
 /**
@@ -131,32 +133,35 @@ export class PaddedBitBuf {
   constructor(buf) {
     const { blocks, universeSize, numBlocks, numTrailingUnownedZeros } = buf;
 
-    const zeroPadding = 0 >>> 0;
-    const onePadding = bits.oneMask(bits.BasicBlockSize);
-    const zero = countPadding(blocks, zeroPadding);
-    const one = countPadding(blocks, onePadding);
+    const zeroBlockPadding = 0;
+    const zero = countPadding(blocks, zeroBlockPadding);
+    const zeroLen = zero.right - zero.left; // number of non-padding blocks
 
-    // number of non-padding blocks in the 0-pad and 1-pad cases
-    const zeroLen = zero.right - zero.left;
+    const oneBlockPadding = bits.oneMask(bits.BasicBlockSize);
+    const one = countPadding(blocks, oneBlockPadding);
     const oneLen = one.right - one.left;
 
-    // pick the padding that results in the shorter blocks array,
-    // or zero in the case of a tie.
-    const padding = zeroLen <= oneLen ? zeroPadding : onePadding;
-    const { left, right } = zeroLen <= oneLen ? zero : one;
+    // pick the padding that results in the shorter blocks array, or zero in case of a tie.
+    const padding = zeroLen <= oneLen ? u32(0) : u32(1);
+    const blockPadding = padding === 0 ? zeroBlockPadding : oneBlockPadding;
+    let { left, right } = padding === 0 ? zero : one;
 
-    this.universeSize = universeSize;
-    this.numTrailingUnownedZeros = numTrailingUnownedZeros;
-    this.numBlocks = numBlocks; // including (conceptual) zero blocks
-
-    if (left === 0 && right === numBlocks - 1) {
+    if (left === 0 && right === blocks.length) {
       this.blocks = blocks;
     } else {
-      this.blocks = blocks.slice(left, right + 1);
+      this.blocks = blocks.slice(left, right);
     }
     this.left = left;
-    this.right = right + 1;
+    this.right = right;
     this.padding = padding;
+    this.blockPadding = blockPadding;
+
+    // These two properties are transferred from the original BitBuf
+    // without modification, since they form part of the public interface.
+    // Their meaning refers to the original BitBuf.
+    this.numTrailingUnownedZeros = numTrailingUnownedZeros;
+    this.numBlocks = numBlocks;
+    this.universeSize = universeSize;
   }
 
   /**
@@ -165,7 +170,7 @@ export class PaddedBitBuf {
   getBlock(index) {
     DEBUG && assertSafeInteger(index);
     DEBUG && assert(index >= 0 && index < this.numBlocks, "invalid block index");
-    if (index < this.left || index >= this.right) return this.padding;
+    if (index < this.left || index >= this.right) return this.blockPadding;
     else return this.blocks[index - this.left];
   }
 
