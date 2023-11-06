@@ -42,7 +42,7 @@ import * as defaults from './defaults';
 // - Document the meaning of the bit vec interface elements. Incl select0. Can we have a selectUnique, for bit vecs that store occupancy and count data separately?
 
 import { assert, assertDefined, assertSafeInteger, log } from "./assert.js";
-import { BitBuf, ZeroPaddedBitBuf } from './bitbuf.js';
+import { BitBuf, PaddedBitBuf } from './bitbuf.js';
 import * as bits from './bits.js';
 import { u32 } from './bits.js';
 import { trackedArray } from './introspection.js';
@@ -73,7 +73,7 @@ export class DenseBitVecBuilder {
   }
 
   build({ rank1SamplesPow2 = 10, selectSamplesPow2 = 10 } = {}) {
-    return new DenseBitVec(this.buf.maybeZeroPadded(), rank1SamplesPow2, selectSamplesPow2);
+    return new DenseBitVec(this.buf.maybePadded(), rank1SamplesPow2, selectSamplesPow2);
   }
 }
 
@@ -91,7 +91,7 @@ export class DenseBitVecBuilder {
  * */
 export class DenseBitVec {
   /**
-   * @param {BitBuf | ZeroPaddedBitBuf} data - bit buffer containing the underlying bit data
+   * @param {BitBuf | PaddedBitBuf} data - bit buffer containing the underlying bit data
    * @param {number} rank1SamplesPow2 - power of 2 of the rank sample rate
    * @param {number} selectSamplesPow2 - power of 2 of the select sample rate for both select0 and select1
    */

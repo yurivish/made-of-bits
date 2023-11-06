@@ -624,7 +624,7 @@ function buildBitVecsSmallAlphabet(data, numLevels) {
   }
 
   // todo: configurable dense bitvec parameters
-  return levels.map(d => new DenseBitVec(d.maybeZeroPadded(), rank1SamplesPow2, selectSamplesPow2));
+  return levels.map(d => new DenseBitVec(d.maybePadded(), rank1SamplesPow2, selectSamplesPow2));
 }
 
 /**
@@ -682,7 +682,7 @@ function buildBitVecsLargeAlphabet(data, numLevels) {
         bits.setOne(i);
       }
     }
-    levels.push(new DenseBitVec(bits.maybeZeroPadded(), rank1SamplesPow2, selectSamplesPow2));
+    levels.push(new DenseBitVec(bits.maybePadded(), rank1SamplesPow2, selectSamplesPow2));
   }
 
   return levels;

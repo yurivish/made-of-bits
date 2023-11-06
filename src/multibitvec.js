@@ -40,7 +40,7 @@ export class MultiBitVecBuilder {
       cumulativeCounts[i] += cumulativeCounts[i - 1];
     }
 
-    const occupancy = new DenseBitVec(this.buf.maybeZeroPadded(), occupancyRank1SamplesPow2, occupancySelectSamplesPow2);
+    const occupancy = new DenseBitVec(this.buf.maybePadded(), occupancyRank1SamplesPow2, occupancySelectSamplesPow2);
     const multiplicity = new SparseBitVec(cumulativeCounts, len > 0 ? cumulativeCounts[len - 1] + 1 : 0);
     return new MultiBitVec(occupancy, multiplicity);
   }

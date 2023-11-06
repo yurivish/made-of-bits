@@ -90,8 +90,8 @@ export class BitBuf {
    * or more in the number of blocks. Set this to 0.0 to only compress if the vector
    * is entirely full of zeros.
    */
-  maybeZeroPadded(threshold = 1.0) {
-    const zp = new ZeroPaddedBitBuf(this);
+  maybePadded(threshold = 1.0) {
+    const zp = new PaddedBitBuf(this);
     const numCompressedBlocks = zp.right - zp.left;
     if (numCompressedBlocks / this.numBlocks <= threshold) {
       return zp;
@@ -106,7 +106,7 @@ export class BitBuf {
  * at the start and end of a BitBuf, allowing us to save space when the buffer begins
  * and/or ends with a significant number of zeros. The padding is block-aligned.
  */
-export class ZeroPaddedBitBuf {
+export class PaddedBitBuf {
   /**
    * @param {BitBuf} buf
    */

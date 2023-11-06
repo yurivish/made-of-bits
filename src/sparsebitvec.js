@@ -104,7 +104,7 @@ export class SparseBitVec {
     // to the bitvec type. We would have to change the above loop to use the builder, and
     // then say this.high = builder.build(buildOptions) with the options we were passed.
     /** @readonly */
-    this.high = new DenseBitVec(high.maybeZeroPadded(), 10, 10);
+    this.high = new DenseBitVec(high.maybePadded(), 10, 10);
 
     /** @readonly */
     this.low = low;
