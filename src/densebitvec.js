@@ -134,8 +134,8 @@ export class DenseBitVec {
     // `rank1SamplingRate*i + 0`-th bits), select blocks start sampling from 1, and thus represent the
     // `select1SamplingRate*i + 1`-th bits.
     // For example, if `select1SamplingRate` is 64, then the select1 samples will identify the basic blocks
-    // that contain the 0+1 = 1st, 64+1 = 65th, 2*64+1 = 129th, 3*64+1 = 193rd, ... bits. Note that since
-    // the sampling rate is a positive multiple of the basic block, two select block will never point 
+    // that contain the 0+1 = 1st, 64+1 = 65th, 2*64+1 = 129th, 3*64+1 = 193rd, ... bits.
+    // Since the sampling rate is a positive multiple of the basic block, two select blocks will never point 
     // to the same basic block.
     const select1Samples = []; 
     const select0Samples = []; 
