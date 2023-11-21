@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8"/>
+  </head>
+  <body>
+    <ul id="-QbF4lWC">
+      <li id="KN" data-done="2023-11-10T02:57:36Z" data-type="task">
+        <p>New name: Made of Bits.</p>
+        <ul>
+          <li id="uU">
+            <p>https://en.wikipedia.org/wiki/Nibble</p>
+          </li>
+          <li id="UZ">
+            <p>https://en.wikipedia.org/wiki/Units_of_information#Obsolete_and_unusual_units</p>
+          </li>
+        </ul>
+      </li>
+      <li id="b_">
+        <p/>
+      </li>
+      <li id="ui" data-type="task">
+        <p>WM Traversal idea: keep left/right arrays separate; have an outer loop for arr in [left, right] that iterates over the last level’s symbols in order, without needing the extra copy. </p>
+        <ul>
+          <li id="4yK">
+            <p>Ie. do not put everything in one big array, put it in two big arrays, and write to 2 new arrays for the output of that iteration</p>
+          </li>
+        </ul>
+      </li>
+      <li id="rM">
+        <p/>
+      </li>
+      <li id="VAm">
+        <p><span>💡Idea: use the same two sampling schemes to </span><mark>summarize natural language text</mark><span> or navigate a collection of comments over time, where you can sample based on a time interval, or you can take every nth mention of a particular word, for example.</span></p>
+      </li>
+      <li id="ja">
+        <p/>
+      </li>
+      <li id="j1" data-type="heading">
+        <p>To do</p>
+        <ul>
+          <li id="BH" data-type="heading">
+            <p>Next</p>
+          </li>
+          <li id="ne" data-done="2023-10-01T03:26:27Z" data-type="task">
+            <p>tests for multibitvec</p>
+            <ul>
+              <li id="5Z3" data-done="2023-10-01T03:26:28Z" data-type="task">
+                <p>tests for multi rank0 in this specific case</p>
+              </li>
+            </ul>
+          </li>
+          <li id="FGJ" data-done="2023-10-01T03:26:29Z" data-type="task">
+            <p>sparse-specific tests</p>
+          </li>
+          <li id="uL" data-done="2023-10-01T03:26:29Z" data-type="task">
+            <p>rle-specific tests</p>
+          </li>
+          <li id="G6" data-type="heading">
+            <p>Possibly later</p>
+          </li>
+          <li id="H5" data-type="task">
+            <p>h2 histogram</p>
+          </li>
+          <li id="kY" data-type="task">
+            <p>quad vector</p>
+            <ul>
+              <li id="UX">
+                <p>Here's an idea for a quad vector. </p>
+                <ul>
+                  <li id="C9">
+                    <p><span>We base it on the dense bit vector except now for simplicity we sample three different types of rank 00 01 and 1 1 or maybe 10; right; three of those, and then rather than a rank function we expose a ranks function. That returns you all four counts because that's actually what we want for a counts query in the wavelet tree. We want to get </span><em>all</em><span> of the counts. </span></p>
+                  </li>
+                  <li id="Zp">
+                    <p>So there is an optimization here that's possible where we use 21 bits for each of the three elements and then have superblocks of size 2^21 and maybe even store the super block inline, we could also maybe store the rank info in line with new data but it really doesn't seem worth it and we can basically pick some fixed parameters for the sampling rates and we could basically do select by a binarysearch on rank because it's less important for that to be fast right now.</p>
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          </li>
+          <li id="44" data-type="task">
+            <p>wavelet matrix</p>
+            <ul>
+              <li id="wA" data-type="task">
+                <p>Explore using web workers and OffscreenCanvas once we have a wavelet matrix</p>
+                <ul>
+                  <li id="Diz">
+                    <p>https://github.com/GoogleChromeLabs/comlink</p>
+                  </li>
+                </ul>
+              </li>
+              <li id="4w" data-type="task">
+                <p><span>Explore </span><a href="https://www.cs.umd.edu/hcil/trs/2004-26/2004-26.pdf">Timeboxes</a><span> as a query interface for wavelet matrix-backed time series display</span></p>
+                <ul>
+                  <li id="QR">
+                    <p>(if the link dies, that's the paper "Dynamic query tools for time series data sets: Timebox widgets for interactive exploration")</p>
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+      <li id="vX" data-type="heading">
+        <p>Documentation</p>
+      </li>
+      <li id="fU">
+        <p>This is the best framing that I've encountered so far to structure the full contents that I want to express.</p>
+      </li>
+      <li id="nC">
+        <p><a href="https://cs.brown.edu/~sk/Publications/Papers/Published/wk-error-msg-classifier/">Error Messages Are Classifiers: A Process to Design and Evaluate Error Messages</a></p>
+      </li>
+      <li id="WF">
+        <p/>
+      </li>
+      <li id="yP" data-type="heading">
+        <p>Possibly Related</p>
+        <ul>
+          <li id="KiT">
+            <p><span>Cool data structure:</span><a href="https://nullprogram.com/blog/2023/09/30/"> </a></p>
+            <ul>
+              <li id="gky">
+                <p><a href="https://nrk.neocities.org/articles/hash-trees-and-tries">Hash based trees and tries</a></p>
+                <ul>
+                  <li id="tE" data-type="quote">
+                    <p><span>In my </span><a href="https://nrk.neocities.org/articles/simple-treap">last post</a><span> I set out some peculiar requirements for a search data-structure and investigated how well a treap would fit those requirements. To re-cap, here were the requirements:</span></p>
+                  </li>
+                </ul>
+              </li>
+              <li id="b48">
+                <p><a href="https://nullprogram.com/blog/2023/09/30/">An easy-to-implement, arena-friendly hash map</a></p>
+              </li>
+              <li id="bl9">
+                <p><span>And if you know a reasonable upper bound on value size: Use an </span><a href="https://nullprogram.com/blog/2022/08/08/">MSI hash table</a></p>
+              </li>
+              <li id="BgU">
+                <p><mark>Both of these blogs seem extremely good.</mark></p>
+              </li>
+              <li id="2FH">
+                <p><span>NRK has a </span><a href="https://nrk.neocities.org/articles/simple-treap">post on treaps</a><span> in which he says</span></p>
+                <ul>
+                  <li id="1Wy" data-type="quote">
+                    <p>While I'm calling it a "basic" treap, this is already an improvement over the usual implementations which usually make the mistake of naming the child nodes left and right instead of using an index-able child array. I call it a mistake because it forces you to handle left vs right tree rotations separately, whereas with an array they can be done via the same piece of code by just inverting the index.</p>
+                  </li>
+                  <li id="mGn">
+                    <p><mark>I wonder if I could apply this idea to the shuffle tree.</mark><span> Might incur extra allocations if we have the children in an array but I'm not sure.</span></p>
+                  </li>
+                  <li id="bIm">
+                    <p><span>Another </span><a href="https://nullprogram.com/blog/2020/12/31/">good one</a><span> on state machines</span></p>
+                  </li>
+                  <li id="M-T">
+                    <p><span>And </span><a href="https://nullprogram.com/blog/2020/11/24/">this one</a><span> with cars and polynomials is great</span></p>
+                  </li>
+                  <li id="0Uh">
+                    <p/>
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          </li>
+          <li id="uOW">
+            <p/>
+          </li>
+          <li id="1OF">
+            <p/>
+          </li>
+        </ul>
+      </li>
+      <li id="yS">
+        <p>There are some good ideas here:</p>
+        <ul>
+          <li id="2LA">
+            <p><a href="https://news.ycombinator.com/item?id=37555028">When Zig Outshines Rust – Memory Efficient Enum Arrays </a></p>
+          </li>
+          <li id="Pwq">
+            <p><span>And interesting and good </span><a href="https://news.ycombinator.com/item?id=37555375">HN comment</a></p>
+          </li>
+        </ul>
+      </li>
+      <li id="DVu">
+        <p/>
+      </li>
+      <li id="3A">
+        <p>Note that dense bit vec is pushable in theory - could update after construction if appending.</p>
+      </li>
+      <li id="iTo">
+        <p/>
+      </li>
+      <li id="Xm">
+        <p>Could make a higher order func to create the bit vector class w const block type. Need benchmarking infra to tell if this helps. But for tests, would be nice to have 8-bit blocks...</p>
+      </li>
+      <li id="8L">
+        <p/>
+      </li>
+      <li id="Rup" data-type="heading">
+        <p>Post Topics</p>
+        <ul>
+          <li id="FgY">
+            <p>The 'length in bits' vs 'universe size' question and the subtleties of generalizing to MultiBitVec (bitset with multiplicity) - generalizing rank/select to repetitions of the same. What are the deeper invariants? eg num_ones + num_zeros does not equal universe_size</p>
+          </li>
+          <li id="sPT">
+            <p>Generalizing to a quad vector</p>
+          </li>
+          <li id="yH6">
+            <p>The elegance of the two kinds of regular sampling that interweave.</p>
+          </li>
+          <li id="2Iy">
+            <p>Should we explain the concepts in base 10? Like histograms, feels it may simplify the presentation...</p>
+          </li>
+          <li id="4UC">
+            <p/>
+          </li>
+        </ul>
+      </li>
+      <li id="mK1" data-type="heading">
+        <p>More Bit Structures</p>
+        <ul>
+          <li id="Qjt">
+            <p><span>Teaching-oriented guide to the Burrows-Wheeler Transform: </span><a href="https://arxiv.org/abs/2208.09840">Teaching the Burrows-Wheeler Transform via the Positional Burrows-Wheeler Transform</a></p>
+          </li>
+          <li id="oOn">
+            <p/>
+          </li>
+        </ul>
+      </li>
+      <li id="1jA">
+        <p/>
+      </li>
+      <li id="iIg" data-type="heading">
+        <p>Informative post</p>
+      </li>
+      <li id="6Rm">
+        <p><a href="https://2ality.com/2012/02/js-integers.html">Integers and shift operators in JavaScript</a></p>
+      </li>
+      <li id="FXp">
+        <p/>
+      </li>
+      <li id="zqj" data-type="heading">
+        <p>Nice thing to do</p>
+      </li>
+      <li id="1MK">
+        <p>Make a pull request to esbuild that allows an option to configure the course header. Current option is insecure...</p>
+      </li>
+      <li id="NGk">
+        <p/>
+      </li>
+      <li id="Er" data-type="heading">
+        <p>Write about</p>
+      </li>
+      <li id="7z">
+        <p>The debug assert technique. Reference Laurie Tratt's assertions blog post, and the fact that the source of the technique is https://github.com/evanw/esbuild/issues/2063 and with evanw's assistance will be compiled away to nothing in production when bundling with esbuild.</p>
+        <ul>
+          <li id="Zn">
+            <p>One nice thing is that you can enable debug assertions on a module basis by simply setting debug to true within that module.</p>
+          </li>
+          <li id="xa">
+            <p>There is still an open question about how to modulate that debug parameter.</p>
+            <ul>
+              <li id="Qr">
+                <p>esbuild to the rescue: https://esbuild.github.io/api/#define</p>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+      <li id="ka">
+        <p> </p>
+      </li>
+      <li id="BL" data-type="heading">
+        <p>Issues</p>
+      </li>
+      <li id="Nhn" data-type="task">
+        <p>WM: traversal: Can do traversal a 2 parallel arrays. One holding input index</p>
+      </li>
+      <li id="lg" data-type="task">
+        <p>WM: don't call it levelBit if it goes to 2^53; more like levelBase or something</p>
+      </li>
+      <li id="wt" data-type="task">
+        <p>WM: Use 53 bit ints for symbols. Can probably make efficient. Could break into 2 u32 if needed. Or perhaps this will not work...</p>
+        <ul>
+          <li id="cE">
+            <p>We can support symbols up to 2^53-1 for counts queries at least. Other ones that require a symbol to be passed in might be trickier but even then, so long as we don’t need to do but manipulation in the inner loop…</p>
+          </li>
+        </ul>
+      </li>
+      <li id="R7" data-type="task">
+        <p>Can we reduce down to just a multi bit vec trait? Eg make the general definition match the specific one</p>
+      </li>
+      <li id="XS" data-done="2023-09-16T02:30:30Z" data-type="task">
+        <p>Audit the DEBUG &amp;&amp; assert statements and use regular assets where the cost is not prohibitive, for enhanced safety in production. </p>
+      </li>
+      <li id="x9" data-done="2023-09-15T20:43:41Z" data-type="task">
+        <p>Debug asserts are not cost-free, because the condition argument is evaluated regardless of whether the function is called. Is there any way to strip these calls out so they are truly cost-free?</p>
+        <ul>
+          <li id="Ai" indent="2">
+            <p>One approach is https://github.com/evanw/esbuild/issues/2063</p>
+          </li>
+          <li id="gg" indent="2">
+            <p>where you say DEBUG &amp;&amp; assert(...) as the way to control both whether it is run or not as well as whether it is constant-simplified and therefore stripped from a production build by esbuild.</p>
+          </li>
+          <li id="fAB">
+            <p><mark>Add a TIL for this!</mark></p>
+          </li>
+        </ul>
+      </li>
+      <li id="u1" data-done="2023-09-16T03:29:49Z" data-type="task">
+        <p>Test u32 function that the input is an integer in u32 range.</p>
+      </li>
+      <li id="FHY">
+        <p/>
+      </li>
+      <li id="Aj" data-type="heading">
+        <p>Serving to a notebook for development</p>
+      </li>
+      <li id="Yq">
+        <p>https://esbuild.github.io/api/#serve-proxy</p>
+      </li>
+      <li id="vZ">
+        <p/>
+      </li>
+      <li id="kR">
+        <p>Idea: sublime command to collapse all doc comments</p>
+      </li>
+      <li id="RI">
+        <p/>
+      </li>
+      <li id="-2">
+        <p/>
+      </li>
+    </ul>
+  </body>
+</html>

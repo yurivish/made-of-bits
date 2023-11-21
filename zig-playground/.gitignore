@@ -1,0 +1,5 @@
+.DS_Store
+zig-cache
+zig-out
+*.sublime-workspace
+*.wasm

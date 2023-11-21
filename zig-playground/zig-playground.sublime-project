@@ -1,0 +1,49 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {},
+  "build_systems": [
+    {
+      "name": "Ziglet",
+      "file_regex": "^([^:\n]*):([0-9]+):?([0-9]+)?:?(.*)$",
+      "cmd": ["zig", "build"],
+      "variants": [
+        {
+          "name": "Run Main",
+          "working_dir": "$project_path",
+          "cmd": ["zig", "run", "./src/main.zig"],
+        },
+
+        {
+          "name": "Run File",
+          "cmd": ["zig", "run", "$file_name"],
+        },
+
+        {
+          "name": "Build WASM",
+          "working_dir": "$project_path",
+          // we need -rdynamic to export all symbols: https://github.com/ziglang/zig/pull/14102
+          // there are other options if we want to no longer export *all* symbols, though this behavior seems fine for now.
+          // "-OReleaseSafe" "-ODebug"
+          "cmd": ["zig", 
+            "build-lib", "./src/main.zig",
+            "-target", "wasm32-freestanding", 
+            "-dynamic",
+            "-rdynamic", // export all symbols (or something)
+            // "-fstrip", // strip debug symbols (for size optimization)
+            // "-OReleaseSafe",
+            "-ODebug",
+          ],
+        },
+
+        {
+          "name": "Test File",
+          "cmd": ["zig", "test", "$file_name"],
+        },
+      ],
+    },
+  ]
+}

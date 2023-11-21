@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8"/>
+  </head>
+  <body>
+    <ul id="-wFE4kKs">
+      <li id="F1">
+        <p><a href="https://github.com/permutationlock/zimpl">Simple comptime generic interfaces for Zig</a></p>
+      </li>
+      <li id="4K">
+        <p/>
+      </li>
+      <li id="G6">
+        <p>https://www.openmymind.net/learning_zig/heap_memory/</p>
+      </li>
+      <li id="_rh">
+        <p/>
+      </li>
+      <li id="Fe">
+        <p>https://aerth.github.io/json-to-zig/</p>
+        <ul>
+          <li id="Dv">
+            <p>https://discord.com/channels/605571803288698900/1024381264213594242/threads/1173934913863553074</p>
+          </li>
+        </ul>
+      </li>
+      <li id="mu">
+        <p/>
+      </li>
+      <li id="on">
+        <p/>
+      </li>
+      <li id="xa" data-type="heading">
+        <p>Ghostty</p>
+        <ul>
+          <li id="2C" data-type="quote">
+            <p>Its funny working on this OpenGL stuff, its some of the first code I ever wrote for Ghostty so its also some of the first Zig code I wrote, and man it has some patterns I do not follow anymore</p>
+          </li>
+          <li id="BNG" data-type="quote">
+            <p/>
+          </li>
+          <li id="oU" data-type="quote">
+            <p>The Metal work by comparison is very clean, it came so much later. (edited)</p>
+          </li>
+          <li id="2i">
+            <p></p>
+          </li>
+          <li id="Dx">
+            <p></p>
+          </li>
+          <li id="Qv">
+            <p></p>
+          </li>
+          <li id="WQ">
+            <p></p>
+          </li>
+          <li id="L1">
+            <p></p>
+          </li>
+          <li id="56">
+            <p></p>
+          </li>
+          <li id="b4">
+            <p></p>
+          </li>
+          <li id="_g">
+            <p></p>
+          </li>
+          <li id="ok1">
+            <p/>
+          </li>
+        </ul>
+      </li>
+      <li id="ri">
+        <p/>
+      </li>
+      <li id="eA">
+        <p><a href="https://arxiv.org/abs/2311.03542">Indexing Techniques for Graph Reachability Queries</a></p>
+      </li>
+      <li id="iK">
+        <p/>
+      </li>
+      <li id="67">
+        <p>hi</p>
+      </li>
+      <li id="6S">
+        <p/>
+      </li>
+      <li id="g8">
+        <p><code>esbuild --watch --serve=4242 --servedir=www</code></p>
+      </li>
+      <li id="lD">
+        <p/>
+      </li>
+      <li id="OK" data-type="heading">
+        <p>zig frictions (read bottom to top)</p>
+        <ul>
+          <li id="Lb4">
+            <p/>
+          </li>
+          <li id="cGU">
+            <p>aha, this is the pattern I'm looking for:</p>
+            <ul>
+              <li id="r1U" data-type="code">
+                <p>var bv = global_alloc.create(DenseBitVecBuilder);</p>
+              </li>
+              <li id="wI" data-type="code">
+                <p>bv.* = DenseBitVecBuilder.init(global_alloc, len) catch @panic("allocation failed");</p>
+              </li>
+              <li id="Go" data-type="code">
+                <p>return bv;</p>
+                <ul>
+                  <li id="FKh" data-type="code">
+                    <p/>
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          </li>
+          <li id="al_">
+            <p><span>oops, need to mark my builder/bitvec structs as </span><code>extern</code><span>.</span></p>
+            <ul>
+              <li id="tqg">
+                <p>or maybe not, since we are cool returning a pointer.</p>
+              </li>
+              <li id="seX">
+                <p/>
+              </li>
+            </ul>
+          </li>
+          <li id="Ik">
+            <p>oops, was returning a pointer to a stack variable without realizing it (how do i even do this correctly?)</p>
+            <ul>
+              <li id="hLc" data-type="code">
+                <p>export fn DenseBitVecBuilder_init(len: usize) *DenseBitVecBuilder {</p>
+                <ul>
+                  <li id="PI" data-type="code">
+                    <p>var bv = DenseBitVecBuilder.init(global_alloc, len) catch @panic("allocation failed");</p>
+                  </li>
+                  <li id="yJ" data-type="code">
+                    <p>return &amp;bv;</p>
+                  </li>
+                </ul>
+              </li>
+              <li id="iI" data-type="code">
+                <p>}</p>
+              </li>
+            </ul>
+          </li>
+          <li id="4K7">
+            <p/>
+          </li>
+          <li id="NtE">
+            <p><span>trying to compile to wasm fails - i think becuase i use i/o for printing and that is not supported but the message is mysterious. same issue encountered </span><a href="https://www.reddit.com/r/Zig/comments/13y6u75/comment/jmpqwgy/">here</a><span> and i found an old </span><a href="https://github.com/ziglang/zig/issues/3019">issue</a><span> that already has my thumbs up</span></p>
+            <ul>
+              <li id="Bs1">
+                <p>/opt/homebrew/Cellar/zig/0.11.0/lib/zig/std/os.zig:153:24: error: struct 'os.system__struct_2662' has no member named 'fd_t'</p>
+              </li>
+              <li id="qw">
+                <p>/opt/homebrew/Cellar/zig/0.11.0/lib/zig/std/os.zig:73:13: note: struct declared here</p>
+              </li>
+              <li id="lV">
+                <p>[Finished in 94ms with exit code 1]</p>
+              </li>
+            </ul>
+          </li>
+          <li id="GqK">
+            <p/>
+          </li>
+          <li id="3sx">
+            <p>needed to add another compilation flag to actually export the exports (-rdynamic): https://github.com/ziglang/zig/pull/14102</p>
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </body>
+</html>
