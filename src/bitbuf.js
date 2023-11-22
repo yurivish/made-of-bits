@@ -3,7 +3,7 @@ import * as bits from './bits.js';
 import { u32 } from './bits.js';
 import './debug.js';
 
-// todo: Create a ZeroPaddedButBuf that is immutable and created with with a .trim() method
+// todo: Create a ZeroPaddedBitBuf that is immutable and created with with a .trim() method
 //       that finds the first and last one bits and trims off the excess, storing offsets.
 
 /**
