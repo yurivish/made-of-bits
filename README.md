@@ -10,4 +10,4 @@ I've also been experimenting with the programming language [Zig](https://ziglang
 
 The medium- to long-term future plans include making the above improvements to allow for Huffman shaped construction and querying, potentially porting performance-sensitive data structures to a lower-level language, documenting the existing structures, and adding basic benchmarking infrastructure to gather performance data. 
 
-It would also be fun to add an implementation of quad vectors, which select among the symbols 0, 1, 2, and 3. [This paper](https://arxiv.org/abs/2302.09239) outlines one possibility, but we could explore an extended version of the existing dense bit vector approach as an alternative, though there may be undesirable trade-offs there.
+It would also be fun to add an implementation of quad vectors, which enable rank & select among the symbols 0, 1, 2, and 3. [This paper](https://arxiv.org/abs/2302.09239) outlines one possibility, but we could explore an extended version of the existing dense bit vector approach as an alternative, though there may be undesirable trade-offs there.
