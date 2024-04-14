@@ -43,8 +43,8 @@ export class WaveletMatrix {
     // efficient, but that algorithm does not scale well to large alphabets and also cannot
     // cannot handle element multiplicity because it constructs the bitvectors out-of-order.
     // It also requires O(2^num_levels) space. So, we check whether the number of data points
-    // is less than 2^num_levels, and if so use the scalable algorithm, and otherise use the
-    // the efficient algorithm.
+    // is less than 2^num_levels, and if so use the efficient algorithm, and otherise use the
+    // the scalable algorithm.
     let /** @type {BitVec[]} */ bitVecs;
     if (data.length === 0) {
       // Create an empty bitvec since numLevels is 1
