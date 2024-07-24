@@ -70,7 +70,7 @@ impl BitBuf {
     }
 
     fn into_padded(mut self) -> PaddedBitBuf {
-        let spec = PaddedBitBuf::spec(&mut self);
+        let spec = PadSpec::new(&mut self);
         PaddedBitBuf::new(self, spec)
     }
 }
@@ -101,40 +101,23 @@ struct PaddedBitBuf {
     num_trailing_bits: u32,
 }
 
+// todo: do only one scan by initing end with start
+
+/// Represents a recommended padding for a particular BitVec.
+/// We store this as its own struct so that we can use this
+/// information to decide whether to compress a BitVec into
+/// a PaddedBitVec based on a user-defined target compression
+/// ratio, and also to do the compression. (Computing a PadSpec
+/// requires a scan over the blocks).
 #[derive(Default, Clone)]
 struct PadSpec {
     padding: u32,
     padded_range: Range<usize>,
 }
 
-impl PaddedBitBuf {
-    fn new(buf: BitBuf, spec: PadSpec) -> Self {
-        let PadSpec {
-            padded_range,
-            padding,
-        } = spec;
-        let left_block_offset = padded_range.start as u32;
-        let right_block_offset = padded_range.end as u32;
-        let blocks = if padded_range.len() < buf.blocks.len() {
-            buf.blocks[padded_range].to_vec().into_boxed_slice()
-        } else {
-            buf.blocks
-        };
-
-        Self {
-            blocks,
-            left_block_offset,
-            right_block_offset,
-            padding,
-            universe_size: buf.universe_size,
-            num_trailing_bits: buf.num_trailing_bits,
-        }
-    }
-
-    /// Try padding the blocks of `buf` with zeros and ones, and return a `PadSpec`
-    /// containing the best padding type as well as the padded range.
+impl PadSpec {
     /// Note: Requires a mut reference because of a temporary modification to the last block.
-    fn spec(buf: &mut BitBuf) -> PadSpec {
+    fn new(buf: &mut BitBuf) -> PadSpec {
         let zero_padding = 0; // a block of zeros
         let zero_padded_range = padded_range(&buf.blocks, zero_padding);
 
@@ -163,6 +146,34 @@ impl PaddedBitBuf {
             }
         }
     }
+}
+
+impl PaddedBitBuf {
+    fn new(buf: BitBuf, spec: PadSpec) -> Self {
+        let PadSpec {
+            padded_range,
+            padding,
+        } = spec;
+        let left_block_offset = padded_range.start as u32;
+        let right_block_offset = padded_range.end as u32;
+        let blocks = if padded_range.len() < buf.blocks.len() {
+            buf.blocks[padded_range].to_vec().into_boxed_slice()
+        } else {
+            buf.blocks
+        };
+
+        Self {
+            blocks,
+            left_block_offset,
+            right_block_offset,
+            padding,
+            universe_size: buf.universe_size,
+            num_trailing_bits: buf.num_trailing_bits,
+        }
+    }
+
+    /// Try padding the blocks of `buf` with zeros and ones, and return a `PadSpec`
+    /// containing the best padding type as well as the padded range.
 
     fn should_pad(buf: &BitBuf, spec: PadSpec, compression_threshold: f64) -> bool {
         let num_blocks = buf.num_blocks();
@@ -326,7 +337,7 @@ mod tests {
 
             // should return the correct suggestion for whether to pad or not
             // based on the provided compression ratio
-            let spec = PaddedBitBuf::spec(&mut buf);
+            let spec = PadSpec::new(&mut buf);
             assert!(PaddedBitBuf::should_pad(&buf, spec.clone(), 1.0));
             assert!(PaddedBitBuf::should_pad(&buf, spec.clone(), 0.5));
             assert!(!PaddedBitBuf::should_pad(&buf, spec.clone(), 0.1));
@@ -351,7 +362,7 @@ mod tests {
 
             // should return the correct suggestion for whether to pad or not
             // based on the provided compression ratio
-            let spec = PaddedBitBuf::spec(&mut buf);
+            let spec = PadSpec::new(&mut buf);
             assert!(PaddedBitBuf::should_pad(&buf, spec.clone(), 1.0));
             assert!(PaddedBitBuf::should_pad(&buf, spec.clone(), 0.5));
             assert!(!PaddedBitBuf::should_pad(&buf, spec.clone(), 0.1));

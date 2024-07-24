@@ -75,7 +75,7 @@ impl SortedArrayBitVec {
     // todo: default rank0 from trait
 
     fn select1(&self, n: u32) -> Option<u32> {
-        Some(self.ones[n as usize])
+        self.ones.get(n as usize).copied()
     }
 
     // todo: default
