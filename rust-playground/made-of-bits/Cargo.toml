@@ -1,0 +1,28 @@
+[package]
+name = "made-of-bits"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "to_js_testing"
+crate-type = ["cdylib"]
+
+[dependencies]
+to_js = { path = "/Users/yurivish/to_js" }
+
+[profile.dev]
+opt-level = 3 # all optimizations
+strip = "debuginfo"
+debug = "line-tables-only"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = "debuginfo"
+debug = "line-tables-only"
+overflow-checks = true # cf. https://hachyderm.io/@cliffle/111812887172594381
+
+[profile.release-debug]
+inherits = "release"
+debug-assertions = true
+
