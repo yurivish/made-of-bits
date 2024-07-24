@@ -75,13 +75,29 @@ impl BitBuf {
     }
 }
 
+/// Represents a recommended padding for a particular BitVec.
+/// We store this as its own struct so that we can use this
+/// information to decide whether to compress a BitVec into
+/// a PaddedBitVec based on a user-defined target compression
+/// ratio, and also to do the compression. (Computing a PadSpec
+/// requires a scan over the blocks).
+#[derive(Default, Clone)]
+struct PadSpec {
+    padding: u32,
+    padded_range: Range<usize>,
+}
+
+/// Compute the range of `arr` that contains no padding on its left
+/// or right, analogous to a string trim operation, but returning the
+/// index range rather than a slice.
 fn padded_range(arr: &[u32], padding: u32) -> Range<usize> {
-    // Compute the left and right indices of the blocks
-    // we would like to keep, ie. which are non-padding.
-    let start = arr.iter().position(|&x| x != padding);
-    let end = arr.iter().rposition(|&x| x != padding);
-    // Return the empty range (0..0) if the entire array consists of padding
-    start.unwrap_or(0)..end.map(|x| x + 1).unwrap_or(0)
+    let Some(start) = arr.iter().position(|&x| x != padding) else {
+        // Return the empty range if the entire arrange consists of padding
+        return 0..0;
+    };
+    // Slicing `arr` allows us to do at most a single full scan over the blocks
+    let end = start + arr[start..].iter().rposition(|&x| x != padding).unwrap() + 1;
+    start..end
 }
 
 struct PaddedBitBuf {
@@ -99,20 +115,6 @@ struct PaddedBitBuf {
 
     /// Number of trailing bits in the original BitBuf
     num_trailing_bits: u32,
-}
-
-// todo: do only one scan by initing end with start
-
-/// Represents a recommended padding for a particular BitVec.
-/// We store this as its own struct so that we can use this
-/// information to decide whether to compress a BitVec into
-/// a PaddedBitVec based on a user-defined target compression
-/// ratio, and also to do the compression. (Computing a PadSpec
-/// requires a scan over the blocks).
-#[derive(Default, Clone)]
-struct PadSpec {
-    padding: u32,
-    padded_range: Range<usize>,
 }
 
 impl PadSpec {
@@ -156,10 +158,10 @@ impl PaddedBitBuf {
         } = spec;
         let left_block_offset = padded_range.start as u32;
         let right_block_offset = padded_range.end as u32;
-        let blocks = if padded_range.len() < buf.blocks.len() {
-            buf.blocks[padded_range].to_vec().into_boxed_slice()
-        } else {
+        let blocks = if padded_range.len() == buf.blocks.len() {
             buf.blocks
+        } else {
+            buf.blocks[padded_range].to_vec().into_boxed_slice()
         };
 
         Self {
