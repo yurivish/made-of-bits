@@ -70,44 +70,71 @@ impl BitBuf {
     }
 
     fn into_padded(mut self) -> PaddedBitBuf {
-        let (padding, padded_range) = PaddedBitBuf::best_padding(&mut self);
-        PaddedBitBuf::new(self, padding, padded_range)
+        let spec = PaddedBitBuf::spec(&mut self);
+        PaddedBitBuf::new(self, spec)
     }
-    // fn should_pad(&mut self, threshold: f64) -> Option<PaddedBitBuf> {
-    //     let (block_padding, range) = PaddedBitBuf::best_padding(self);
-    //     let num_blocks = self.num_blocks();
-    //     let num_compressed_blocks = range.len();
-    //     if (num_compressed_blocks as f64 / num_blocks as f64 <= threshold) {}
-    //     // let padded = PaddedBitBuf::new(self)
-    // }
 }
 
 fn padded_range(arr: &[u32], padding: u32) -> Range<usize> {
     // Compute the left and right indices of the blocks
     // we would like to keep, ie. which are non-padding.
-    let start = arr.iter().position(|&x| x != padding).unwrap_or(arr.len());
-    let end = arr.iter().rposition(|&x| x != padding).unwrap_or(0);
-    start..end + 1
+    let start = arr.iter().position(|&x| x != padding);
+    let end = arr.iter().rposition(|&x| x != padding);
+    // Return the empty range (0..0) if the entire array consists of padding
+    start.unwrap_or(0)..end.map(|x| x + 1).unwrap_or(0)
 }
 
-#[derive(Default)] // todo
 struct PaddedBitBuf {
     blocks: Box<[u32]>,
-    block_padding: u32,
+    padding: u32,
+
+    /// Index of the first non-padding block
     left_block_offset: u32,
+
+    /// One beyond the last non-padding block
     right_block_offset: u32,
 
-    // These refer to the properties of the original BitBuf
+    /// Universe size of the original BitBuf
     universe_size: u32,
+
+    /// Number of trailing bits in the original BitBuf
     num_trailing_bits: u32,
 }
 
+#[derive(Default, Clone)]
+struct PadSpec {
+    padding: u32,
+    padded_range: Range<usize>,
+}
+
 impl PaddedBitBuf {
-    // Try padding the blocks of `buf` with zeros and ones, and return the best padding, as
-    // well as the padded range.
-    // Note: Requires a mut reference because of a temporary modification to the last block.
-    // Returns the block padding and the non-padded range.
-    fn best_padding(buf: &mut BitBuf) -> (u32, Range<usize>) {
+    fn new(buf: BitBuf, spec: PadSpec) -> Self {
+        let PadSpec {
+            padded_range,
+            padding,
+        } = spec;
+        let left_block_offset = padded_range.start as u32;
+        let right_block_offset = padded_range.end as u32;
+        let blocks = if padded_range.len() < buf.blocks.len() {
+            buf.blocks[padded_range].to_vec().into_boxed_slice()
+        } else {
+            buf.blocks
+        };
+
+        Self {
+            blocks,
+            left_block_offset,
+            right_block_offset,
+            padding,
+            universe_size: buf.universe_size,
+            num_trailing_bits: buf.num_trailing_bits,
+        }
+    }
+
+    /// Try padding the blocks of `buf` with zeros and ones, and return a `PadSpec`
+    /// containing the best padding type as well as the padded range.
+    /// Note: Requires a mut reference because of a temporary modification to the last block.
+    fn spec(buf: &mut BitBuf) -> PadSpec {
         let zero_padding = 0; // a block of zeros
         let zero_padded_range = padded_range(&buf.blocks, zero_padding);
 
@@ -115,7 +142,7 @@ impl PaddedBitBuf {
         // of the last block to 1, since otherwise we would wrongly not compress that block.
         let trailing_mask = !one_mask(BASIC_BLOCK_SIZE - buf.num_trailing_bits);
         let Some(last_block) = buf.blocks.last().copied() else {
-            return (0, 0..0);
+            return Default::default();
         };
         let one_padding = u32::MAX; // a block of ones
         buf.blocks[buf.blocks.len() - 1] |= trailing_mask;
@@ -125,29 +152,22 @@ impl PaddedBitBuf {
 
         // pick the padding that results in the shorter blocks array, or zero in case of a tie.
         if zero_padded_range.len() <= one_padded_range.len() {
-            (zero_padding, zero_padded_range)
+            PadSpec {
+                padding: zero_padding,
+                padded_range: zero_padded_range,
+            }
         } else {
-            (one_padding, one_padded_range)
+            PadSpec {
+                padding: one_padding,
+                padded_range: one_padded_range,
+            }
         }
     }
 
-    fn new(buf: BitBuf, block_padding: u32, range: Range<usize>) -> Self {
-        let left_block_offset = range.start as u32;
-        let right_block_offset = range.end as u32;
-        let blocks = if range.len() < buf.blocks.len() {
-            buf.blocks[range].to_vec().into_boxed_slice()
-        } else {
-            buf.blocks
-        };
-
-        Self {
-            blocks,
-            left_block_offset,
-            right_block_offset,
-            block_padding,
-            universe_size: buf.universe_size,
-            num_trailing_bits: buf.num_trailing_bits,
-        }
+    fn should_pad(buf: &BitBuf, spec: PadSpec, compression_threshold: f64) -> bool {
+        let num_blocks = buf.num_blocks();
+        let num_compressed_blocks = spec.padded_range.len();
+        num_compressed_blocks as f64 / num_blocks as f64 <= compression_threshold
     }
 
     fn get(&self, bit_index: u32) -> bool {
@@ -155,7 +175,7 @@ impl PaddedBitBuf {
         let bit = 1 << basic_block_offset(bit_index);
         let block =
             if block_index < self.left_block_offset || block_index >= self.right_block_offset {
-                self.block_padding
+                self.padding
             } else {
                 self.blocks[(block_index - self.left_block_offset) as usize]
             };
@@ -164,7 +184,7 @@ impl PaddedBitBuf {
 
     fn get_block(&self, block_index: u32) -> u32 {
         if block_index < self.left_block_offset || block_index >= self.right_block_offset {
-            self.block_padding
+            self.padding
         } else {
             self.blocks[(block_index - self.left_block_offset) as usize]
         }
@@ -176,11 +196,9 @@ mod tests {
     use super::*;
     use std::panic;
 
+    /// Run a number of checks on `buf` and a PaddedBuf
+    /// constructed from it after each modification.
     fn check(mut buf: BitBuf, offset: u32) {
-        // Run a number of checks on `buf`, with the same
-        // checks on a PaddedBuf constructed from it after
-        // each mutation.
-
         // should be initialized to
         assert_eq!(buf.get(offset + 0), false);
         assert_eq!(buf.get(offset + 1), false);
@@ -204,75 +222,75 @@ mod tests {
             assert_eq!(buf.get(offset + 2), false);
         }
 
-        // buf.set_one(offset + 2);
-        // assert_eq!(buf.get(offset + 0), false);
-        // assert_eq!(buf.get(offset + 1), true);
-        // assert_eq!(buf.get(offset + 2), true);
+        buf.set_one(offset + 2);
+        assert_eq!(buf.get(offset + 0), false);
+        assert_eq!(buf.get(offset + 1), true);
+        assert_eq!(buf.get(offset + 2), true);
 
-        // {
-        //     let buf = buf.clone().into_padded();
-        //     assert_eq!(buf.get(offset + 0), false);
-        //     assert_eq!(buf.get(offset + 1), true);
-        //     assert_eq!(buf.get(offset + 2), true);
-        // }
+        {
+            let buf = buf.clone().into_padded();
+            assert_eq!(buf.get(offset + 0), false);
+            assert_eq!(buf.get(offset + 1), true);
+            assert_eq!(buf.get(offset + 2), true);
+        }
 
-        // buf.set_one(offset + 0);
-        // assert_eq!(buf.get(offset + 0), true);
-        // assert_eq!(buf.get(offset + 1), true);
-        // assert_eq!(buf.get(offset + 2), true);
+        buf.set_one(offset + 0);
+        assert_eq!(buf.get(offset + 0), true);
+        assert_eq!(buf.get(offset + 1), true);
+        assert_eq!(buf.get(offset + 2), true);
 
-        // {
-        //     let buf = buf.clone().into_padded();
-        //     assert_eq!(buf.get(offset + 0), true);
-        //     assert_eq!(buf.get(offset + 1), true);
-        //     assert_eq!(buf.get(offset + 2), true);
-        // }
+        {
+            let buf = buf.clone().into_padded();
+            assert_eq!(buf.get(offset + 0), true);
+            assert_eq!(buf.get(offset + 1), true);
+            assert_eq!(buf.get(offset + 2), true);
+        }
 
-        // buf.set_zero(offset + 1);
-        // assert_eq!(buf.get(offset + 0), true);
-        // assert_eq!(buf.get(offset + 1), false);
-        // assert_eq!(buf.get(offset + 2), true);
+        buf.set_zero(offset + 1);
+        assert_eq!(buf.get(offset + 0), true);
+        assert_eq!(buf.get(offset + 1), false);
+        assert_eq!(buf.get(offset + 2), true);
 
-        // buf.set_zero(offset + 2);
-        // assert_eq!(buf.get(offset + 0), true);
-        // assert_eq!(buf.get(offset + 1), false);
-        // assert_eq!(buf.get(offset + 2), false);
-        // {
-        //     let buf = buf.clone().into_padded();
-        //     assert_eq!(buf.get(offset + 0), true);
-        //     assert_eq!(buf.get(offset + 1), false);
-        //     assert_eq!(buf.get(offset + 2), false);
-        // }
+        buf.set_zero(offset + 2);
+        assert_eq!(buf.get(offset + 0), true);
+        assert_eq!(buf.get(offset + 1), false);
+        assert_eq!(buf.get(offset + 2), false);
+        {
+            let buf = buf.clone().into_padded();
+            assert_eq!(buf.get(offset + 0), true);
+            assert_eq!(buf.get(offset + 1), false);
+            assert_eq!(buf.get(offset + 2), false);
+        }
 
-        // buf.set_zero(offset + 0);
-        // assert_eq!(buf.get(offset + 0), false);
-        // assert_eq!(buf.get(offset + 1), false);
-        // assert_eq!(buf.get(offset + 2), false);
-        // {
-        //     let buf = buf.clone().into_padded();
-        //     assert_eq!(buf.get(offset + 0), false);
-        //     assert_eq!(buf.get(offset + 1), false);
-        //     assert_eq!(buf.get(offset + 2), false);
-        // }
+        buf.set_zero(offset + 0);
+        assert_eq!(buf.get(offset + 0), false);
+        assert_eq!(buf.get(offset + 1), false);
+        assert_eq!(buf.get(offset + 2), false);
+        {
+            let buf = buf.clone().into_padded();
+            assert_eq!(buf.get(offset + 0), false);
+            assert_eq!(buf.get(offset + 1), false);
+            assert_eq!(buf.get(offset + 2), false);
+        }
 
-        // // should correctly report its number of blocks
-        // assert_eq!(buf.num_blocks(), buf.blocks.len() as u32);
+        // should correctly report its number of blocks
+        assert_eq!(buf.num_blocks(), buf.blocks.len() as u32);
 
-        // // should panic if manipulating out-of-bounds
-        // let mut buf_clone = buf.clone();
-        // assert!(
-        //     panic::catch_unwind(move || { buf_clone.set_one(buf_clone.universe_size) }).is_err()
-        // );
-        // let mut buf_clone = buf.clone();
-        // assert!(
-        //     panic::catch_unwind(move || { buf_clone.set_zero(buf_clone.universe_size) }).is_err()
-        // );
-        // let mut buf_clone = buf.clone();
-        // assert!(panic::catch_unwind(move || { buf_clone.get(buf_clone.universe_size) }).is_err());
-        // let mut buf_clone = buf.clone();
-        // assert!(
-        //     panic::catch_unwind(move || { buf_clone.set_one(buf_clone.universe_size) }).is_err()
-        // );
+        // should panic if manipulating out-of-bounds
+        let mut buf_clone = buf.clone();
+        assert!(
+            panic::catch_unwind(move || { buf_clone.set_one(buf_clone.universe_size) }).is_err()
+        );
+        let mut buf_clone = buf.clone();
+        assert!(
+            panic::catch_unwind(move || { buf_clone.set_zero(buf_clone.universe_size) }).is_err()
+        );
+        let mut buf_clone = buf.clone();
+        assert!(panic::catch_unwind(move || { buf_clone.get(buf_clone.universe_size) }).is_err());
+        let mut buf_clone = buf.clone();
+        assert!(
+            panic::catch_unwind(move || { buf_clone.set_one(buf_clone.universe_size) }).is_err()
+        );
     }
 
     #[test]
@@ -286,5 +304,77 @@ mod tests {
         check(BitBuf::new(5), 2);
         check(BitBuf::new(300), 0);
         check(BitBuf::new(300), 100);
+    }
+
+    #[test]
+    fn test_padded_bitbuf() {
+        // should handle zero-width bufs
+        assert!(panic::catch_unwind(move || { BitBuf::new(0).get(0) }).is_err());
+        assert!(panic::catch_unwind(move || { BitBuf::new(0).get_block(0) }).is_err());
+
+        // empty BitBufs should turn into blockless padded arrays
+        assert_eq!(BitBuf::new(3).into_padded().blocks.len(), 0);
+        assert_eq!(BitBuf::new(5).into_padded().blocks.len(), 0);
+        assert_eq!(BitBuf::new(300).into_padded().blocks.len(), 0);
+
+        {
+            // should zero-pad to the leftmost and rightmost one
+            let mut buf = BitBuf::new(123456);
+            buf.set_one(0 * 32_000);
+            buf.set_one(32_000 / 2);
+            buf.set_one(1 * 32_000 - 1);
+
+            // should return the correct suggestion for whether to pad or not
+            // based on the provided compression ratio
+            let spec = PaddedBitBuf::spec(&mut buf);
+            assert!(PaddedBitBuf::should_pad(&buf, spec.clone(), 1.0));
+            assert!(PaddedBitBuf::should_pad(&buf, spec.clone(), 0.5));
+            assert!(!PaddedBitBuf::should_pad(&buf, spec.clone(), 0.1));
+            assert!(!PaddedBitBuf::should_pad(&buf, spec.clone(), 0.0));
+
+            {
+                // a zero-padded buffer is returned
+                let buf = buf.clone().into_padded();
+                assert_eq!(buf.blocks.len(), 1000);
+                assert_eq!(buf.get(1), false);
+                assert_eq!(buf.get(12345), false);
+            }
+        }
+
+        {
+            // should one-pad to the leftmost and rightmost one
+            let mut buf = BitBuf::new(123456);
+            buf.blocks.fill(u32::MAX);
+            buf.set_zero(0 * 32_000);
+            buf.set_zero(32_000 / 2);
+            buf.set_zero(1 * 32_000 - 1);
+
+            // should return the correct suggestion for whether to pad or not
+            // based on the provided compression ratio
+            let spec = PaddedBitBuf::spec(&mut buf);
+            assert!(PaddedBitBuf::should_pad(&buf, spec.clone(), 1.0));
+            assert!(PaddedBitBuf::should_pad(&buf, spec.clone(), 0.5));
+            assert!(!PaddedBitBuf::should_pad(&buf, spec.clone(), 0.1));
+            assert!(!PaddedBitBuf::should_pad(&buf, spec.clone(), 0.0));
+
+            {
+                // a one-padded buffer is returned
+                let buf = buf.clone().into_padded();
+                assert_eq!(buf.blocks.len(), 1000);
+                assert_eq!(buf.get(1), true);
+                assert_eq!(buf.get(12345), true);
+            }
+        }
+
+        {
+            // should one-pad even with trailing bits in the last block
+            let mut buf = BitBuf::new(50);
+            for i in 0..50 {
+                buf.set_one(i)
+            }
+            let buf = buf.into_padded();
+            assert!(buf.blocks.is_empty());
+            assert!(buf.padding == u32::MAX);
+        }
     }
 }
