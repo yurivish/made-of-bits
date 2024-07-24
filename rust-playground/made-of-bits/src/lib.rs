@@ -2,6 +2,7 @@
 
 mod bitbuf;
 mod bits;
+mod sortedarraybitvec;
 
 use to_js::js;
 
