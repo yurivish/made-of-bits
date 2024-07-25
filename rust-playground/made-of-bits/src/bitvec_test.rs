@@ -27,7 +27,7 @@ where
         // construct with multiplicity some of the time
         let with_multiplicity = u.ratio(1, 3)?;
         for i in 0..universe_size {
-            if u.int_in_range(0..=99)? < ones_percent {
+            if u.int_in_range(0..=100)? < ones_percent {
                 let count = if with_multiplicity {
                     u.int_in_range(0..=10)?
                 } else {
