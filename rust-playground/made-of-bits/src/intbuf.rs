@@ -4,6 +4,7 @@ use crate::bits::{basic_block_index, basic_block_offset, one_mask, BASIC_BLOCK_S
 /// A newly constructed IntBuf will have the specified length and all elements will be initialized to zero.
 /// Elements can be added by pushing them onto the vector, which will add that element from the front at the lowest available index.
 /// In typical use, the vector will be initialized and and then precisely `length` elements will be pushed.
+#[derive(Clone)]
 pub struct IntBuf {
     blocks: Box<[u32]>,
     length: u32,
@@ -37,7 +38,7 @@ impl IntBuf {
     /// Note that as a special case, this means that any number of
     /// zeros can be pushed to a IntBuf with bitWidth zero.
     fn push(&mut self, value: u32) {
-        assert!(value < 1 << self.bit_width);
+        debug_assert!(value <= one_mask(self.bit_width));
         // If we have zero bit width, only allow writing zeros (and there's no need to write them!)
         if self.bit_width == 0 {
             assert!(value == 0);
@@ -87,10 +88,71 @@ impl IntBuf {
 
 #[cfg(test)]
 mod tests {
+    use std::panic::catch_unwind;
+
     use super::*;
 
     #[test]
+    #[should_panic]
+    fn test_empty() {
+        // should disallow getting an element from an empty IntBuf
+        IntBuf::new(0, 0).get(0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_out_of_bounds() {
+        // should throw on out-of-bounds indices
+        IntBuf::new(3, 7).get(10);
+    }
+
+    #[test]
     fn test_intbuf() {
-        //
+        // should return zero elements before anything is pushed
+        let xs = IntBuf::new(3, 7);
+        for i in 0..3 {
+            assert_eq!(xs.get(i), 0);
+        }
+
+        // should allow writing and reading elements
+        let tests = [
+            (0, [0, 0, 0, 0]),
+            (1, [1, 0, 1, 0]),
+            (5, [1, 0, 1, 0]),
+            (BASIC_BLOCK_SIZE, [10, 0, 31, u32::MAX]),
+        ];
+
+        for (bit_width, values) in tests {
+            let mut xs = IntBuf::new(values.len() as u32, bit_width);
+
+            if bit_width < BASIC_BLOCK_SIZE {
+                // test pushing a too-large value
+                let mut xs = xs.clone();
+                catch_unwind(move || xs.push(1 << bit_width));
+            }
+
+            for (i, v) in values.into_iter().enumerate() {
+                // test the value before writing
+                assert_eq!(xs.get(i as u32), 0);
+                // push the value
+                xs.push(v);
+                // test the value has been pushed
+                assert_eq!(xs.get(i as u32), v);
+            }
+
+            // TODO:
+            // // it should disallow getting beyond the end (in debug mode)
+            // if (DEBUG) {
+            //   expect(() => xs.get(xs.length)).toThrow();
+            // }
+
+            // // it should disallow pushing beyond the end, unless
+            // // the bit width is zero.
+            // if (bitWidth > 0) {
+            //   expect(() => xs.push(0)).toThrow();
+            // } else {
+            //   expect(() => xs.push(0)).not.toThrow();
+            // }
+        }
     }
 }
