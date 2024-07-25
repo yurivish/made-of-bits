@@ -3,8 +3,8 @@ pub(crate) const BASIC_BLOCK_SIZE: u32 = u32::BITS;
 pub(crate) const BASIC_BLOCK_BITS: u32 = BASIC_BLOCK_SIZE.ilog2();
 
 /// Block index of the block containing the `n`-th bit
-pub(crate) fn basic_block_index(n: u32) -> u32 {
-    n >> BASIC_BLOCK_BITS
+pub(crate) fn basic_block_index(n: u32) -> usize {
+    (n >> BASIC_BLOCK_BITS) as usize
 }
 
 /// Bit index of the `n`-th bit within its block (masking off the high bits)
