@@ -92,7 +92,7 @@ struct PadSpec {
 /// index range rather than a slice.
 fn padded_range(arr: &[u32], padding: u32) -> Range<usize> {
     let Some(start) = arr.iter().position(|&x| x != padding) else {
-        // Return the empty range if the entire arrange consists of padding
+        // Return the empty range if the `arr` consists entirely of padding
         return 0..0;
     };
     // Slicing `arr` allows us to do at most a single full scan over the blocks
@@ -207,7 +207,7 @@ impl PaddedBitBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::panic;
+    use std::panic::catch_unwind;
 
     /// Run a number of checks on `buf` and a PaddedBuf
     /// constructed from it after each modification.
@@ -291,27 +291,21 @@ mod tests {
 
         // should panic if manipulating out-of-bounds
         let mut buf_clone = buf.clone();
-        assert!(
-            panic::catch_unwind(move || { buf_clone.set_one(buf_clone.universe_size) }).is_err()
-        );
+        assert!(catch_unwind(move || { buf_clone.set_one(buf_clone.universe_size) }).is_err());
         let mut buf_clone = buf.clone();
-        assert!(
-            panic::catch_unwind(move || { buf_clone.set_zero(buf_clone.universe_size) }).is_err()
-        );
+        assert!(catch_unwind(move || { buf_clone.set_zero(buf_clone.universe_size) }).is_err());
         let mut buf_clone = buf.clone();
-        assert!(panic::catch_unwind(move || { buf_clone.get(buf_clone.universe_size) }).is_err());
+        assert!(catch_unwind(move || { buf_clone.get(buf_clone.universe_size) }).is_err());
         let mut buf_clone = buf.clone();
-        assert!(
-            panic::catch_unwind(move || { buf_clone.set_one(buf_clone.universe_size) }).is_err()
-        );
+        assert!(catch_unwind(move || { buf_clone.set_one(buf_clone.universe_size) }).is_err());
     }
 
     #[test]
     fn test_bitbuf() {
         // should handle zero-width bufs
-        assert!(panic::catch_unwind(move || { BitBuf::new(0).set_one(0) }).is_err());
-        assert!(panic::catch_unwind(move || { BitBuf::new(0).set_zero(0) }).is_err());
-        assert!(panic::catch_unwind(move || { BitBuf::new(0).get(0) }).is_err());
+        assert!(catch_unwind(move || { BitBuf::new(0).set_one(0) }).is_err());
+        assert!(catch_unwind(move || { BitBuf::new(0).set_zero(0) }).is_err());
+        assert!(catch_unwind(move || { BitBuf::new(0).get(0) }).is_err());
 
         check(BitBuf::new(3), 0);
         check(BitBuf::new(5), 2);
@@ -322,8 +316,8 @@ mod tests {
     #[test]
     fn test_padded_bitbuf() {
         // should handle zero-width bufs
-        assert!(panic::catch_unwind(move || { BitBuf::new(0).get(0) }).is_err());
-        assert!(panic::catch_unwind(move || { BitBuf::new(0).get_block(0) }).is_err());
+        assert!(catch_unwind(move || { BitBuf::new(0).get(0) }).is_err());
+        assert!(catch_unwind(move || { BitBuf::new(0).get_block(0) }).is_err());
 
         // empty BitBufs should turn into blockless padded arrays
         assert_eq!(BitBuf::new(3).into_padded().blocks.len(), 0);

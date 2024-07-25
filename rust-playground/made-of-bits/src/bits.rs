@@ -59,6 +59,32 @@ pub(crate) fn one_mask(n: u32) -> u32 {
     }
 }
 
+/// Perform binary search over a 0..n using bitwise binary search.
+/// See: https://orlp.net/blog/bitwise-binary-search/
+pub(crate) fn partition_point(n: usize, pred: impl Fn(usize) -> bool) -> usize {
+    let mut b = 0;
+    let mut bit = bit_floor(n);
+    while bit != 0 {
+        let i = (b | bit) - 1;
+        if i < n && pred(i) {
+            b |= bit
+        }
+        bit >>= 1;
+    }
+    b
+}
+
+/// If x is not zero, calculates the largest integral power of two that is not
+/// greater than x. If x is zero, returns zero.
+pub(crate) fn bit_floor(x: usize) -> usize {
+    if x == 0 {
+        0
+    } else {
+        let msb = usize::BITS - 1 - x.leading_zeros();
+        1 << msb
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -144,5 +170,26 @@ mod tests {
             reverse_low_bits(0b00000000000000000000000000000101, 6),
             0b0000000000000000000000000101000
         );
+    }
+
+    #[test]
+    fn test_bit_floor() {
+        assert_eq!(bit_floor(0), 0);
+        assert_eq!(bit_floor(1), 1);
+        assert_eq!(bit_floor(2), 2);
+        assert_eq!(bit_floor(3), 2);
+        assert_eq!(bit_floor(4), 4);
+        assert_eq!(bit_floor(5), 4);
+    }
+
+    #[test]
+    fn test_partition_point() {
+        let n = 100;
+        let target = 60;
+        assert_eq!(partition_point(n, |i| i < target), target);
+        assert_eq!(partition_point(target - 1, |i| i < target), target - 1);
+
+        assert_eq!(partition_point(0, |_| true), 0);
+        assert_eq!(partition_point(1, |_| true), 1);
     }
 }

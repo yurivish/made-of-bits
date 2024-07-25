@@ -1,9 +1,16 @@
+use crate::{
+    bits::partition_point,
+    bitvec::{BitVec, BitVecBuilder},
+};
+
 struct SortedArrayBitVecBuilder {
     universe_size: u32,
     ones: Vec<u32>,
 }
 
-impl SortedArrayBitVecBuilder {
+impl BitVecBuilder for SortedArrayBitVecBuilder {
+    type Target = SortedArrayBitVec;
+
     fn new(universe_size: u32) -> Self {
         Self {
             universe_size,
@@ -18,16 +25,13 @@ impl SortedArrayBitVecBuilder {
         }
     }
 
-    fn one(&mut self, index: u32) {
-        self.one_count(index, 1)
-    }
-
     fn build(mut self) -> SortedArrayBitVec {
         self.ones.sort();
         SortedArrayBitVec::new(self.ones.into(), self.universe_size)
     }
 }
 
+#[derive(Clone)]
 struct SortedArrayBitVec {
     ones: Box<[u32]>,
     universe_size: u32,
@@ -62,31 +66,55 @@ impl SortedArrayBitVec {
             universe_size,
             num_ones,
             num_zeros,
-            has_multiplicity: has_multiplicity,
+            has_multiplicity,
             num_unique_ones,
             num_unique_zeros: num_zeros,
         }
     }
+}
 
+impl BitVec for SortedArrayBitVec {
     fn rank1(&self, index: u32) -> u32 {
         self.ones.partition_point(|x| *x < index) as u32
     }
-
-    // todo: default rank0 from trait
 
     fn select1(&self, n: u32) -> Option<u32> {
         self.ones.get(n as usize).copied()
     }
 
-    // todo: default
-    fn select0(&self, n: u32) -> Option<u32> {
-        // Some(self.ones[n])
-        todo!()
+    fn num_ones(&self) -> u32 {
+        self.num_ones
     }
 
-    // todo: default get
-    fn get(&self, index: u32) -> bool {
-        let value = self.rank1(index + 1) - self.rank1(index);
-        value != 0
+    fn num_zeros(&self) -> u32 {
+        self.num_zeros
+    }
+
+    fn universe_size(&self) -> u32 {
+        self.universe_size
+    }
+
+    fn has_multiplicity(&self) -> bool {
+        self.has_multiplicity
+    }
+
+    fn num_unique_zeros(&self) -> u32 {
+        self.num_unique_zeros
+    }
+
+    fn num_unique_ones(&self) -> u32 {
+        self.num_unique_ones
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::bitvec_test::test_bit_vec_builder;
+
+    use super::*;
+
+    #[test]
+    fn test() {
+        test_bit_vec_builder::<SortedArrayBitVecBuilder>()
     }
 }
