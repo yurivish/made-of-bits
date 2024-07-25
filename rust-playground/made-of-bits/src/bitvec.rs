@@ -52,6 +52,14 @@ pub trait BitVec: Clone {
         let index = partition_point(universe, |i| self.rank0(i as u32) <= n) as u32;
         Some(index - 1)
     }
+
+    /// Some BitVec types with multiplicity disallow 0-based queries because
+    /// the representation does not support it. Maybe there's a better way
+    /// to express this with traits, but for now we add a boolean flag so
+    /// we can check this condition during testing.
+    fn allows_rank0_and_select0() -> bool {
+        return true;
+    }
 }
 
 pub trait BitVecBuilder {

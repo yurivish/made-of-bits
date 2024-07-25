@@ -50,7 +50,9 @@ impl SortedArrayBitVec {
         for (i, cur) in ones.iter().copied().enumerate() {
             let same = prev == Some(cur);
             has_multiplicity |= same;
-            num_unique_ones += same as u32;
+            if !same {
+                num_unique_ones += 1;
+            }
             if let Some(prev) = prev {
                 debug_assert!(prev <= cur, "ones must be sorted")
             }
@@ -72,6 +74,26 @@ impl SortedArrayBitVec {
         }
     }
 }
+
+// select: select the k-th occurrence of a 0/1 bit.
+// rank: return the number of bits below "universe index" i
+// todo: visualize the "stacked" image:
+//
+// bitvec:
+//
+//  bits:  1   1  1
+// index: 0123456789
+//
+// multibitvec:
+//
+//      :         1
+//      :  1      1
+//  bits:  1   1  1
+// index: 0123456789
+//  rank: 0022223336
+//
+// sorted ones:
+// [1, 1, 5, 8, 8, 8]
 
 impl BitVec for SortedArrayBitVec {
     fn rank1(&self, index: u32) -> u32 {
