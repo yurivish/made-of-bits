@@ -3,7 +3,7 @@ use crate::{
     bitvec::{BitVec, BitVecBuilder},
 };
 
-struct SortedArrayBitVecBuilder {
+pub struct SortedArrayBitVecBuilder {
     universe_size: u32,
     ones: Vec<u32>,
 }
@@ -18,10 +18,10 @@ impl BitVecBuilder for SortedArrayBitVecBuilder {
         }
     }
 
-    fn one_count(&mut self, index: u32, count: u32) {
-        assert!(index < self.universe_size);
+    fn one_count(&mut self, bit_index: u32, count: u32) {
+        assert!(bit_index < self.universe_size);
         for _ in 0..count {
-            self.ones.push(index);
+            self.ones.push(bit_index);
         }
     }
 
@@ -32,7 +32,7 @@ impl BitVecBuilder for SortedArrayBitVecBuilder {
 }
 
 #[derive(Clone)]
-struct SortedArrayBitVec {
+pub struct SortedArrayBitVec {
     ones: Box<[u32]>,
     universe_size: u32,
     num_ones: u32,

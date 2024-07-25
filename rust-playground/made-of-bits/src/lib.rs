@@ -5,6 +5,7 @@ mod bits;
 mod bitvec;
 #[cfg(test)]
 mod bitvec_test;
+mod js;
 mod sortedarraybitvec;
 
 use to_js::js;
