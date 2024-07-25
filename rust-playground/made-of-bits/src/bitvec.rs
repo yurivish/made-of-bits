@@ -3,8 +3,6 @@ use crate::bits::partition_point;
 pub trait BitVec: Clone {
     fn num_ones(&self) -> u32;
     fn num_zeros(&self) -> u32;
-    // todo: make a decision about whether to allow a universe size of 2^32
-    // (see comment in types.d.ts)
     fn universe_size(&self) -> u32;
     fn has_multiplicity(&self) -> bool;
     fn num_unique_zeros(&self) -> u32;
@@ -20,9 +18,10 @@ pub trait BitVec: Clone {
         self.rank1(bit_index + 1) - self.rank1(bit_index)
     }
 
-    // Returns the number of ones below the given bit index.
+    /// Return the number of 1-bits below `bit_index`
     fn rank1(&self, bit_index: u32) -> u32;
 
+    /// Return the number of 0-bits below `bit_index`
     fn rank0(&self, bit_index: u32) -> u32 {
         // The implementation below assumes no multiplicity;
         // otherwise, subtracting rank1 from the bit index can go negative.
@@ -34,6 +33,7 @@ pub trait BitVec: Clone {
         }
     }
 
+    // Return the bit index of the k-th occurrence of a 1-bit
     fn select1(&self, n: u32) -> Option<u32> {
         if n >= self.num_ones() {
             return None;
@@ -44,7 +44,9 @@ pub trait BitVec: Clone {
         Some(bit_index as u32)
     }
 
+    // Return the bit index of the k-th occurrence of a 0-bit
     fn select0(&self, n: u32) -> Option<u32> {
+        assert!(self.has_select0());
         if n >= self.num_zeros() {
             return None;
         }

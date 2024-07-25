@@ -1,8 +1,6 @@
 use crate::bits::{basic_block_index, basic_block_offset, one_mask, BASIC_BLOCK_SIZE};
 use std::ops::Range;
 
-// todo: padded bitbuf and a trait across the two
-
 #[derive(Clone)]
 struct BitBuf {
     blocks: Box<[u32]>,

@@ -1,4 +1,3 @@
-// todo: do a clarity pass on these tests - they're somewhat hard to follow
 use crate::{
     bits::BASIC_BLOCK_SIZE,
     bitvec::{BitVec, BitVecBuilder},
@@ -9,7 +8,6 @@ use std::{
 };
 
 /// Generate bitvectors with arbitrary densities of 1-bits and run them through our basic test_bit_vec test function.
-#[cfg(test)]
 pub(crate) fn test_bit_vec_builder_arbtest<T: BitVecBuilder>()
 where
     T::Target: UnwindSafe,
@@ -42,6 +40,8 @@ where
     }
 
     arbtest(property::<T>);
+    // to minimize a test failure, use the following (with the appropriate seed) and run
+    // > RUST_BACKTRACE=full cargo test -- --nocapture
     // arbtest(property::<T>)
     //     .seed(0x796376c500000060)
     //     .budget_ms(60_000)

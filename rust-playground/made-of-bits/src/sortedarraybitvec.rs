@@ -73,26 +73,6 @@ impl SortedArrayBitVec {
     }
 }
 
-// select: select the k-th occurrence of a 0/1 bit.
-// rank: return the number of bits below "universe index" i
-// todo: visualize the "stacked" image:
-//
-// bitvec:
-//
-//  bits:  1   1  1
-// index: 0123456789
-//
-// multibitvec:
-//
-//      :         1
-//      :  1      1
-//  bits:  1   1  1
-// index: 0123456789
-//  rank: 0022223336
-//
-// sorted ones:
-// [1, 1, 5, 8, 8, 8]
-
 impl BitVec for SortedArrayBitVec {
     fn rank1(&self, bit_index: u32) -> u32 {
         self.ones.partition_point(|x| *x < bit_index) as u32
@@ -127,6 +107,10 @@ impl BitVec for SortedArrayBitVec {
     }
 
     fn has_rank0(&self) -> bool {
+        !self.has_multiplicity()
+    }
+
+    fn has_select0(&self) -> bool {
         !self.has_multiplicity()
     }
 }

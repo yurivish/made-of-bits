@@ -3,6 +3,7 @@
 mod bitbuf;
 mod bits;
 mod bitvec;
+#[cfg(test)]
 mod bitvec_test;
 mod sortedarraybitvec;
 
