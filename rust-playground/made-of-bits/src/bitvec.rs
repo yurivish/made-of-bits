@@ -34,10 +34,10 @@ pub trait BitVec: Clone {
     }
 
     fn select1(&self, n: u32) -> Option<u32> {
-        if n >= self.num_zeros() {
+        if n >= self.num_ones() {
             return None;
         }
-        // Binary search over rank0 to determine the position of the n-th 0-bit.
+        // Binary search over rank1 to determine the position of the n-th 0-bit.
         let universe = self.universe_size() as usize;
         let index = partition_point(universe, |i| self.rank1(i as u32) <= n) as u32;
         Some(index - 1)
@@ -53,12 +53,15 @@ pub trait BitVec: Clone {
         Some(index - 1)
     }
 
-    /// Some BitVec types with multiplicity disallow 0-based queries because
-    /// the representation does not support it. Maybe there's a better way
-    /// to express this with traits, but for now we add a boolean flag so
-    /// we can check this condition during testing.
-    fn allows_rank0_and_select0() -> bool {
-        return true;
+    /// Some `BitVec`s with multiplicity disallow 0-based queries because
+    /// the representation does not support them. Multiplicity is a dynamic
+    /// property so we use instance methods.
+    fn has_rank0(&self) -> bool {
+        true
+    }
+
+    fn has_select0(&self) -> bool {
+        true
     }
 }
 

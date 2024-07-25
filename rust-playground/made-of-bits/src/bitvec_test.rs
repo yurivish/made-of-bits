@@ -36,9 +36,6 @@ where
 // todo: port basic property tests with fisher yates shuffle for regular and multi bitvecs
 
 pub(crate) fn test_bit_vec<T: BitVec + UnwindSafe>(bv: T) {
-    assert_eq!(bv.rank1(0), 0);
-    assert_eq!(bv.rank1(bv.num_zeros() + bv.num_ones() + 1), bv.num_ones());
-
     {
         let bv = bv.clone();
         assert!(catch_unwind(move || { bv.get(bv.num_zeros() + bv.num_ones()) }).is_err());
@@ -53,6 +50,15 @@ pub(crate) fn test_bit_vec<T: BitVec + UnwindSafe>(bv: T) {
     assert!(bv.num_unique_zeros() + bv.num_unique_ones() == bv.universe_size());
     assert!(bv.num_zeros() + bv.num_ones() >= bv.universe_size());
 
+    // Rank before any element should be zero
+    assert_eq!(bv.rank1(0), 0);
+    assert_eq!(bv.rank1(bv.num_zeros() + bv.num_ones() + 1), bv.num_ones());
+
+    if bv.has_rank0() {
+        assert_eq!(bv.rank0(0), 0);
+        assert_eq!(bv.rank0(bv.num_zeros() + bv.num_ones() + 1), bv.num_zeros());
+    }
+
     for n in 0..bv.num_ones() {
         // Verify that rank1(select1(n)) === n
         let select1 = bv.select1(n).unwrap();
@@ -62,14 +68,7 @@ pub(crate) fn test_bit_vec<T: BitVec + UnwindSafe>(bv: T) {
         assert_eq!(bv.get(select1), 1);
     }
 
-    // 🌶️
-    // TODO: Figure out how to test this more elegantly.
-    // Most bit vectors with multiplicity do not support rank/select operations on zero bits.
-    // Check to find out if this one allows rank0.
-    if T::allows_rank0_and_select0() {
-        assert_eq!(bv.rank0(0), 0);
-        assert_eq!(bv.rank0(bv.num_zeros() + bv.num_ones() + 1), bv.num_zeros());
-
+    if bv.has_rank0() && bv.has_select0() {
         for n in 0..bv.num_zeros() {
             // Verify that rank0(select0(n)) === n
             let select0 = bv.select0(n).unwrap();
@@ -80,13 +79,7 @@ pub(crate) fn test_bit_vec<T: BitVec + UnwindSafe>(bv: T) {
         }
     }
 
-    if !bv.has_multiplicity() {
-        assert!(bv.num_zeros() + bv.num_ones() == bv.universe_size());
-        assert_eq!(bv.select0(bv.num_zeros()), None);
-        assert_eq!(bv.select1(bv.num_ones()), None);
-    }
-
-    // Check `get` behavior for all valid inputs.
+    // Check `get` behavior for all valid indices.
     // We run this test last because the default implementation of `get`
     // relies on `rank1`, and thus it is useful to specifically test `rank1` before
     // running the test for `get`.
@@ -104,5 +97,12 @@ pub(crate) fn test_bit_vec<T: BitVec + UnwindSafe>(bv: T) {
         if !counts.contains_key(&i) {
             assert_eq!(bv.get(i), 0);
         }
+    }
+
+    if !bv.has_multiplicity() {
+        // Perform more stringent checks when we know that multiplicity is not in play
+        assert!(bv.num_zeros() + bv.num_ones() == bv.universe_size());
+        assert_eq!(bv.select0(bv.num_zeros()), None);
+        assert_eq!(bv.select1(bv.num_ones()), None);
     }
 }
