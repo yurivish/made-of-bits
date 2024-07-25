@@ -8,15 +8,55 @@ use std::{
     panic::{catch_unwind, UnwindSafe},
 };
 
-// 🌶️
-// todo: port basic property tests with fisher yates shuffle for regular and multi bitvecs
+/// Generate bitvectors with arbitrary densities of 1-bits and run them through our basic test_bit_vec test function.
+#[cfg(test)]
+pub(crate) fn test_bit_vec_builder_arbtest<T: BitVecBuilder>()
+where
+    T::Target: UnwindSafe,
+{
+    use arbitrary;
+    use arbtest::arbtest;
 
+    fn property<T: BitVecBuilder>(u: &mut arbitrary::Unstructured) -> arbitrary::Result<()>
+    where
+        T::Target: UnwindSafe,
+    {
+        let ones_percent = u.int_in_range(0..=100)?; // density
+        let universe_size = u.arbitrary_len::<u32>()? as u32;
+        let mut builder = T::new(universe_size);
+        // construct with multiplicity some of the time
+        let with_multiplicity = u.ratio(1, 3)?;
+        for i in 0..universe_size {
+            if u.int_in_range(0..=99)? < ones_percent {
+                let count = if with_multiplicity {
+                    u.int_in_range(0..=10)?
+                } else {
+                    1
+                };
+                builder.one_count(i, count);
+            }
+        }
+        let bv = builder.build();
+        test_bit_vec(bv);
+        return Ok(());
+    }
+
+    arbtest(property::<T>);
+    // arbtest(property::<T>)
+    //     .seed(0x796376c500000060)
+    //     .budget_ms(60_000)
+    //     .minimize();
+}
+
+#[cfg(test)]
 pub(crate) fn test_bit_vec_builder<T: BitVecBuilder>()
 where
     T::Target: UnwindSafe,
 {
     // test the empty bitvec
     test_bit_vec(T::new(0).build());
+
+    test_bit_vec_builder_arbtest::<T>();
 
     // large enough to span many blocks
     let universe_size = BASIC_BLOCK_SIZE * 10;
@@ -96,6 +136,7 @@ where
     }
 }
 
+#[cfg(test)]
 pub(crate) fn test_bit_vec<T: BitVec + UnwindSafe>(bv: T) {
     assert!(bv.num_unique_zeros() + bv.num_unique_ones() == bv.universe_size());
     assert!(bv.num_zeros() + bv.num_ones() >= bv.universe_size());
@@ -113,8 +154,17 @@ pub(crate) fn test_bit_vec<T: BitVec + UnwindSafe>(bv: T) {
     for n in 0..bv.num_ones() {
         // Verify that rank1(select1(n)) === n
         let select1 = bv.select1(n).unwrap();
-        assert!(bv.rank1(select1) == n);
-        assert!(bv.rank1(select1 + 1) == n + 1);
+        if !bv.has_multiplicity() {
+            assert!(bv.rank1(select1) == n);
+            assert!(bv.rank1(select1 + 1) == n + 1);
+        } else {
+            assert!(bv.rank1(select1) <= n);
+            assert!(bv.rank1(select1 + 1) <= n + bv.get(select1));
+        }
+
+        // the rank at a next position is the rank at the current position,
+        // plus the number of ones at the current position (given by `get`).
+        assert!(bv.rank1(select1 + 1) == bv.rank1(select1) + bv.get(select1));
     }
 
     if bv.has_rank0() && bv.has_select0() {
@@ -128,7 +178,7 @@ pub(crate) fn test_bit_vec<T: BitVec + UnwindSafe>(bv: T) {
     }
 
     if !bv.has_multiplicity() {
-        // Perform more stringent checks when we know that multiplicity is not in play
+        // Perform some exact checks when we know that multiplicity is not in play
         assert!(bv.num_zeros() + bv.num_ones() == bv.universe_size());
         assert!(bv.num_unique_zeros() + bv.num_unique_ones() == bv.universe_size());
         assert_eq!(bv.select0(bv.num_zeros()), None);
@@ -148,6 +198,6 @@ pub(crate) fn test_bit_vec<T: BitVec + UnwindSafe>(bv: T) {
         }
 
         let bv = bv.clone();
-        assert!(catch_unwind(move || { bv.get(bv.num_zeros() + bv.num_ones()) }).is_err());
+        catch_unwind(move || bv.get(bv.num_zeros() + bv.num_ones())).unwrap_err();
     }
 }

@@ -15,21 +15,22 @@ pub trait BitVec: Clone {
     /// each of which takes O(log(n)) time.
     ///
     /// In the presence of multiplicity, returns the count of the bit.
-    fn get(&self, index: u32) -> u32 {
-        assert!(index < self.universe_size());
-        self.rank1(index + 1) - self.rank1(index)
+    fn get(&self, bit_index: u32) -> u32 {
+        assert!(bit_index < self.universe_size());
+        self.rank1(bit_index + 1) - self.rank1(bit_index)
     }
 
-    fn rank1(&self, index: u32) -> u32;
+    // Returns the number of ones below the given bit index.
+    fn rank1(&self, bit_index: u32) -> u32;
 
-    fn rank0(&self, index: u32) -> u32 {
+    fn rank0(&self, bit_index: u32) -> u32 {
+        // The implementation below assumes no multiplicity;
+        // otherwise, subtracting rank1 from the bit index can go negative.
         assert!(!self.has_multiplicity());
-        if index == 0 {
-            0
-        } else if index >= self.universe_size() {
+        if bit_index >= self.universe_size() {
             self.num_zeros()
         } else {
-            index - self.rank1(index)
+            bit_index - self.rank1(bit_index)
         }
     }
 
@@ -39,8 +40,8 @@ pub trait BitVec: Clone {
         }
         // Binary search over rank1 to determine the position of the n-th 0-bit.
         let universe = self.universe_size() as usize;
-        let index = partition_point(universe, |i| self.rank1(i as u32) <= n) as u32;
-        Some(index - 1)
+        let bit_index = partition_point(universe, |i| self.rank1(i as u32) <= n) - 1;
+        Some(bit_index as u32)
     }
 
     fn select0(&self, n: u32) -> Option<u32> {
@@ -49,8 +50,8 @@ pub trait BitVec: Clone {
         }
         // Binary search over rank0 to determine the position of the n-th 0-bit.
         let universe = self.universe_size() as usize;
-        let index = partition_point(universe, |i| self.rank0(i as u32) <= n) as u32;
-        Some(index - 1)
+        let bit_index = partition_point(universe, |i| self.rank0(i as u32) <= n) - 1;
+        Some(bit_index as u32)
     }
 
     /// Some `BitVec`s with multiplicity disallow 0-based queries because
@@ -68,9 +69,9 @@ pub trait BitVec: Clone {
 pub trait BitVecBuilder {
     type Target: BitVec;
     fn new(universe_size: u32) -> Self;
-    fn one_count(&mut self, index: u32, count: u32);
-    fn one(&mut self, index: u32) {
-        self.one_count(index, 1);
+    fn one_count(&mut self, bit_index: u32, count: u32);
+    fn one(&mut self, bit_index: u32) {
+        self.one_count(bit_index, 1);
     }
     fn build(self) -> Self::Target;
 }

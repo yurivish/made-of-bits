@@ -291,21 +291,21 @@ mod tests {
 
         // should panic if manipulating out-of-bounds
         let mut buf_clone = buf.clone();
-        assert!(catch_unwind(move || { buf_clone.set_one(buf_clone.universe_size) }).is_err());
+        catch_unwind(move || buf_clone.set_one(buf_clone.universe_size)).unwrap_err();
         let mut buf_clone = buf.clone();
-        assert!(catch_unwind(move || { buf_clone.set_zero(buf_clone.universe_size) }).is_err());
+        catch_unwind(move || buf_clone.set_zero(buf_clone.universe_size)).unwrap_err();
         let mut buf_clone = buf.clone();
-        assert!(catch_unwind(move || { buf_clone.get(buf_clone.universe_size) }).is_err());
+        catch_unwind(move || buf_clone.get(buf_clone.universe_size)).unwrap_err();
         let mut buf_clone = buf.clone();
-        assert!(catch_unwind(move || { buf_clone.set_one(buf_clone.universe_size) }).is_err());
+        catch_unwind(move || buf_clone.set_one(buf_clone.universe_size)).unwrap_err();
     }
 
     #[test]
     fn test_bitbuf() {
         // should handle zero-width bufs
-        assert!(catch_unwind(move || { BitBuf::new(0).set_one(0) }).is_err());
-        assert!(catch_unwind(move || { BitBuf::new(0).set_zero(0) }).is_err());
-        assert!(catch_unwind(move || { BitBuf::new(0).get(0) }).is_err());
+        catch_unwind(move || BitBuf::new(0).set_one(0)).unwrap_err();
+        catch_unwind(move || BitBuf::new(0).set_zero(0)).unwrap_err();
+        catch_unwind(move || BitBuf::new(0).get(0)).unwrap_err();
 
         check(BitBuf::new(3), 0);
         check(BitBuf::new(5), 2);
@@ -316,8 +316,8 @@ mod tests {
     #[test]
     fn test_padded_bitbuf() {
         // should handle zero-width bufs
-        assert!(catch_unwind(move || { BitBuf::new(0).get(0) }).is_err());
-        assert!(catch_unwind(move || { BitBuf::new(0).get_block(0) }).is_err());
+        catch_unwind(move || BitBuf::new(0).get(0)).unwrap_err();
+        catch_unwind(move || BitBuf::new(0).get_block(0)).unwrap_err();
 
         // empty BitBufs should turn into blockless padded arrays
         assert_eq!(BitBuf::new(3).into_padded().blocks.len(), 0);

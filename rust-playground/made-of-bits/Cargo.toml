@@ -4,16 +4,19 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "to_js_testing"
+name = "made_of_bits"
 crate-type = ["cdylib"]
 
 [dependencies]
 to_js = { path = "/Users/yurivish/to_js" }
 
+[dev-dependencies]
+arbitrary = "1.3"
+arbtest = "0.3"
+exhaustigen = "0.1"
+
 [profile.dev]
 opt-level = 3 # all optimizations
-strip = "debuginfo"
-debug = "line-tables-only"
 
 [profile.release]
 lto = true

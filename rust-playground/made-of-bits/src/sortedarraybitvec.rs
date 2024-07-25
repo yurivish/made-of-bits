@@ -50,9 +50,7 @@ impl SortedArrayBitVec {
         for (i, cur) in ones.iter().copied().enumerate() {
             let same = prev == Some(cur);
             has_multiplicity |= same;
-            if !same {
-                num_unique_ones += 1;
-            }
+            num_unique_ones += if same { 0 } else { 1 };
             if let Some(prev) = prev {
                 debug_assert!(prev <= cur, "ones must be sorted")
             }
@@ -96,8 +94,8 @@ impl SortedArrayBitVec {
 // [1, 1, 5, 8, 8, 8]
 
 impl BitVec for SortedArrayBitVec {
-    fn rank1(&self, index: u32) -> u32 {
-        self.ones.partition_point(|x| *x < index) as u32
+    fn rank1(&self, bit_index: u32) -> u32 {
+        self.ones.partition_point(|x| *x < bit_index) as u32
     }
 
     fn select1(&self, n: u32) -> Option<u32> {
@@ -126,6 +124,10 @@ impl BitVec for SortedArrayBitVec {
 
     fn num_unique_ones(&self) -> u32 {
         self.num_unique_ones
+    }
+
+    fn has_rank0(&self) -> bool {
+        !self.has_multiplicity()
     }
 }
 
