@@ -1,13 +1,50 @@
+use crate::bitvec::BitVecBuilder;
 use crate::{
     bitbuf::{BitBuf, PaddedBitBuf},
-    bits::{one_mask, BASIC_BLOCK_BITS, BASIC_BLOCK_SIZE},
+    bits::{
+        basic_block_index, basic_block_offset, one_mask, select1, BASIC_BLOCK_BITS,
+        BASIC_BLOCK_SIZE,
+    },
+    bitvec::BitVec,
 };
 
 // todo
 // - figure out how to optionally use a PaddedBitBuf – Buf trait + type parameter?
-struct DenseBitVec {
+// - do a pass over the code and convert it to a more Rust-like style: the current impls are fairly direct ports from JavaScript.
+
+pub struct DenseBitVecBuilder {
+    buf: BitBuf,
+}
+
+impl BitVecBuilder for DenseBitVecBuilder {
+    type Target = DenseBitVec;
+
+    fn new(universe_size: u32) -> Self {
+        Self {
+            buf: BitBuf::new(universe_size),
+        }
+    }
+
+    fn one_count(&mut self, bit_index: u32, count: u32) {
+        assert!(bit_index < self.buf.universe_size());
+        // assert!(count == 1, "each 1-bit should be set only once");
+        // assert!(self.buf.get(bit_index) == 0, "each 1-bit should be set only once");
+        self.buf.set_one(bit_index);
+    }
+
+    fn build(mut self) -> DenseBitVec {
+        // todo: configurable sample rates
+        // todo: compress to padded bit buf if favorable?
+        DenseBitVec::new(self.buf, 10, 10)
+    }
+}
+
+#[derive(Clone)]
+pub struct DenseBitVec {
     // needs densebitvec actually, for the high bits.
     buf: BitBuf,
+    num_ones: u32,
+    num_zeros: u32,
     rank1_samples_pow2: u32,
     select0_samples_pow2: u32,
     select1_samples_pow2: u32,
@@ -118,7 +155,7 @@ impl DenseBitVec {
             // Sample 0-bits for the select0 index.
             // This `if` block has the same structure as the one above which samples 1-bits.
             if cumulative_zeros + block_zeros > zeros_threshold {
-                let correction = zeros_threshold - cumulative_bits;
+                let correction = zeros_threshold - cumulative_zeros;
                 debug_assert!(cumulative_bits & correction == 0);
                 select0_samples.push(cumulative_bits | correction);
                 zeros_threshold += select0_sample_rate;
@@ -128,8 +165,12 @@ impl DenseBitVec {
             cumulative_bits += BASIC_BLOCK_SIZE;
         }
 
+        let num_zeros = cumulative_bits - cumulative_ones - buf.num_trailing_bits();
+
         Self {
             buf,
+            num_ones: cumulative_ones,
+            num_zeros: num_zeros,
             rank1_samples_pow2,
             select0_samples_pow2: select_samples_pow2,
             select1_samples_pow2: select_samples_pow2,
@@ -140,42 +181,218 @@ impl DenseBitVec {
         }
     }
 
-    fn rank1(&self, bit_index: u32) -> u32 {
-        todo!()
-    }
+    // `n` - we are looking for the n-th bit of the particular kind (1-bit or 0-bit)
+    // `sampleRate` - power of 2 of the select sample rate
+    // `samples` - array of samples
+    fn select_sample(n: u32, samples: &Box<[u32]>, sample_rate: u32) -> (u32, u32) {
+        let sample_index = n >> sample_rate;
+        let sample = samples[sample_index as usize];
+        // bitmask with the BASIC_BLOCK_BITS bottom bits set.
+        let mask = BASIC_BLOCK_SIZE - 1;
+        // The cumulative number of bits preceding the identified basic block,
+        // ie. the left-shifted block index of that block.
+        let cumulative_bits = sample & !mask; // high bits
 
-    fn rank0(&self, bit_index: u32) -> u32 {
-        todo!()
+        // NOTE: The references to 1-bits below are written from the perspective of select1.
+        // If using this function for select zero, think of "1-bit" as "0-bit".
+
+        // The number of 1-bits in the identified basic block preceding the (select1SampleRate*i+1)-th 1-bit
+        let correction = sample & mask; // low bits
+
+        // number of 1-bits preceding the identified basic block.
+        // The first term tells us the number of 1-bits preceding this select sample,
+        // since the k-th sample represents the (k*sr + 1)-th bit and this tells us the (k*sr)-th
+        // The second term allows us to identify how may 1-bits precede the basic block containing
+        // the bit identified by this select sample.
+        let preceding_count = (sample_index << sample_rate) - correction;
+        return (basic_block_index(cumulative_bits) as u32, preceding_count);
+    }
+}
+
+impl BitVec for DenseBitVec {
+    fn rank1(&self, bit_index: u32) -> u32 {
+        if bit_index >= self.universe_size() {
+            return self.num_ones();
+        }
+
+        // todo: investigate whether we can provide a 'hint' argument of a start block
+        // that would allow us to skip the rank/select memory fetches if querying
+        // another 1-bit close by. As another way to do a 'batch' operation for a
+        // sorted input.
+
+        // Start with the prefix count from the rank block
+        let rank_index = bit_index >> self.rank1_samples_pow2;
+        let mut count = self.rank1_samples[rank_index as usize];
+        let mut rank_basic_block_index = rank_index << self.basic_blocks_per_rank1_sample_pow2;
+        let last_basic_block_index = basic_block_index(bit_index) as u32;
+
+        // Scan any intervening select blocks to skip past multiple basic blocks at a time.
+        //
+        // Synthesize a fictitious initial select sample located squarely at the position
+        // designated by the rank sample.
+        let select_sample_rate = 1 << self.select1_samples_pow2;
+        let select_basic_block_index = rank_basic_block_index;
+        let select_preceding_count = count;
+        let mut select_count = select_preceding_count + select_sample_rate;
+        while (select_count < self.num_ones() && select_basic_block_index < last_basic_block_index)
+        {
+            let (select_preceding_count, select_basic_block_index) = DenseBitVec::select_sample(
+                select_count,
+                &self.select1_samples,
+                self.select1_samples_pow2,
+            );
+            if select_basic_block_index >= last_basic_block_index {
+                break;
+            }
+            count = select_preceding_count;
+            rank_basic_block_index = select_basic_block_index;
+            select_count += select_sample_rate;
+        }
+
+        // Increment the count by the number of ones in every subsequent block
+        for i in rank_basic_block_index..last_basic_block_index {
+            count += self.buf.get_block(i).count_ones();
+        }
+
+        // Count any 1-bits in the last block up to `bit_index`
+        let bit_offset = basic_block_offset(bit_index);
+        let masked_block = self.buf.get_block(last_basic_block_index) & one_mask(bit_offset);
+        count += masked_block.count_ones();
+        count
     }
 
     fn select1(&self, n: u32) -> Option<u32> {
-        todo!()
+        if n >= self.num_ones() {
+            return None;
+        }
+
+        // Grab the basic block and count information from the select sample
+        let (mut basic_block_index, mut count) =
+            DenseBitVec::select_sample(n, &self.select1_samples, self.select1_samples_pow2);
+        assert!(count <= n);
+        // assert the previous rank index is less than the number of rank samples
+        debug_assert!(
+            (basic_block_index >> self.basic_blocks_per_rank1_sample_pow2)
+                < self.rank1_samples.len() as u32
+        );
+
+        // Scan any intervening rank blocks to skip past multiple basic blocks at a time
+        let mut rank_index = (basic_block_index >> self.basic_blocks_per_rank1_sample_pow2) + 1;
+        let num_rank_samples = self.rank1_samples.len() as u32;
+        while (rank_index < num_rank_samples) {
+            let next_count = self.rank1_samples[rank_index as usize];
+            if (next_count > n) {
+                break;
+            }
+            count = next_count;
+            basic_block_index = rank_index << self.basic_blocks_per_rank1_sample_pow2;
+            rank_index += 1;
+        }
+
+        // Scan basic blocks until we find the one that contains the n-th 1-bit
+        let mut basic_block = 0;
+        assert!(basic_block_index < self.buf.num_blocks()); // the index is in-bounds for the first iteration
+        while (basic_block_index < self.buf.num_blocks()) {
+            basic_block = self.buf.get_block(basic_block_index);
+            let next_count = count + basic_block.count_ones();
+            if (next_count > n) {
+                break;
+            }
+            count = next_count;
+            basic_block_index += 1;
+        }
+
+        // Compute and return its bit index
+        let basic_block_bit_index = basic_block_index << BASIC_BLOCK_BITS;
+        let bit_offset = select1(basic_block, n - count).unwrap_or(0);
+        Some(basic_block_bit_index + bit_offset)
     }
 
     fn select0(&self, n: u32) -> Option<u32> {
-        todo!()
-    }
+        // This implementation is adapted from select1.
+        if n >= self.num_zeros() {
+            return None;
+        }
 
-    fn has_rank0(&self) -> bool {
-        todo!()
+        // Grab the basic block and count information from the select sample
+        let (mut basic_block_index, mut count) =
+            DenseBitVec::select_sample(n, &self.select0_samples, self.select0_samples_pow2);
+        assert!(count <= n);
+        // assert the previous rank index is less than the number of rank samples
+        debug_assert!(
+            (basic_block_index >> self.basic_blocks_per_rank1_sample_pow2)
+                < self.rank1_samples.len() as u32
+        );
+
+        // Scan any intervening rank blocks to skip past multiple basic blocks at a time
+        let mut rank_index = (basic_block_index >> self.basic_blocks_per_rank1_sample_pow2) + 1;
+        let num_rank_samples = self.rank1_samples.len() as u32;
+        while (rank_index < num_rank_samples) {
+            let next_count =
+                (rank_index << self.rank1_samples_pow2) - self.rank1_samples[rank_index as usize];
+            if (next_count > n) {
+                break;
+            }
+            count = next_count;
+            basic_block_index = rank_index << self.basic_blocks_per_rank1_sample_pow2;
+            rank_index += 1;
+        }
+
+        // Scan basic blocks until we find the one that contains the n-th 0-bit
+        let mut basic_block = 0;
+        assert!(basic_block_index < self.buf.num_blocks()); // the index is in-bounds for the first iteration
+        while (basic_block_index < self.buf.num_blocks()) {
+            basic_block = self.buf.get_block(basic_block_index);
+            let next_count = count + basic_block.count_zeros();
+            if (next_count > n) {
+                break;
+            }
+            count = next_count;
+            basic_block_index += 1;
+        }
+
+        // Compute and return its bit index
+        let basic_block_bit_index = basic_block_index << BASIC_BLOCK_BITS;
+        let bit_offset = select1(!basic_block, n - count).unwrap_or(0);
+        Some(basic_block_bit_index + bit_offset)
     }
 
     fn num_ones(&self) -> u32 {
-        todo!()
+        self.num_ones
     }
+
     fn num_zeros(&self) -> u32 {
-        todo!()
+        self.num_zeros
     }
+
     fn universe_size(&self) -> u32 {
-        todo!()
+        debug_assert!(self.num_ones + self.num_zeros == self.buf.universe_size());
+        self.buf.universe_size()
     }
+
     fn has_multiplicity(&self) -> bool {
-        todo!()
+        false
     }
+
     fn num_unique_zeros(&self) -> u32 {
-        todo!()
+        self.num_zeros()
     }
+
     fn num_unique_ones(&self) -> u32 {
-        todo!()
+        self.num_ones()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test_bitvec::test_bit_vec_builder;
+    use crate::test_bitvec::test_bit_vec_builder_arbtest;
+
+    use super::*;
+
+    #[test]
+    fn test() {
+        test_bit_vec_builder::<DenseBitVecBuilder>();
+        test_bit_vec_builder_arbtest::<DenseBitVecBuilder>(None, None, false);
     }
 }

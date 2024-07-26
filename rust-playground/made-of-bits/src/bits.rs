@@ -32,15 +32,15 @@ pub(crate) fn basic_block_offset(n: u32) -> u32 {
 /// - Implement 32-bit, 16-bit, and 8-bit select1
 /// - Write my own tests (the original file had tests, but I'd like to practice writing my own)
 pub(crate) fn select1(x: u32, k: u32) -> Option<u32> {
-    // debug_assert!(x.count_ones() > k);
     // Unset the k-1 preceding 1-bits
     let mut x = x;
     for _ in 0..k {
         // prevent overflow when reaching for a bit that does not exist
-        x &= x.max(1) - 1;
+        x &= x.saturating_sub(1);
     }
     let i = x.trailing_zeros();
     if i == 32 {
+        // x is 0; there is no k-th bit
         None
     } else {
         Some(i)
@@ -48,11 +48,11 @@ pub(crate) fn select1(x: u32, k: u32) -> Option<u32> {
 }
 
 /// Reverse the first `num_bits` bits of `x`.
-pub(crate) fn reverse_low_bits(x: u32, num_bits: u32) -> u32 {
+pub(crate) const fn reverse_low_bits(x: u32, num_bits: u32) -> u32 {
     x.reverse_bits() >> (u32::BITS - num_bits)
 }
 
-pub(crate) fn one_mask(n: u32) -> u32 {
+pub(crate) const fn one_mask(n: u32) -> u32 {
     debug_assert!(n <= u32::BITS);
     if n == 0 {
         0
@@ -78,7 +78,7 @@ pub(crate) fn partition_point(n: usize, pred: impl Fn(usize) -> bool) -> usize {
 
 /// If x is not zero, calculates the largest integral power of two that is not
 /// greater than x. If x is zero, returns zero.
-pub(crate) fn bit_floor(x: usize) -> usize {
+pub(crate) const fn bit_floor(x: usize) -> usize {
     if x == 0 {
         0
     } else {

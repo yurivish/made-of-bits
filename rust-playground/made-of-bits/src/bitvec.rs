@@ -49,10 +49,13 @@ pub trait BitVec: Clone {
         Some(bit_index as u32)
     }
 
+    fn has_multiplicity(&self) -> bool;
+
     fn num_ones(&self) -> u32;
     fn num_zeros(&self) -> u32;
+
     fn universe_size(&self) -> u32;
-    fn has_multiplicity(&self) -> bool;
+
     fn num_unique_zeros(&self) -> u32;
     fn num_unique_ones(&self) -> u32;
 

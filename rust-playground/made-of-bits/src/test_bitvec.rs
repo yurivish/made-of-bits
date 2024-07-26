@@ -7,47 +7,6 @@ use std::{
     panic::{catch_unwind, UnwindSafe},
 };
 
-/// Generate bitvectors with arbitrary densities of 1-bits and run them through our basic test_bit_vec test function.
-pub(crate) fn test_bit_vec_builder_arbtest<T: BitVecBuilder>()
-where
-    T::Target: UnwindSafe,
-{
-    use arbitrary;
-    use arbtest::arbtest;
-
-    fn property<T: BitVecBuilder>(u: &mut arbitrary::Unstructured) -> arbitrary::Result<()>
-    where
-        T::Target: UnwindSafe,
-    {
-        let ones_percent = u.int_in_range(0..=100)?; // density
-        let universe_size = u.arbitrary_len::<u32>()? as u32;
-        let mut builder = T::new(universe_size);
-        // construct with multiplicity some of the time
-        let with_multiplicity = u.ratio(1, 3)?;
-        for i in 0..universe_size {
-            if u.int_in_range(0..=100)? < ones_percent {
-                let count = if with_multiplicity {
-                    u.int_in_range(0..=10)?
-                } else {
-                    1
-                };
-                builder.one_count(i, count);
-            }
-        }
-        let bv = builder.build();
-        test_bit_vec(bv);
-        return Ok(());
-    }
-
-    arbtest(property::<T>);
-    // to minimize a test failure, use the following (with the appropriate seed) and run
-    // > RUST_BACKTRACE=full cargo test -- --nocapture
-    // arbtest(property::<T>)
-    //     .seed(0x796376c500000060)
-    //     .budget_ms(60_000)
-    //     .minimize();
-}
-
 #[cfg(test)]
 pub(crate) fn test_bit_vec_builder<T: BitVecBuilder>()
 where
@@ -55,8 +14,6 @@ where
 {
     // test the empty bitvec
     test_bit_vec(T::new(0).build());
-
-    test_bit_vec_builder_arbtest::<T>();
 
     // large enough to span many blocks
     let universe_size = BASIC_BLOCK_SIZE * 10;
@@ -80,19 +37,25 @@ where
             assert_eq!(bv.rank0(1_000_000), bv.universe_size() - 1);
 
             // select0
-            if bit_index == 0 {
-                assert_eq!(bv.select0(0), Some(1));
-            } else {
-                assert_eq!(bv.select0(0), Some(0));
-                assert_eq!(bv.select0(bit_index - 1), Some(bit_index - 1));
+            if bv.has_select0() {
+                if bit_index == 0 {
+                    assert_eq!(bv.select0(0), Some(1));
+                } else {
+                    assert_eq!(bv.select0(0), Some(0));
+                    assert_eq!(bv.select0(bit_index - 1), Some(bit_index - 1));
+                }
             }
 
             if bit_index == bv.universe_size() - 1 {
                 // if we're at the final index, there is no corresponding 0- or 1-bit
-                assert_eq!(bv.select0(bit_index), None);
+                if bv.has_select0() {
+                    assert_eq!(bv.select0(bit_index), None);
+                }
                 assert_eq!(bv.select1(bit_index), None);
             } else {
-                assert_eq!(bv.select0(bit_index), Some(bit_index + 1));
+                if bv.has_select0() {
+                    assert_eq!(bv.select0(bit_index), Some(bit_index + 1));
+                }
             }
 
             // select1
@@ -121,11 +84,16 @@ where
                 assert_eq!(bv.rank0(1_000_000), bv.universe_size() - 2);
 
                 // select0
-                // with 2 bits the edge cases are complex to express, so just test the first element
-                assert_eq!(
-                    bv.select0(0),
-                    Some((bit_index_1 == 0) as u32 + (bit_index_1 == 0 && bit_index_2 == 1) as u32)
-                );
+                if bv.has_select0() {
+                    // with 2 bits the edge cases are complex to express, so just test the first element
+                    assert_eq!(
+                        bv.select0(0),
+                        Some(
+                            (bit_index_1 == 0) as u32
+                                + (bit_index_1 == 0 && bit_index_2 == 1) as u32
+                        )
+                    );
+                }
 
                 // select1
                 assert_eq!(bv.select1(0), Some(bit_index_1));
@@ -181,7 +149,9 @@ pub(crate) fn test_bit_vec<T: BitVec + UnwindSafe>(bv: T) {
         // Perform some exact checks when we know that multiplicity is not in play
         assert!(bv.num_zeros() + bv.num_ones() == bv.universe_size());
         assert!(bv.num_unique_zeros() + bv.num_unique_ones() == bv.universe_size());
-        assert_eq!(bv.select0(bv.num_zeros()), None);
+        if bv.has_select0() {
+            assert_eq!(bv.select0(bv.num_zeros()), None);
+        }
         assert_eq!(bv.select1(bv.num_ones()), None);
     }
 
@@ -199,5 +169,55 @@ pub(crate) fn test_bit_vec<T: BitVec + UnwindSafe>(bv: T) {
 
         let bv = bv.clone();
         catch_unwind(move || bv.get(bv.num_zeros() + bv.num_ones())).unwrap_err();
+    }
+}
+
+/// Generate bitvectors with arbitrary densities of 1-bits and run them through our basic test_bit_vec test function.
+pub(crate) fn test_bit_vec_builder_arbtest<T: BitVecBuilder>(
+    seed: Option<u64>,
+    budget_ms: Option<u64>,
+    minimize: bool,
+) where
+    T::Target: UnwindSafe,
+{
+    use arbitrary;
+    use arbtest::arbtest;
+
+    fn property<T: BitVecBuilder>(u: &mut arbitrary::Unstructured) -> arbitrary::Result<()>
+    where
+        T::Target: UnwindSafe,
+    {
+        let ones_percent = u.int_in_range(0..=100)?; // density
+        let universe_size = u.arbitrary_len::<u32>()? as u32;
+        let mut builder = T::new(universe_size);
+        // construct with multiplicity some of the time
+        let with_multiplicity = u.ratio(1, 3)?;
+        for i in 0..universe_size {
+            if u.int_in_range(0..=100)? < ones_percent {
+                let count = if with_multiplicity {
+                    u.int_in_range(0..=10)?
+                } else {
+                    1
+                };
+                builder.one_count(i, count);
+            }
+        }
+        let bv = builder.build();
+        test_bit_vec(bv);
+        return Ok(());
+    }
+
+    let mut test = arbtest(property::<T>);
+
+    if let Some(seed) = seed {
+        test = test.seed(seed)
+    }
+
+    if let Some(budget_ms) = budget_ms {
+        test = test.budget_ms(budget_ms)
+    }
+
+    if minimize {
+        test = test.minimize()
     }
 }
