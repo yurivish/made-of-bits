@@ -7,7 +7,12 @@ pub trait BitVec: Clone {
     ///
     /// In the presence of multiplicity, returns the count of the bit.
     fn get(&self, bit_index: u32) -> u32 {
-        assert!(bit_index < self.universe_size());
+        assert!(
+            bit_index < self.universe_size(),
+            "bit index {} cannot be less than universe size {}",
+            bit_index,
+            self.universe_size()
+        );
         self.rank1(bit_index + 1) - self.rank1(bit_index)
     }
 
@@ -49,10 +54,11 @@ pub trait BitVec: Clone {
         Some(bit_index as u32)
     }
 
+    // todo: return num ones > num unique ones
     fn has_multiplicity(&self) -> bool;
 
     fn num_ones(&self) -> u32;
-    fn num_zeros(&self) -> u32;
+    fn num_zeros(&self) -> u32; // todo: return num unique zeros, or remove this
 
     fn universe_size(&self) -> u32;
 
@@ -67,6 +73,10 @@ pub trait BitVec: Clone {
     }
 
     fn has_select0(&self) -> bool {
+        true
+    }
+
+    fn supports_multiplicity() -> bool {
         true
     }
 }

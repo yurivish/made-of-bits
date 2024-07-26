@@ -165,7 +165,7 @@ impl DenseBitVec {
             cumulative_bits += BASIC_BLOCK_SIZE;
         }
 
-        let num_zeros = cumulative_bits - cumulative_ones - buf.num_trailing_bits();
+        let num_zeros = buf.universe_size() - cumulative_ones;
 
         Self {
             buf,
@@ -381,20 +381,27 @@ impl BitVec for DenseBitVec {
     fn num_unique_ones(&self) -> u32 {
         self.num_ones()
     }
+
+    fn supports_multiplicity() -> bool {
+        false
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::sortedarraybitvec::SortedArrayBitVecBuilder;
+    use crate::test_bitvec::test_bit_vec;
     use crate::test_bitvec::test_bit_vec_builder;
     use crate::test_bitvec::test_bit_vec_builder_arbtest;
+    use crate::test_bitvec::test_equal;
 
     use super::*;
 
     #[test]
     fn test() {
         test_bit_vec_builder::<DenseBitVecBuilder>();
-        // test_bit_vec_builder_arbtest::<DenseBitVecBuilder>(None, None, false);
+        test_bit_vec_builder_arbtest::<DenseBitVecBuilder>(None, None, false);
         // RUST_BACKTRACE=full cargo test -- --nocapture
-        test_bit_vec_builder_arbtest::<DenseBitVecBuilder>(Some(0xac70e11d00000005), None, false);
+        // test_bit_vec_builder_arbtest::<DenseBitVecBuilder>(Some(0xac70e11d00000005), None, true);
     }
 }

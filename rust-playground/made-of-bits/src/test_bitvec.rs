@@ -1,3 +1,4 @@
+use crate::sortedarraybitvec::SortedArrayBitVec;
 use crate::sortedarraybitvec::SortedArrayBitVecBuilder;
 use crate::{
     bits::BASIC_BLOCK_SIZE,
@@ -12,12 +13,12 @@ use std::{
 // constructing both via builders from a sequence of 1-bits.
 
 #[cfg(test)]
-fn test_equal(a: impl BitVec, b: impl BitVec) {
+pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
     // hack around the weird support for multiplicity for now
-    assert_eq!(a.num_zeros(), b.num_zeros());
-    if a.has_multiplicity() == b.has_multiplicity() {
-        assert_eq!(a.num_ones(), b.num_ones());
-    }
+    // dbg!(a.ones());
+    // dbg!(a, b);
+    // assert_eq!(a.num_zeros(), b.num_zeros());
+    assert_eq!(a.num_ones(), b.num_ones());
     assert_eq!(a.num_unique_zeros(), b.num_unique_zeros());
     assert_eq!(a.num_unique_ones(), b.num_unique_ones());
     assert_eq!(a.universe_size(), b.universe_size());
@@ -33,17 +34,15 @@ fn test_equal(a: impl BitVec, b: impl BitVec) {
         }
     };
 
-    if a.has_multiplicity() == b.has_multiplicity() {
-        for n in 0..a.num_ones() {
-            assert_eq!(a.select1(n), b.select1(n));
-        }
-
-        if a.has_select0() && b.has_select0() {
-            for n in 0..a.num_zeros() {
-                assert_eq!(a.select0(n), b.select0(n));
-            }
-        };
+    for n in 0..a.num_ones() {
+        assert_eq!(a.select1(n), b.select1(n));
     }
+
+    if a.has_select0() && b.has_select0() {
+        for n in 0..a.num_zeros() {
+            assert_eq!(a.select0(n), b.select0(n));
+        }
+    };
 }
 
 #[cfg(test)]
@@ -163,7 +162,7 @@ where
 }
 
 #[cfg(test)]
-fn test_bit_vec<T: BitVec + UnwindSafe>(bv: T) {
+pub(crate) fn test_bit_vec<T: BitVec + UnwindSafe>(bv: T) {
     assert!(bv.num_unique_zeros() + bv.num_unique_ones() == bv.universe_size());
     assert!(bv.num_zeros() + bv.num_ones() >= bv.universe_size());
 
@@ -251,7 +250,11 @@ pub(crate) fn test_bit_vec_builder_arbtest<T: BitVecBuilder>(
         // test against the same data in a sorted array bitvec
         let mut baseline_builder = SortedArrayBitVecBuilder::new(universe_size);
         // construct with multiplicity some of the time
-        let with_multiplicity = u.ratio(1, 3)?;
+        let with_multiplicity = if T::Target::supports_multiplicity() {
+            u.ratio(1, 3)?
+        } else {
+            false
+        };
         for i in 0..universe_size {
             if u.int_in_range(0..=100)? < ones_percent {
                 let count = if with_multiplicity {

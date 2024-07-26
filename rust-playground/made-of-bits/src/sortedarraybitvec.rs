@@ -69,6 +69,10 @@ impl SortedArrayBitVec {
             num_unique_zeros: num_zeros,
         }
     }
+
+    pub(crate) fn ones(&self) -> &Box<[u32]> {
+        &self.ones
+    }
 }
 
 impl BitVec for SortedArrayBitVec {
@@ -110,6 +114,10 @@ impl BitVec for SortedArrayBitVec {
 
     fn has_select0(&self) -> bool {
         !self.has_multiplicity()
+    }
+
+    fn supports_multiplicity() -> bool {
+        true
     }
 }
 
