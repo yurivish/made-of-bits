@@ -3,9 +3,11 @@
 mod bitbuf;
 mod bits;
 mod bitvec;
+mod densebitvec;
 mod intbuf;
 mod sortedarraybitvec;
 mod sortedarraybitvec_js;
+mod sparsebitvec;
 #[cfg(test)]
 mod test_bitvec;
 

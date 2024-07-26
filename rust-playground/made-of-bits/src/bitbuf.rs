@@ -2,7 +2,7 @@ use crate::bits::{basic_block_index, basic_block_offset, one_mask, BASIC_BLOCK_S
 use std::ops::Range;
 
 #[derive(Clone)]
-struct BitBuf {
+pub(crate) struct BitBuf {
     blocks: Box<[u32]>,
     universe_size: u32,
     num_trailing_bits: u32,
@@ -98,7 +98,7 @@ fn padded_range(arr: &[u32], padding: u32) -> Range<usize> {
     start..end
 }
 
-struct PaddedBitBuf {
+pub(crate) struct PaddedBitBuf {
     blocks: Box<[u32]>,
     padding: u32,
 

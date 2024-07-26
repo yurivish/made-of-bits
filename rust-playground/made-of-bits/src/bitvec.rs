@@ -1,13 +1,6 @@
 use crate::bits::partition_point;
 
 pub trait BitVec: Clone {
-    fn num_ones(&self) -> u32;
-    fn num_zeros(&self) -> u32;
-    fn universe_size(&self) -> u32;
-    fn has_multiplicity(&self) -> bool;
-    fn num_unique_zeros(&self) -> u32;
-    fn num_unique_ones(&self) -> u32;
-
     /// Get the value of the bit at the specified index (0 or 1).
     /// Note: This is rather inefficient since it does two rank calls,
     /// each of which takes O(log(n)) time.
@@ -55,6 +48,13 @@ pub trait BitVec: Clone {
         let bit_index = partition_point(universe, |i| self.rank0(i as u32) <= n) - 1;
         Some(bit_index as u32)
     }
+
+    fn num_ones(&self) -> u32;
+    fn num_zeros(&self) -> u32;
+    fn universe_size(&self) -> u32;
+    fn has_multiplicity(&self) -> bool;
+    fn num_unique_zeros(&self) -> u32;
+    fn num_unique_ones(&self) -> u32;
 
     /// Some `BitVec`s with multiplicity disallow 0-based queries because
     /// the representation does not support them. Multiplicity is a dynamic
