@@ -11,7 +11,7 @@ pub(crate) struct BitBuf {
 impl BitBuf {
     /// Construct a new `BitBuf` containing all 0-bits.
     /// `universe_size` is the length of this bit buffer in bits.
-    fn new(universe_size: u32) -> Self {
+    pub(crate) fn new(universe_size: u32) -> Self {
         let num_blocks = universe_size.div_ceil(BASIC_BLOCK_SIZE);
         let last_block_occupancy = universe_size % BASIC_BLOCK_SIZE;
         let num_trailing_bits = if last_block_occupancy == 0 {
@@ -27,7 +27,7 @@ impl BitBuf {
     }
 
     /// Set the bit at index `bit_index` to a 1-bit.
-    fn set_one(&mut self, bit_index: u32) {
+    pub(crate) fn set_one(&mut self, bit_index: u32) {
         debug_assert!(bit_index < self.universe_size);
         let block_index = basic_block_index(bit_index);
         let bit = 1 << basic_block_offset(bit_index);
@@ -35,39 +35,42 @@ impl BitBuf {
     }
 
     /// Set the bit at index `bit_index` to a 0-bit.
-    fn set_zero(&mut self, bit_index: u32) {
+    pub(crate) fn set_zero(&mut self, bit_index: u32) {
         debug_assert!(bit_index < self.universe_size);
         let block_index = basic_block_index(bit_index);
         let bit = 1 << basic_block_offset(bit_index);
         self.blocks[block_index] &= !bit
     }
 
-    fn get(&self, bit_index: u32) -> bool {
+    pub(crate) fn get(&self, bit_index: u32) -> bool {
         debug_assert!(bit_index < self.universe_size);
         let block_index = basic_block_index(bit_index);
         let bit = 1 << basic_block_offset(bit_index);
         self.blocks[block_index] & bit != 0
     }
 
-    fn get_block(&self, block_index: u32) -> u32 {
+    // We give access to blocks individually since lending out the
+    // blocks themselves would run into issues with the PaddedBitBuf,
+    // which does not have materialized representations for all valid slices.
+    pub(crate) fn get_block(&self, block_index: u32) -> u32 {
         self.blocks[block_index as usize]
     }
 
-    fn num_blocks(&self) -> u32 {
+    pub(crate) fn num_blocks(&self) -> u32 {
         // The number of blocks fits in a u32 by construction
         // since it is no greater than the universe_size.
         self.blocks.len() as u32
     }
 
-    fn num_trailing_bits(&self) -> u32 {
+    pub(crate) fn num_trailing_bits(&self) -> u32 {
         self.num_trailing_bits
     }
 
-    fn universe_size(&self) -> u32 {
+    pub(crate) fn universe_size(&self) -> u32 {
         self.universe_size
     }
 
-    fn into_padded(mut self) -> PaddedBitBuf {
+    pub(crate) fn into_padded(mut self) -> PaddedBitBuf {
         let spec = PadSpec::new(&mut self);
         PaddedBitBuf::new(self, spec)
     }

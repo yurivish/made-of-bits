@@ -1,5 +1,7 @@
-// Size (in bits) of basic blocks
+/// Size of a basic block, in bits (32)
 pub(crate) const BASIC_BLOCK_SIZE: u32 = u32::BITS;
+
+/// The power of 2 of the basic block size (5)
 pub(crate) const BASIC_BLOCK_BITS: u32 = BASIC_BLOCK_SIZE.ilog2();
 
 /// Block index of the block containing the `n`-th bit
