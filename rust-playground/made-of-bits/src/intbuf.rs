@@ -148,7 +148,7 @@ mod tests {
                 }
             }
 
-            // it should disallow pushing beyond the end, unless
+            // It should disallow pushing beyond the end, unless
             // the bit width is zero. This is a bit of an edge
             // case and debatable behavior, but at least tested.
             // The justification is that we use the position of the
