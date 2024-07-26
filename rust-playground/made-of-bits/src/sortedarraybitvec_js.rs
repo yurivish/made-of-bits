@@ -2,7 +2,7 @@ use crate::{
     bitvec::{BitVec, BitVecBuilder},
     sortedarraybitvec::{SortedArrayBitVec, SortedArrayBitVecBuilder},
 };
-use to_js::{allocate, deallocate, js};
+use to_js::{allocate, js, to_owned};
 
 // Builder
 //
@@ -13,8 +13,8 @@ fn sorted_array_bit_vec_builder_new(universe_size: u32) -> *mut SortedArrayBitVe
 }
 
 #[js]
-fn sorted_array_bit_vec_builder_drop(ptr: *mut SortedArrayBitVecBuilder) -> () {
-    unsafe { deallocate(ptr) };
+fn sorted_array_bit_vec_builder_drop(x: *mut SortedArrayBitVecBuilder) -> () {
+    to_owned(x);
 }
 
 #[js]
@@ -33,15 +33,15 @@ fn sorted_array_bit_vec_builder_one_count(
 
 #[js]
 fn sorted_array_bit_vec_builder_build(x: *mut SortedArrayBitVecBuilder) -> *mut SortedArrayBitVec {
-    allocate(unsafe { deallocate(x) }.build())
+    allocate(to_owned(x).build())
 }
 
 // BitVec
 //
 
 #[js]
-fn sorted_array_bit_vec_drop(ptr: *mut SortedArrayBitVec) -> () {
-    unsafe { deallocate(ptr) };
+fn sorted_array_bit_vec_drop(x: *mut SortedArrayBitVec) -> () {
+    to_owned(x);
 }
 
 #[js]

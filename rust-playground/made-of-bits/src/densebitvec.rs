@@ -221,7 +221,7 @@ impl BitVec for DenseBitVec {
         // sorted input.
 
         // Start with the prefix count from the rank block
-        let rank_index = bit_index >> self.rank1_samples_pow2;
+        let rank_index = bit_index >> self.rank1_samples_pow2; // why can we inject a +1 here without tests failing?
         let mut count = self.rank1_samples[rank_index as usize];
         let mut rank_basic_block_index = rank_index << self.basic_blocks_per_rank1_sample_pow2;
         let last_basic_block_index = basic_block_index(bit_index) as u32;

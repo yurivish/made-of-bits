@@ -7,6 +7,9 @@ use std::{
     panic::{catch_unwind, UnwindSafe},
 };
 
+// todo: test any bitvec against the same sorted bit vec,
+// constructing both via builders from a sequence of 1-bits.
+
 #[cfg(test)]
 pub(crate) fn test_bit_vec_builder<T: BitVecBuilder>()
 where
