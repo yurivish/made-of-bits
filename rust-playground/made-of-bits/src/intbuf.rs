@@ -14,7 +14,7 @@ pub struct IntBuf {
 }
 
 impl IntBuf {
-    fn new(length: u32, bit_width: u32) -> Self {
+    pub(crate) fn new(length: u32, bit_width: u32) -> Self {
         // The bit width cannot exceed BASIC_BLOCK_SIZE, since then a
         // single value could span more than two contiguous blocks and
         // our algorithms assume this cannot happen.
@@ -35,7 +35,7 @@ impl IntBuf {
     /// Will panic if there is no room to store the value.
     /// Note that as a special case, this means that any number of
     /// zeros can be pushed to a IntBuf with bitWidth zero.
-    fn push(&mut self, value: u32) {
+    pub(crate) fn push(&mut self, value: u32) {
         assert!(value <= one_mask(self.bit_width));
 
         // If we have zero bit width, only allow writing zeros (and there's no need to write them!)
@@ -60,7 +60,7 @@ impl IntBuf {
         self.write_cursor += self.bit_width;
     }
 
-    fn get(&self, index: u32) -> u32 {
+    pub(crate) fn get(&self, index: u32) -> u32 {
         assert!(index < self.length);
 
         // If the bit width is zero, our vector is entirely full of zeros.

@@ -58,7 +58,7 @@ impl DenseBitVec {
     /// `buf`: bit buffer containing the underlying bit data
     /// `rank1_samples_pow2`: power of 2 of the rank1 sample rate
     /// `select_samples_pow2`: power of 2 of the select sample rate for both select0 and select1
-    fn new(buf: BitBuf, rank1_samples_pow2: u32, select_samples_pow2: u32) -> Self {
+    pub fn new(buf: BitBuf, rank1_samples_pow2: u32, select_samples_pow2: u32) -> Self {
         assert!((BASIC_BLOCK_BITS..32).contains(&rank1_samples_pow2));
         assert!((BASIC_BLOCK_BITS..32).contains(&select_samples_pow2));
 
