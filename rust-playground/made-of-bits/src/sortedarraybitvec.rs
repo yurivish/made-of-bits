@@ -1,7 +1,4 @@
-use crate::{
-    bits::partition_point,
-    bitvec::{BitVec, BitVecBuilder},
-};
+use crate::bitvec::{BitVec, BitVecBuilder};
 
 pub struct SortedArrayBitVecBuilder {
     universe_size: u32,
@@ -47,7 +44,8 @@ impl SortedArrayBitVec {
         let mut num_unique_ones = 0;
         let mut has_multiplicity = false;
         let mut prev = None;
-        for (i, cur) in ones.iter().copied().enumerate() {
+
+        for &cur in &ones {
             let same = prev == Some(cur);
             has_multiplicity |= same;
             num_unique_ones += if same { 0 } else { 1 };
@@ -57,9 +55,9 @@ impl SortedArrayBitVec {
             prev = Some(cur);
         }
 
-        let num_ones = ones.len() as u32;
         // Zeros are never repeated, so any non-one bits are singleton zeros.
         let num_zeros = universe_size - num_unique_ones;
+        let num_ones = ones.len() as u32;
 
         Self {
             ones,

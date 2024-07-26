@@ -293,7 +293,7 @@ mod tests {
         catch_unwind(move || buf_clone.set_one(buf_clone.universe_size)).unwrap_err();
         let mut buf_clone = buf.clone();
         catch_unwind(move || buf_clone.set_zero(buf_clone.universe_size)).unwrap_err();
-        let mut buf_clone = buf.clone();
+        let buf_clone = buf.clone();
         catch_unwind(move || buf_clone.get(buf_clone.universe_size)).unwrap_err();
         let mut buf_clone = buf.clone();
         catch_unwind(move || buf_clone.set_one(buf_clone.universe_size)).unwrap_err();

@@ -62,7 +62,7 @@ where
     let universe_size = BASIC_BLOCK_SIZE * 10;
     {
         // save time by only testing with every `step`-th bit set
-        let step = ((BASIC_BLOCK_SIZE >> 1) - 1);
+        let step = (BASIC_BLOCK_SIZE >> 1) - 1;
 
         // test with one bit set
         for bit_index in (0..universe_size).step_by(step as usize) {
