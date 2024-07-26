@@ -10,6 +10,7 @@ mod sortedarraybitvec_js;
 mod sparsebitvec;
 #[cfg(test)]
 mod test_bitvec;
+mod multibitvec;
 
 use to_js::js;
 

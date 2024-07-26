@@ -76,18 +76,6 @@ impl BitBuf {
     }
 }
 
-/// Represents a recommended padding for a particular BitVec.
-/// We store this as its own struct so that we can use this
-/// information to decide whether to compress a BitVec into
-/// a PaddedBitVec based on a user-defined target compression
-/// ratio, and also to do the compression. (Computing a PadSpec
-/// requires a scan over the blocks).
-#[derive(Default, Clone)]
-struct PadSpec {
-    padding: u32,
-    padded_range: Range<usize>,
-}
-
 /// Compute the range of `arr` that contains no padding on its left
 /// or right, analogous to a string trim operation, but returning the
 /// index range rather than a slice.
@@ -101,36 +89,39 @@ fn padded_range(arr: &[u32], padding: u32) -> Range<usize> {
     start..end
 }
 
-pub(crate) struct PaddedBitBuf {
-    blocks: Box<[u32]>,
+/// Represents a recommended padding for a particular BitVec.
+/// We store this as its own struct so that we can use this
+/// information to decide whether to compress a BitVec into
+/// a PaddedBitVec based on a user-defined target compression
+/// ratio, and also to do the compression. (Computing a PadSpec
+/// requires a scan over the blocks).
+#[derive(Clone)]
+struct PadSpec {
     padding: u32,
-
-    /// Index of the first non-padding block
-    left_block_offset: u32,
-
-    /// One beyond the last non-padding block
-    right_block_offset: u32,
-
-    /// Universe size of the original BitBuf
-    universe_size: u32,
-
-    /// Number of trailing bits in the original BitBuf
-    num_trailing_bits: u32,
+    padded_range: Range<usize>,
 }
 
 impl PadSpec {
     /// Note: Requires a mut reference because of a temporary modification to the last block.
     fn new(buf: &mut BitBuf) -> PadSpec {
-        let zero_padding = 0; // a block of zeros
+        // If buf is empty, return a non-padding padding
+        let Some(last_block) = buf.blocks.last().copied() else {
+            return Self {
+                padding: u32::MIN,
+                padded_range: 0..0,
+            };
+        };
+
+        // a block of zeros
+        let zero_padding = u32::MIN;
         let zero_padded_range = padded_range(&buf.blocks, zero_padding);
+
+        // a block of ones
+        let one_padding = u32::MAX;
 
         // While counting 1-padding, temporarily set the highest `num_trailing_bits`
         // of the last block to 1, since otherwise we would wrongly not compress that block.
         let trailing_mask = !one_mask(BASIC_BLOCK_SIZE - buf.num_trailing_bits);
-        let Some(last_block) = buf.blocks.last().copied() else {
-            return Default::default();
-        };
-        let one_padding = u32::MAX; // a block of ones
         buf.blocks[buf.blocks.len() - 1] |= trailing_mask;
         let one_padded_range = padded_range(&buf.blocks, one_padding);
         // Reset the last block to its original state
@@ -149,6 +140,23 @@ impl PadSpec {
             }
         }
     }
+}
+
+pub(crate) struct PaddedBitBuf {
+    blocks: Box<[u32]>,
+    padding: u32,
+
+    /// Index of the first non-padding block
+    left_block_offset: u32,
+
+    /// One beyond the last non-padding block
+    right_block_offset: u32,
+
+    /// Universe size of the original BitBuf
+    universe_size: u32,
+
+    /// Number of trailing bits in the original BitBuf
+    num_trailing_bits: u32,
 }
 
 impl PaddedBitBuf {

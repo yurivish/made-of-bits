@@ -54,11 +54,15 @@ pub trait BitVec: Clone {
         Some(bit_index as u32)
     }
 
-    // todo: return num ones > num unique ones
-    fn has_multiplicity(&self) -> bool;
+    fn has_multiplicity(&self) -> bool {
+        self.num_ones() > self.num_unique_ones()
+    }
 
     fn num_ones(&self) -> u32;
-    fn num_zeros(&self) -> u32; // todo: return num unique zeros, or remove this
+    // todo: remove this?
+    fn num_zeros(&self) -> u32 {
+        self.num_unique_zeros()
+    }
 
     fn universe_size(&self) -> u32;
 

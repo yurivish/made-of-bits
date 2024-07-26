@@ -22,6 +22,10 @@ impl BitVecBuilder for SparseBitVecBuilder {
     }
 
     fn one_count(&mut self, bit_index: u32, count: u32) {
+        if count == 0 {
+            return;
+        }
+
         assert!(bit_index < self.universe_size);
         for _ in 0..count {
             self.ones.push(bit_index);
@@ -44,11 +48,10 @@ pub struct SparseBitVec {
     universe_size: u32,
     num_zeros: u32,
     num_unique_ones: u32,
-    has_multiplicity: bool,
 }
 
 impl SparseBitVec {
-    fn new(ones: Box<[u32]>, universe_size: u32) -> Self {
+    pub fn new(ones: Box<[u32]>, universe_size: u32) -> Self {
         let num_ones = ones.len() as u32;
 
         // The paper "On Elias-Fano for Rank Queries in FM-Indexes" recommends a formula to compute
@@ -79,12 +82,16 @@ impl SparseBitVec {
         let mut prev = None;
         for (i, &cur) in ones.iter().enumerate() {
             let same = prev == Some(cur);
-            has_multiplicity |= same;
             num_unique_ones += if same { 0 } else { 1 };
             if let Some(prev) = prev {
                 debug_assert!(prev <= cur, "ones must be sorted")
             }
-            assert!(cur < universe_size); // expected 1 - bit(${cur}) to not exceed the universeSize(${universeSize})`
+            assert!(
+                cur < universe_size,
+                "expected 1-bit index ({}) to not exceed the universeSize ({})",
+                cur,
+                universe_size
+            );
             debug_assert!(prev.is_none() || prev.unwrap() <= cur); // expected monotonically nondecreasing sequence
             prev = Some(cur);
 
@@ -104,7 +111,6 @@ impl SparseBitVec {
             num_ones,
             num_zeros,
             num_unique_ones,
-            has_multiplicity,
             universe_size,
         }
     }
@@ -173,16 +179,8 @@ impl BitVec for SparseBitVec {
         Some((quotient << self.low_bit_width) + remainder)
     }
 
-    fn has_multiplicity(&self) -> bool {
-        self.has_multiplicity
-    }
-
     fn num_ones(&self) -> u32 {
         self.num_ones
-    }
-
-    fn num_zeros(&self) -> u32 {
-        self.num_unique_zeros()
     }
 
     fn universe_size(&self) -> u32 {

@@ -16,6 +16,10 @@ impl BitVecBuilder for SortedArrayBitVecBuilder {
     }
 
     fn one_count(&mut self, bit_index: u32, count: u32) {
+        if count == 0 {
+            return;
+        }
+
         assert!(bit_index < self.universe_size);
         for _ in 0..count {
             self.ones.push(bit_index);
@@ -33,8 +37,6 @@ pub struct SortedArrayBitVec {
     ones: Box<[u32]>,
     universe_size: u32,
     num_ones: u32,
-    num_zeros: u32,
-    has_multiplicity: bool,
     num_unique_ones: u32,
     num_unique_zeros: u32,
 }
@@ -42,12 +44,10 @@ pub struct SortedArrayBitVec {
 impl SortedArrayBitVec {
     fn new(ones: Box<[u32]>, universe_size: u32) -> Self {
         let mut num_unique_ones = 0;
-        let mut has_multiplicity = false;
         let mut prev = None;
 
         for &cur in &ones {
             let same = prev == Some(cur);
-            has_multiplicity |= same;
             num_unique_ones += if same { 0 } else { 1 };
             if let Some(prev) = prev {
                 debug_assert!(prev <= cur, "ones must be sorted")
@@ -63,8 +63,6 @@ impl SortedArrayBitVec {
             ones,
             universe_size,
             num_ones,
-            num_zeros,
-            has_multiplicity,
             num_unique_ones,
             num_unique_zeros: num_zeros,
         }
@@ -88,16 +86,8 @@ impl BitVec for SortedArrayBitVec {
         self.num_ones
     }
 
-    fn num_zeros(&self) -> u32 {
-        self.num_zeros
-    }
-
     fn universe_size(&self) -> u32 {
         self.universe_size
-    }
-
-    fn has_multiplicity(&self) -> bool {
-        self.has_multiplicity
     }
 
     fn num_unique_zeros(&self) -> u32 {

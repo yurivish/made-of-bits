@@ -26,6 +26,10 @@ impl BitVecBuilder for DenseBitVecBuilder {
     }
 
     fn one_count(&mut self, bit_index: u32, count: u32) {
+        if count == 0 {
+            return;
+        }
+
         assert!(bit_index < self.buf.universe_size());
         // assert!(count == 1, "each 1-bit should be set only once");
         // assert!(self.buf.get(bit_index) == 0, "each 1-bit should be set only once");
@@ -361,25 +365,17 @@ impl BitVec for DenseBitVec {
         self.num_ones
     }
 
-    fn num_zeros(&self) -> u32 {
-        self.num_zeros
-    }
-
     fn universe_size(&self) -> u32 {
         debug_assert!(self.num_ones + self.num_zeros == self.buf.universe_size());
         self.buf.universe_size()
     }
 
-    fn has_multiplicity(&self) -> bool {
-        false
+    fn num_unique_ones(&self) -> u32 {
+        self.num_ones()
     }
 
     fn num_unique_zeros(&self) -> u32 {
-        self.num_zeros()
-    }
-
-    fn num_unique_ones(&self) -> u32 {
-        self.num_ones()
+        self.num_zeros
     }
 
     fn supports_multiplicity() -> bool {
