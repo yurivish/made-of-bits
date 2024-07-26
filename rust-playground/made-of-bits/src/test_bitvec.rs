@@ -1,3 +1,4 @@
+use crate::sortedarraybitvec::SortedArrayBitVecBuilder;
 use crate::{
     bits::BASIC_BLOCK_SIZE,
     bitvec::{BitVec, BitVecBuilder},
@@ -11,11 +12,48 @@ use std::{
 // constructing both via builders from a sequence of 1-bits.
 
 #[cfg(test)]
+fn test_equal(a: impl BitVec, b: impl BitVec) {
+    // hack around the weird support for multiplicity for now
+    assert_eq!(a.num_zeros(), b.num_zeros());
+    if a.has_multiplicity() == b.has_multiplicity() {
+        assert_eq!(a.num_ones(), b.num_ones());
+    }
+    assert_eq!(a.num_unique_zeros(), b.num_unique_zeros());
+    assert_eq!(a.num_unique_ones(), b.num_unique_ones());
+    assert_eq!(a.universe_size(), b.universe_size());
+    // assert_eq!(a.has_multiplicity(), b.has_multiplicity());
+
+    for i in 0..a.universe_size() {
+        assert_eq!(a.rank1(i), b.rank1(i));
+    }
+
+    if a.has_rank0() && b.has_rank0() {
+        for i in 0..a.universe_size() {
+            assert_eq!(a.rank0(i), b.rank0(i));
+        }
+    };
+
+    if a.has_multiplicity() == b.has_multiplicity() {
+        for n in 0..a.num_ones() {
+            assert_eq!(a.select1(n), b.select1(n));
+        }
+
+        if a.has_select0() && b.has_select0() {
+            for n in 0..a.num_zeros() {
+                assert_eq!(a.select0(n), b.select0(n));
+            }
+        };
+    }
+}
+
+#[cfg(test)]
 pub(crate) fn test_bit_vec_builder<T: BitVecBuilder>()
 where
     T::Target: UnwindSafe,
 {
     // test the empty bitvec
+
+    use crate::sortedarraybitvec::SortedArrayBitVec;
     test_bit_vec(T::new(0).build());
 
     // large enough to span many blocks
@@ -30,6 +68,14 @@ where
             builder.one(bit_index);
             let bv = builder.build();
             test_bit_vec(bv.clone());
+
+            {
+                // test against the same data in a sorted array bitvec
+                let mut baseline_builder = SortedArrayBitVecBuilder::new(universe_size);
+                baseline_builder.one(bit_index);
+                let baseline = baseline_builder.build();
+                test_equal(baseline, bv.clone());
+            }
 
             assert_eq!(bv.rank1(bit_index), 0);
             assert_eq!(bv.rank1(bit_index + 1), 1);
@@ -74,6 +120,15 @@ where
                 let bv = builder.build();
                 test_bit_vec(bv.clone());
 
+                {
+                    // test against the same data in a sorted array bitvec
+                    let mut baseline_builder = SortedArrayBitVecBuilder::new(universe_size);
+                    baseline_builder.one(bit_index_1);
+                    baseline_builder.one(bit_index_2);
+                    let baseline = baseline_builder.build();
+                    test_equal(baseline, bv.clone());
+                }
+
                 assert_eq!(bv.rank1(bit_index_1), 0);
                 assert_eq!(bv.rank1(bit_index_1 + 1), 1);
                 assert_eq!(bv.rank1(bit_index_2), 1);
@@ -108,7 +163,7 @@ where
 }
 
 #[cfg(test)]
-pub(crate) fn test_bit_vec<T: BitVec + UnwindSafe>(bv: T) {
+fn test_bit_vec<T: BitVec + UnwindSafe>(bv: T) {
     assert!(bv.num_unique_zeros() + bv.num_unique_ones() == bv.universe_size());
     assert!(bv.num_zeros() + bv.num_ones() >= bv.universe_size());
 
@@ -193,6 +248,8 @@ pub(crate) fn test_bit_vec_builder_arbtest<T: BitVecBuilder>(
         let ones_percent = u.int_in_range(0..=100)?; // density
         let universe_size = u.arbitrary_len::<u32>()? as u32;
         let mut builder = T::new(universe_size);
+        // test against the same data in a sorted array bitvec
+        let mut baseline_builder = SortedArrayBitVecBuilder::new(universe_size);
         // construct with multiplicity some of the time
         let with_multiplicity = u.ratio(1, 3)?;
         for i in 0..universe_size {
@@ -203,9 +260,12 @@ pub(crate) fn test_bit_vec_builder_arbtest<T: BitVecBuilder>(
                     1
                 };
                 builder.one_count(i, count);
+                baseline_builder.one_count(i, count);
             }
         }
         let bv = builder.build();
+        let baseline = baseline_builder.build();
+        test_equal(baseline, bv.clone());
         test_bit_vec(bv);
         return Ok(());
     }
