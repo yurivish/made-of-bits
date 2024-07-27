@@ -1,11 +1,10 @@
-use crate::bitvec::BitVecBuilder;
 use crate::{
     bitbuf::{BitBuf, PaddedBitBuf},
     bits::{
         basic_block_index, basic_block_offset, one_mask, select1, BASIC_BLOCK_BITS,
         BASIC_BLOCK_SIZE,
     },
-    bitvec::BitVec,
+    bitvec::{BitVec, BitVecBuilder},
 };
 
 // todo
@@ -386,8 +385,7 @@ impl BitVec for DenseBitVec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sortedarraybitvec::SortedArrayBitVecBuilder;
-    use crate::test_bitvec::*;
+    use crate::bitvec_test::*;
 
     #[test]
     fn test() {

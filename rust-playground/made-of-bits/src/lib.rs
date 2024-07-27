@@ -3,15 +3,10 @@
 mod bitbuf;
 mod bits;
 mod bitvec;
-mod densebitvec;
-mod intbuf;
-mod sortedarraybitvec;
-mod sortedarraybitvec_js;
-mod sparsebitvec;
 #[cfg(test)]
-mod test_bitvec;
-mod multibitvec;
-mod rlebitvector;
+mod bitvec_test;
+mod bitvecs;
+mod intbuf;
 
 use to_js::js;
 

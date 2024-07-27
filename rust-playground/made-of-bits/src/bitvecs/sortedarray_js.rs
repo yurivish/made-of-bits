@@ -1,6 +1,6 @@
 use crate::{
     bitvec::{BitVec, BitVecBuilder},
-    sortedarraybitvec::{SortedArrayBitVec, SortedArrayBitVecBuilder},
+    bitvecs::sortedarray::{SortedArrayBitVec, SortedArrayBitVecBuilder},
 };
 use to_js::{allocate, js, to_owned};
 

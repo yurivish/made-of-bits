@@ -1,11 +1,10 @@
-use crate::bitbuf::BitBuf;
-use crate::bits::one_mask;
-use crate::bits::partition_point;
-use crate::bitvec::BitVec;
-use crate::bitvec::BitVecBuilder;
-use crate::densebitvec::DenseBitVec;
-use crate::intbuf::IntBuf;
-use crate::sparsebitvec::SparseBitVec;
+use crate::{
+    bitbuf::BitBuf,
+    bits::{one_mask, partition_point},
+    bitvec::{BitVec, BitVecBuilder},
+    bitvecs::{dense::DenseBitVec, sparse::SparseBitVec},
+    intbuf::IntBuf,
+};
 use std::collections::BTreeMap;
 use std::ops::BitAndAssign;
 
@@ -137,7 +136,7 @@ impl BitVec for MultiBitVec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_bitvec::*;
+    use crate::bitvec_test::*;
 
     #[test]
     fn test() {

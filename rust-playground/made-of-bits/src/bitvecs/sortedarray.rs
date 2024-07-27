@@ -110,7 +110,7 @@ impl BitVec for SortedArrayBitVec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_bitvec::*;
+    use crate::bitvec_test::*;
 
     #[test]
     fn test() {

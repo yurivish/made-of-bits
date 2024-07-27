@@ -1,8 +1,7 @@
-use crate::sortedarraybitvec::SortedArrayBitVec;
-use crate::sortedarraybitvec::SortedArrayBitVecBuilder;
 use crate::{
     bits::BASIC_BLOCK_SIZE,
     bitvec::{BitVec, BitVecBuilder},
+    bitvecs::sortedarray::{SortedArrayBitVec, SortedArrayBitVecBuilder},
 };
 use std::{
     collections::BTreeMap,
@@ -50,7 +49,7 @@ where
 {
     // test the empty bitvec
 
-    use crate::sortedarraybitvec::SortedArrayBitVec;
+    use crate::bitvecs::sortedarray::SortedArrayBitVec;
     test_bit_vec(T::new(0).build());
 
     // large enough to span many blocks

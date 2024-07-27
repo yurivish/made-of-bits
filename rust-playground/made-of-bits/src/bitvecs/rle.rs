@@ -1,7 +1,7 @@
 use crate::{
     bits::partition_point,
     bitvec::{BitVec, BitVecBuilder},
-    sparsebitvec::SparseBitVec,
+    bitvecs::sparse::SparseBitVec,
 };
 
 // todo
@@ -242,7 +242,7 @@ impl BitVec for RLEBitVec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_bitvec::*;
+    use crate::bitvec_test::*;
 
     #[test]
     fn test() {
