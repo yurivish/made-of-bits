@@ -11,7 +11,7 @@ mod js;
 
 use to_js::js;
 
-#[js(prefix = "foo_")]
+#[js(name_prefix = "foo_")]
 fn add(a: u32, b: u32) -> u32 {
     a + b
 }
