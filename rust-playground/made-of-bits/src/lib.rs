@@ -11,6 +11,7 @@ mod sparsebitvec;
 #[cfg(test)]
 mod test_bitvec;
 mod multibitvec;
+mod rlebitvector;
 
 use to_js::js;
 

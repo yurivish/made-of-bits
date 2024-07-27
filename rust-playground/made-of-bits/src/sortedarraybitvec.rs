@@ -16,10 +16,6 @@ impl BitVecBuilder for SortedArrayBitVecBuilder {
     }
 
     fn one_count(&mut self, bit_index: u32, count: u32) {
-        if count == 0 {
-            return;
-        }
-
         assert!(bit_index < self.universe_size);
         for _ in 0..count {
             self.ones.push(bit_index);
