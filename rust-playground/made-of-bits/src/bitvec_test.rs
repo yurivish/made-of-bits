@@ -129,7 +129,6 @@ pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
     }
 }
 
-#[cfg(test)]
 pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
     // hack around the weird support for multiplicity for now
     assert_eq!(a.num_zeros(), b.num_zeros());
@@ -160,7 +159,6 @@ pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
     };
 }
 
-#[cfg(test)]
 pub(crate) fn test_bitvec<T: BitVec>(bv: T) {
     assert!(bv.num_unique_zeros() + bv.num_unique_ones() == bv.universe_size());
     assert!(bv.num_zeros() + bv.num_ones() >= bv.universe_size());
