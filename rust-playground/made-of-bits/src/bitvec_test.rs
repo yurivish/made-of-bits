@@ -231,8 +231,7 @@ pub(crate) fn test_bitvec_builder_arbtest<T: BitVecBuilder>(
 ) where
     T::Target: UnwindSafe,
 {
-    use arbitrary;
-    use arbtest::arbtest;
+    use arbtest::{arbitrary, arbtest};
 
     fn property<T: BitVecBuilder>(u: &mut arbitrary::Unstructured) -> arbitrary::Result<()>
     where
