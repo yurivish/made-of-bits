@@ -13,6 +13,7 @@ pub trait BitVec: Clone {
             bit_index,
             self.universe_size()
         );
+
         self.rank1(bit_index + 1) - self.rank1(bit_index)
     }
 

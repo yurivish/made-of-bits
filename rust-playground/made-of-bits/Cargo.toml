@@ -14,7 +14,6 @@ to_js = { path = "/Users/yurivish/to_js" }
 arbtest = "0.3"
 exhaustigen = "0.1"
 expect-test = "1.5"
-color-backtrace = "0.6.1"
 testresult = "0.4.1"
 
 [profile.dev]
@@ -30,4 +29,3 @@ overflow-checks = true # cf. https://hachyderm.io/@cliffle/111812887172594381
 [profile.release-debug]
 inherits = "release"
 debug-assertions = true
-

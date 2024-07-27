@@ -9,8 +9,6 @@ use testresult::TestResult;
 
 #[cfg(test)]
 pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
-    color_backtrace::install();
-
     // test the empty bitvec
     test_bitvec(T::new(0).build());
 
@@ -153,8 +151,6 @@ pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
 
 #[cfg(test)]
 pub(crate) fn test_bitvec<T: BitVec>(bv: T) {
-    color_backtrace::install();
-
     assert!(bv.num_unique_zeros() + bv.num_unique_ones() == bv.universe_size());
     assert!(bv.num_zeros() + bv.num_ones() >= bv.universe_size());
 
@@ -227,7 +223,6 @@ pub(crate) fn property_test_bitvec_builder<T: BitVecBuilder>(
     budget_ms: Option<u64>,
     minimize: bool,
 ) {
-    color_backtrace::install();
     use arbtest::{arbitrary, arbtest};
 
     fn property<T: BitVecBuilder>(u: &mut arbitrary::Unstructured) -> arbitrary::Result<()> {

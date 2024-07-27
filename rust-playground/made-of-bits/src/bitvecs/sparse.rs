@@ -195,11 +195,6 @@ impl BitVec for SparseBitVec {
         self.num_unique_ones
     }
 
-    fn get(&self, bit_index: u32) -> u32 {
-        assert!(bit_index < self.universe_size());
-        self.rank1(bit_index + 1) - self.rank1(bit_index)
-    }
-
     fn has_rank0(&self) -> bool {
         !self.has_multiplicity()
     }

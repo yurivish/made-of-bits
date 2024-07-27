@@ -149,7 +149,7 @@ impl BitVec for RLEBitVec {
         }
 
         // Number of complete 01-runs up to the virtual index `bit_index`
-        let j = self.zo.rank1(bit_index) + 2;
+        let j = self.zo.rank1(bit_index);
 
         // Number of zeros including the j-th block
         let num_cumulative_zeros = self.z.select1(j).unwrap();
