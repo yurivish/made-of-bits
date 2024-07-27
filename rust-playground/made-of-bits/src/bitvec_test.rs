@@ -4,7 +4,8 @@ use crate::{
     bitvecs::sortedarray::{SortedArrayBitVec, SortedArrayBitVecBuilder},
     catch_unwind,
 };
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, panic::AssertUnwindSafe};
+use testresult::TestResult;
 
 #[cfg(test)]
 pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
@@ -37,45 +38,20 @@ pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
     };
 }
 
-type PanicHook = Box<dyn Fn(&std::panic::PanicInfo<'_>) + 'static + Sync + Send>;
-
-struct ResetPanicHookOnDrop {
-    hook: Option<PanicHook>,
-    active: bool,
-}
-
-impl ResetPanicHookOnDrop {
-    fn new() -> ResetPanicHookOnDrop {
-        ResetPanicHookOnDrop {
-            hook: Some(std::panic::take_hook()),
-            active: true,
-        }
-    }
-    fn defuse(mut self) {
-        self.active = false
-    }
-}
-
-impl Drop for ResetPanicHookOnDrop {
-    fn drop(&mut self) {
-        if self.active {
-            std::panic::set_hook(self.hook.take().unwrap());
-        }
-    }
+fn with_color_backtrace(f: impl FnOnce() -> ()) {
+    let prev_hook = std::panic::take_hook();
+    color_backtrace::install();
+    let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+        f();
+    }));
+    std::panic::set_hook(prev_hook);
+    result.unwrap()
 }
 
 #[cfg(test)]
 pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
-    let x = ResetPanicHookOnDrop::new();
-    let panic_hook = std::panic::take_hook();
-    color_backtrace::install();
-
-    // wrap in catch_unwind so that we can uninstall the backtrace colorizer
-    // so that it does not colorfully print suppressed panics from other tests
-    // that have #[should_panic].
-    let result = std::panic::catch_unwind(|| {
+    with_color_backtrace(|| {
         // test the empty bitvec
-        use crate::bitvecs::sortedarray::SortedArrayBitVec;
         test_bitvec(T::new(0).build());
 
         // large enough to span many blocks
@@ -183,9 +159,6 @@ pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
             }
         }
     });
-
-    std::panic::set_hook(panic_hook);
-    result.unwrap();
 }
 
 #[cfg(test)]
@@ -262,49 +235,51 @@ pub(crate) fn property_test_bitvec_builder<T: BitVecBuilder>(
     budget_ms: Option<u64>,
     minimize: bool,
 ) {
-    use arbtest::{arbitrary, arbtest};
+    with_color_backtrace(|| {
+        use arbtest::{arbitrary, arbtest};
 
-    fn property<T: BitVecBuilder>(u: &mut arbitrary::Unstructured) -> arbitrary::Result<()> {
-        let ones_percent = u.int_in_range(0..=100)?; // density
-        let universe_size = u.arbitrary_len::<u32>()? as u32;
-        let mut builder = T::new(universe_size);
-        // test against the same data in a sorted array bitvec
-        let mut baseline_builder = SortedArrayBitVecBuilder::new(universe_size);
-        // construct with multiplicity some of the time
-        let with_multiplicity = if T::Target::supports_multiplicity() {
-            u.ratio(1, 3)?
-        } else {
-            false
-        };
-        for i in 0..universe_size {
-            if u.int_in_range(0..=100)? < ones_percent {
-                let count = if with_multiplicity {
-                    u.int_in_range(0..=10)?
-                } else {
-                    1
-                };
-                builder.one_count(i, count);
-                baseline_builder.one_count(i, count);
+        fn property<T: BitVecBuilder>(u: &mut arbitrary::Unstructured) -> arbitrary::Result<()> {
+            let ones_percent = u.int_in_range(0..=100)?; // density
+            let universe_size = u.arbitrary_len::<u32>()? as u32;
+            let mut builder = T::new(universe_size);
+            // test against the same data in a sorted array bitvec
+            let mut baseline_builder = SortedArrayBitVecBuilder::new(universe_size);
+            // construct with multiplicity some of the time
+            let with_multiplicity = if T::Target::supports_multiplicity() {
+                u.ratio(1, 3)?
+            } else {
+                false
+            };
+            for i in 0..universe_size {
+                if u.int_in_range(0..=100)? < ones_percent {
+                    let count = if with_multiplicity {
+                        u.int_in_range(0..=10)?
+                    } else {
+                        1
+                    };
+                    builder.one_count(i, count);
+                    baseline_builder.one_count(i, count);
+                }
             }
+            let bv = builder.build();
+            let baseline = baseline_builder.build();
+            test_equal(baseline, bv.clone());
+            test_bitvec(bv);
+            return Ok(());
         }
-        let bv = builder.build();
-        let baseline = baseline_builder.build();
-        test_equal(baseline, bv.clone());
-        test_bitvec(bv);
-        return Ok(());
-    }
 
-    let mut test = arbtest(property::<T>);
+        let mut test = arbtest(property::<T>);
 
-    if let Some(seed) = seed {
-        test = test.seed(seed)
-    }
+        if let Some(seed) = seed {
+            test = test.seed(seed)
+        }
 
-    if let Some(budget_ms) = budget_ms {
-        test = test.budget_ms(budget_ms)
-    }
+        if let Some(budget_ms) = budget_ms {
+            test = test.budget_ms(budget_ms)
+        }
 
-    if minimize {
-        test = test.minimize()
-    }
+        if minimize {
+            test = test.minimize()
+        }
+    });
 }

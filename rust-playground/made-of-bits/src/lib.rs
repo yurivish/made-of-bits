@@ -15,13 +15,6 @@ fn add(a: u32, b: u32) -> u32 {
     a + b
 }
 
-// Use two top-level crates to enable colorful backtraces prior to running tests.
-// #[cfg(test)]
-// #[ctor::ctor]
-// fn init_color_backtrace() {
-//     color_backtrace::install();
-// }
-
 /// Implements a version of `std::panic::catch_unwind` that does not require unwind safety
 /// for its closure argument. This allows us to test the panic behavior of `BitVec` implementations
 /// without requiring the trait to require `UnwindSafe`. Our testing always clones the `BitVec`

@@ -70,16 +70,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ctor"
-version = "0.2.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edb49164822f3ee45b17acd4a208cfc1251410cf0cad9a833234c9890774dd9f"
-dependencies = [
- "quote",
- "syn",
-]
-
-[[package]]
 name = "dissimilar"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -128,9 +118,9 @@ version = "0.1.0"
 dependencies = [
  "arbtest",
  "color-backtrace",
- "ctor",
  "exhaustigen",
  "expect-test",
+ "testresult",
  "to_js",
 ]
 
@@ -207,6 +197,12 @@ checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
 dependencies = [
  "winapi-util",
 ]
+
+[[package]]
+name = "testresult"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "614b328ff036a4ef882c61570f72918f7e9c5bee1da33f8e7f91e01daee7e56c"
 
 [[package]]
 name = "to_js"
