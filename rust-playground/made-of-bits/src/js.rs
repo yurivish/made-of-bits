@@ -17,13 +17,13 @@ use crate::bitvecs::dense::{DenseBitVec, DenseBitVecBuilder};
 /// type name (eg. DenseBitVec), and builds a set of to_js exports for
 /// the builder and bit vector methods.
 macro_rules! export_bitvec {
-    ($name_prefix:expr, $builder_type:ident, $bitvec_type:ident) => {
+    ($name_prefix:expr, $builder_type:ty, $bitvec_type:ty) => {
         // BitVecBuilder
         //
 
         #[js(name_prefix = $name_prefix)]
         fn builder_new(universe_size: u32) -> *mut $builder_type {
-            allocate($builder_type::new(universe_size))
+            allocate(<$builder_type>::new(universe_size))
         }
 
         #[js(name_prefix = $name_prefix)]
@@ -100,4 +100,8 @@ export_bitvec!("sorted_array_", SortedArrayBitVecBuilder, SortedArrayBitVec);
 export_bitvec!("dense_", DenseBitVecBuilder, DenseBitVec);
 export_bitvec!("sparse_", SparseBitVecBuilder, SparseBitVec);
 export_bitvec!("rle_", RLEBitVecBuilder, RLEBitVec);
-export_bitvec!("multi_", MultiBuilder, Multi);
+export_bitvec!(
+    "multi_",
+    MultiBuilder<DenseBitVecBuilder>,
+    Multi<DenseBitVec>
+);
