@@ -15,9 +15,7 @@ use std::{
 #[cfg(test)]
 pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
     // hack around the weird support for multiplicity for now
-    // dbg!(a.ones());
-    // dbg!(a, b);
-    // assert_eq!(a.num_zeros(), b.num_zeros());
+    assert_eq!(a.num_zeros(), b.num_zeros());
     assert_eq!(a.num_ones(), b.num_ones());
     assert_eq!(a.num_unique_zeros(), b.num_unique_zeros());
     assert_eq!(a.num_unique_ones(), b.num_unique_ones());
@@ -25,7 +23,6 @@ pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
     // assert_eq!(a.has_multiplicity(), b.has_multiplicity());
 
     for i in 0..a.universe_size() {
-        dbg!("rank1", i);
         assert_eq!(a.rank1(i), b.rank1(i));
     }
 

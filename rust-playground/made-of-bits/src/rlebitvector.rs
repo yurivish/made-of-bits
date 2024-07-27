@@ -52,17 +52,15 @@ impl BitVecBuilder for RLEBitVecBuilder {
     fn build(mut self) -> RLEBitVec {
         self.ones.sort();
         let mut builder = RLERunBuilder::new();
-        let mut prev = 0;
-        dbg!(&self.ones);
+        let mut prev = u32::MAX;
         for &cur in &self.ones {
-            let num_preceding_zeros = (cur - prev).saturating_sub(1);
+            let num_preceding_zeros = cur.wrapping_sub(prev) - 1;
             builder.run(num_preceding_zeros, 1);
             prev = cur;
         }
         // pad out with zeros if needed
-        let num_zeros = self.universe_size - prev;
+        let num_zeros = self.universe_size.wrapping_sub(prev) - 1;
         builder.run(num_zeros, 0);
-        dbg!(self.universe_size);
         builder.build()
     }
 }
@@ -124,7 +122,6 @@ impl RLERunBuilder {
     }
 
     fn build(self) -> RLEBitVec {
-        dbg!(self.num_zeros, self.num_ones);
         // The +1 to the universe size is needed because the 1-bit marker in z
         // comes at the position after `self.num_zeros` zeros, and the same idea
         // applies to zo, which marks with a 1-bit the position after each 01-run.
@@ -195,7 +192,7 @@ impl BitVec for RLEBitVec {
         // Number of zeros up to and including the j-th block
         let num_cumulative_zeros = self.z.select1(j).unwrap();
 
-        return Some(num_cumulative_zeros + n);
+        Some(num_cumulative_zeros + n)
     }
 
     fn select0(&self, n: u32) -> Option<u32> {
@@ -218,7 +215,7 @@ impl BitVec for RLEBitVec {
         let num_preceding_zeros = self.z.select1(j - 1).unwrap();
 
         // Return the index of the (n - numPrecedingZeros)-th zero in the j-th 01-block.
-        return Some(block_start + (n - num_preceding_zeros));
+        Some(block_start + (n - num_preceding_zeros))
     }
 
     fn num_ones(&self) -> u32 {
@@ -251,7 +248,7 @@ mod tests {
 
     #[test]
     fn test() {
-        // test_bit_vec_builder::<RLEBitVecBuilder>();
-        test_bit_vec_builder_arbtest::<RLEBitVecBuilder>(None, None, false);
+        test_bit_vec_builder::<RLEBitVecBuilder>();
+        // test_bit_vec_builder_arbtest::<RLEBitVecBuilder>(None, None, false);
     }
 }
