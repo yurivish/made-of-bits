@@ -140,7 +140,7 @@ mod tests {
 
     #[test]
     fn test() {
-        test_bitvvec_builder::<MultiBitVecBuilder>();
+        test_bitvec_builder::<MultiBitVecBuilder>();
         test_bitvec_builder_arbtest::<MultiBitVecBuilder>(None, None, false);
         // RUST_BACKTRACE=full cargo test -- --nocapture
         // test_bit_vec_builder_arbtest::<MultiBitVecBuilder>(Some(0xac70e11d00000005), None, false);

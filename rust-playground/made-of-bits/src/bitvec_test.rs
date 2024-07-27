@@ -40,7 +40,7 @@ pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
 }
 
 #[cfg(test)]
-pub(crate) fn test_bitvvec_builder<T: BitVecBuilder>()
+pub(crate) fn test_bitvec_builder<T: BitVecBuilder>()
 where
     T::Target: UnwindSafe,
 {

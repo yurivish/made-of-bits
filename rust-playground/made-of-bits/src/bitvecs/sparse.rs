@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn test() {
-        test_bitvvec_builder::<SparseBitVecBuilder>();
+        test_bitvec_builder::<SparseBitVecBuilder>();
         test_bitvec_builder_arbtest::<SparseBitVecBuilder>(None, None, false);
         // RUST_BACKTRACE=full cargo test -- --nocapture
         // test_bit_vec_builder_arbtest::<SparseBitVecBuilder>(Some(0xac70e11d00000005), None, false);

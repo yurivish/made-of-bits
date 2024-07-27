@@ -389,7 +389,7 @@ mod tests {
 
     #[test]
     fn test() {
-        test_bitvvec_builder::<DenseBitVecBuilder>();
+        test_bitvec_builder::<DenseBitVecBuilder>();
         test_bitvec_builder_arbtest::<DenseBitVecBuilder>(None, None, false);
         // RUST_BACKTRACE=full cargo test -- --nocapture
         // test_bit_vec_builder_arbtest::<DenseBitVecBuilder>(Some(0xac70e11d00000005), None, true);
