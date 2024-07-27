@@ -1,6 +1,9 @@
 use crate::bits::partition_point;
+use std::panic::UnwindSafe;
 
-pub trait BitVec: Clone {
+/// We require that implementors be `UnwindSafe` since we check for panics
+/// during testing using `std::panic::catch_unwind`.
+pub trait BitVec: Clone + UnwindSafe {
     /// Get the value of the bit at the specified index (0 or 1).
     /// Note: This is rather inefficient since it does two rank calls,
     /// each of which takes O(log(n)) time.

@@ -3,10 +3,7 @@ use crate::{
     bitvec::{BitVec, BitVecBuilder},
     bitvecs::sortedarray::{SortedArrayBitVec, SortedArrayBitVecBuilder},
 };
-use std::{
-    collections::BTreeMap,
-    panic::{catch_unwind, UnwindSafe},
-};
+use std::{collections::BTreeMap, panic::catch_unwind};
 
 #[cfg(test)]
 pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
@@ -40,10 +37,7 @@ pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
 }
 
 #[cfg(test)]
-pub(crate) fn test_bitvec_builder<T: BitVecBuilder>()
-where
-    T::Target: UnwindSafe,
-{
+pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
     // test the empty bitvec
 
     use crate::bitvecs::sortedarray::SortedArrayBitVec;
@@ -156,7 +150,7 @@ where
 }
 
 #[cfg(test)]
-pub(crate) fn test_bitvec<T: BitVec + UnwindSafe>(bv: T) {
+pub(crate) fn test_bitvec<T: BitVec>(bv: T) {
     assert!(bv.num_unique_zeros() + bv.num_unique_ones() == bv.universe_size());
     assert!(bv.num_zeros() + bv.num_ones() >= bv.universe_size());
 
@@ -224,19 +218,14 @@ pub(crate) fn test_bitvec<T: BitVec + UnwindSafe>(bv: T) {
 }
 
 /// Generate bitvectors with arbitrary densities of 1-bits and run them through our basic test_bitvec test function.
-pub(crate) fn test_bitvec_builder_arbtest<T: BitVecBuilder>(
+pub(crate) fn property_test_bitvec_builder<T: BitVecBuilder>(
     seed: Option<u64>,
     budget_ms: Option<u64>,
     minimize: bool,
-) where
-    T::Target: UnwindSafe,
-{
+) {
     use arbtest::{arbitrary, arbtest};
 
-    fn property<T: BitVecBuilder>(u: &mut arbitrary::Unstructured) -> arbitrary::Result<()>
-    where
-        T::Target: UnwindSafe,
-    {
+    fn property<T: BitVecBuilder>(u: &mut arbitrary::Unstructured) -> arbitrary::Result<()> {
         let ones_percent = u.int_in_range(0..=100)?; // density
         let universe_size = u.arbitrary_len::<u32>()? as u32;
         let mut builder = T::new(universe_size);

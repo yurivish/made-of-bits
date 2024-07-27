@@ -247,6 +247,6 @@ mod tests {
     #[test]
     fn test() {
         test_bitvec_builder::<RLEBitVecBuilder>();
-        test_bitvec_builder_arbtest::<RLEBitVecBuilder>(None, None, false);
+        property_test_bitvec_builder::<RLEBitVecBuilder>(None, None, false);
     }
 }

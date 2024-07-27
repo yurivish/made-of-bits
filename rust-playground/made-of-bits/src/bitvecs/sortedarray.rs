@@ -115,6 +115,6 @@ mod tests {
     #[test]
     fn test() {
         test_bitvec_builder::<SortedArrayBitVecBuilder>();
-        test_bitvec_builder_arbtest::<SortedArrayBitVecBuilder>(None, None, false);
+        property_test_bitvec_builder::<SortedArrayBitVecBuilder>(None, None, false);
     }
 }
