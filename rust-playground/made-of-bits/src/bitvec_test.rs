@@ -8,9 +8,6 @@ use std::{
     panic::{catch_unwind, UnwindSafe},
 };
 
-// todo: test any bitvec against the same sorted bit vec,
-// constructing both via builders from a sequence of 1-bits.
-
 #[cfg(test)]
 pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
     // hack around the weird support for multiplicity for now
