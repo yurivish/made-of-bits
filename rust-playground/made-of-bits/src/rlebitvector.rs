@@ -241,14 +241,12 @@ impl BitVec for RLEBitVec {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_bitvec::test_bit_vec_builder;
-    use crate::test_bitvec::test_bit_vec_builder_arbtest;
-
     use super::*;
+    use crate::test_bitvec::*;
 
     #[test]
     fn test() {
         test_bit_vec_builder::<RLEBitVecBuilder>();
-        // test_bit_vec_builder_arbtest::<RLEBitVecBuilder>(None, None, false);
+        test_bit_vec_builder_arbtest::<RLEBitVecBuilder>(None, None, false);
     }
 }

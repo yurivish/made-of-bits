@@ -385,13 +385,9 @@ impl BitVec for DenseBitVec {
 
 #[cfg(test)]
 mod tests {
-    use crate::sortedarraybitvec::SortedArrayBitVecBuilder;
-    use crate::test_bitvec::test_bit_vec;
-    use crate::test_bitvec::test_bit_vec_builder;
-    use crate::test_bitvec::test_bit_vec_builder_arbtest;
-    use crate::test_bitvec::test_equal;
-
     use super::*;
+    use crate::sortedarraybitvec::SortedArrayBitVecBuilder;
+    use crate::test_bitvec::*;
 
     #[test]
     fn test() {

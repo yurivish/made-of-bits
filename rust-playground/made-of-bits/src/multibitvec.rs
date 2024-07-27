@@ -136,10 +136,8 @@ impl BitVec for MultiBitVec {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_bitvec::test_bit_vec_builder;
-    use crate::test_bitvec::test_bit_vec_builder_arbtest;
-
     use super::*;
+    use crate::test_bitvec::*;
 
     #[test]
     fn test() {
