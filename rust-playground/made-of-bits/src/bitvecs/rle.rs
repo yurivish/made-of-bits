@@ -51,17 +51,17 @@ impl BitVecBuilder for RLEBitVecBuilder {
 
     fn build(mut self) -> RLEBitVec {
         self.ones.sort();
-        let mut builder = RLERunBuilder::new();
+        let mut b = RLERunBuilder::new();
         let mut prev = u32::MAX;
         for &cur in &self.ones {
             let num_preceding_zeros = cur.wrapping_sub(prev) - 1;
-            builder.run(num_preceding_zeros, 1);
+            b.run(num_preceding_zeros, 1);
             prev = cur;
         }
         // pad out with zeros if needed
         let num_zeros = self.universe_size.wrapping_sub(prev) - 1;
-        builder.run(num_zeros, 0);
-        builder.build()
+        b.run(num_zeros, 0);
+        b.build()
     }
 }
 

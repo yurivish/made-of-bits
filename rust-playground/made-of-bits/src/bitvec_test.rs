@@ -12,6 +12,17 @@ pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
     // test the empty bitvec
     test_bitvec(T::new(0).build());
 
+    // test simple case
+    {
+        let mut b = T::new(100);
+        b.one(90);
+        b.one(95);
+        let bv = b.build();
+        assert_eq!(bv.rank1(80), 0);
+        assert_eq!(bv.rank1(93), 1);
+        assert_eq!(bv.rank1(100), 2);
+    }
+
     // large enough to span many blocks
     let universe_size = BASIC_BLOCK_SIZE * 10;
     {
@@ -20,9 +31,9 @@ pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
 
         // test with one bit set
         for bit_index in (0..universe_size).step_by(step as usize) {
-            let mut builder = T::new(universe_size);
-            builder.one(bit_index);
-            let bv = builder.build();
+            let mut b = T::new(universe_size);
+            b.one(bit_index);
+            let bv = b.build();
             test_bitvec(bv.clone());
 
             {
@@ -70,10 +81,10 @@ pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
 
         for bit_index_1 in (0..universe_size).step_by(step as usize) {
             for bit_index_2 in (bit_index_1 + step..universe_size).step_by(step as usize) {
-                let mut builder = T::new(universe_size);
-                builder.one(bit_index_1);
-                builder.one(bit_index_2);
-                let bv = builder.build();
+                let mut b = T::new(universe_size);
+                b.one(bit_index_1);
+                b.one(bit_index_2);
+                let bv = b.build();
                 test_bitvec(bv.clone());
 
                 {
@@ -228,7 +239,7 @@ pub(crate) fn property_test_bitvec_builder<T: BitVecBuilder>(
     fn property<T: BitVecBuilder>(u: &mut arbitrary::Unstructured) -> arbitrary::Result<()> {
         let ones_percent = u.int_in_range(0..=100)?; // density
         let universe_size = u.arbitrary_len::<u32>()? as u32;
-        let mut builder = T::new(universe_size);
+        let mut b = T::new(universe_size);
         // test against the same data in a sorted array bitvec
         let mut baseline_builder = SortedArrayBitVecBuilder::new(universe_size);
         // construct with multiplicity some of the time
@@ -244,11 +255,11 @@ pub(crate) fn property_test_bitvec_builder<T: BitVecBuilder>(
                 } else {
                     1
                 };
-                builder.one_count(i, count);
+                b.one_count(i, count);
                 baseline_builder.one_count(i, count);
             }
         }
-        let bv = builder.build();
+        let bv = b.build();
         let baseline = baseline_builder.build();
         test_equal(baseline, bv.clone());
         test_bitvec(bv);

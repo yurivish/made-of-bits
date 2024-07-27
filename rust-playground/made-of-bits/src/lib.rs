@@ -7,6 +7,7 @@ mod bitvec;
 mod bitvec_test;
 mod bitvecs;
 mod intbuf;
+mod js;
 
 use to_js::js;
 
