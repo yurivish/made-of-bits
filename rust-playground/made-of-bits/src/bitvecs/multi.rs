@@ -87,12 +87,12 @@ impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
 #[derive(Clone)]
 pub struct Multi<T, const M: bool> {
     occupancy: T,
-    multiplicity: SparseBitVec,
+    multiplicity: SparseBitVec<false>,
     num_ones: u32,
 }
 
 impl<T: BitVec, const M: bool> Multi<T, M> {
-    fn new(occupancy: T, multiplicity: SparseBitVec) -> Self {
+    fn new(occupancy: T, multiplicity: SparseBitVec<false>) -> Self {
         let n = multiplicity.num_ones();
         let num_ones = if n == 0 {
             0
@@ -105,10 +105,7 @@ impl<T: BitVec, const M: bool> Multi<T, M> {
             num_ones,
         }
     }
-}
 
-// Cast from a multiplicity-having bitvec that implements `MultiBitVec` to a non-multiplicity-having version that implements `BitVec`
-impl<T: BitVec> Multi<T, true> {
     fn to_bitvec(self) -> Multi<T, false> {
         assert!(self.num_ones == self.occupancy.num_ones());
         Multi {
@@ -120,7 +117,7 @@ impl<T: BitVec> Multi<T, true> {
 }
 
 // These implementations work in the general case
-impl<T: BitVec> BitVec for Multi<T, false> {
+impl<T: BitVec, const M: bool> Multi<T, M> {
     fn rank1(&self, bit_index: u32) -> u32 {
         let n = self.occupancy.rank1(bit_index);
         if n == 0 {
@@ -128,10 +125,6 @@ impl<T: BitVec> BitVec for Multi<T, false> {
         } else {
             BitVec::select1(&self.multiplicity, n - 1).unwrap()
         }
-    }
-
-    fn rank0(&self, bit_index: u32) -> u32 {
-        self.occupancy.rank0(bit_index)
     }
 
     fn select1(&self, n: u32) -> Option<u32> {
@@ -152,21 +145,45 @@ impl<T: BitVec> BitVec for Multi<T, false> {
     }
 }
 
-impl<T: BitVec> MultiBitVec for Multi<T, true> {
-    fn get(&self, bit_index: u32) -> u32 {
-        BitVec::get(self, bit_index)
+// Implement BitVec
+impl<T: BitVec> BitVec for Multi<T, false> {
+    fn rank1(&self, bit_index: u32) -> u32 {
+        self.rank1(bit_index)
     }
 
-    fn rank1(&self, bit_index: u32) -> u32 {
-        BitVec::rank1(self, bit_index)
+    fn rank0(&self, bit_index: u32) -> u32 {
+        self.occupancy.rank0(bit_index)
     }
 
     fn select1(&self, n: u32) -> Option<u32> {
-        BitVec::select1(self, n)
+        self.select1(n)
+    }
+
+    fn select0(&self, n: u32) -> Option<u32> {
+        self.select0(n)
+    }
+
+    fn num_ones(&self) -> u32 {
+        self.num_ones()
     }
 
     fn universe_size(&self) -> u32 {
-        BitVec::universe_size(self)
+        self.universe_size()
+    }
+}
+
+// Implement MultiBitVec
+impl<T: BitVec> MultiBitVec for Multi<T, true> {
+    fn rank1(&self, bit_index: u32) -> u32 {
+        self.rank1(bit_index)
+    }
+
+    fn select1(&self, n: u32) -> Option<u32> {
+        self.select1(n)
+    }
+
+    fn universe_size(&self) -> u32 {
+        self.universe_size()
     }
 
     fn num_unique_ones(&self) -> u32 {

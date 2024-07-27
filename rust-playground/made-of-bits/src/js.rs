@@ -98,7 +98,7 @@ macro_rules! export_bitvec {
 
 export_bitvec!("sorted_array_", SortedArrayBitVecBuilder, SortedArrayBitVec);
 export_bitvec!("dense_", DenseBitVecBuilder, DenseBitVec);
-export_bitvec!("sparse_", SparseBitVecBuilder, SparseBitVec);
+export_bitvec!("sparse_", SparseBitVecBuilder, SparseBitVec<false>);
 export_bitvec!("rle_", RLEBitVecBuilder, RLEBitVec);
 export_bitvec!(
     "multi_",

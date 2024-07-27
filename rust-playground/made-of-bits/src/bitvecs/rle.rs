@@ -114,8 +114,14 @@ impl RLEBitVecRunBuilder {
 
 #[derive(Clone)]
 pub struct RLEBitVec {
-    z: SparseBitVec,
-    zo: SparseBitVec,
+    /// z[i]: cumulative number of zeros before the start of the i-th 1-run;
+    /// can be thought of as pointing to the index of the first 1 in a 01-run.
+    /// Since we coalesce runs there are no zero-length runs, and therefore we can use
+    /// a bitvector type without multiplicity here.
+    z: SparseBitVec<false>,
+    /// zo[i]: cumulative number of ones and zeros at the end of the i-th 01-run;
+    /// can be thought of as pointing just beyond the index of the last 1 in a 01-run.
+    zo: SparseBitVec<false>,
     num_zeros: u32,
     num_ones: u32,
 }

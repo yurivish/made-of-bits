@@ -9,7 +9,7 @@ pub trait BitVec: Clone {
     fn get(&self, bit_index: u32) -> u32 {
         assert!(
             bit_index < self.universe_size(),
-            "bit index {} cannot be less than universe size {}",
+            "bit index {} cannot exceed universe size {}",
             bit_index,
             self.universe_size()
         );
@@ -81,7 +81,10 @@ pub trait MultiBitVecBuilder {
 
 /// Represents a multiset. 1-bits may have multiplicity, but 0-bits may not.
 pub trait MultiBitVec {
-    fn get(&self, bit_index: u32) -> u32;
+    fn get(&self, bit_index: u32) -> u32 {
+        assert!(bit_index < self.universe_size());
+        self.rank1(bit_index + 1) - self.rank1(bit_index)
+    }
 
     fn rank1(&self, bit_index: u32) -> u32;
     fn select1(&self, n: u32) -> Option<u32>;

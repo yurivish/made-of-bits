@@ -23,7 +23,7 @@ impl SparseBitVecBuilder {
 }
 
 impl BitVecBuilder for SparseBitVecBuilder {
-    type Target = SparseBitVec;
+    type Target = SparseBitVec<false>;
 
     fn new(universe_size: u32) -> Self {
         Self::new(universe_size)
@@ -33,7 +33,7 @@ impl BitVecBuilder for SparseBitVecBuilder {
         self.one_count(bit_index, 1);
     }
 
-    fn build(mut self) -> SparseBitVec {
+    fn build(mut self) -> SparseBitVec<false> {
         self.ones.sort();
         self.ones.dedup();
         SparseBitVec::new(self.ones.into(), self.universe_size)
@@ -41,7 +41,7 @@ impl BitVecBuilder for SparseBitVecBuilder {
 }
 
 impl MultiBitVecBuilder for SparseBitVecBuilder {
-    type Target = SparseBitVec;
+    type Target = SparseBitVec<true>;
 
     fn new(universe_size: u32) -> Self {
         Self::new(universe_size)
@@ -54,14 +54,14 @@ impl MultiBitVecBuilder for SparseBitVecBuilder {
         }
     }
 
-    fn build(mut self) -> SparseBitVec {
+    fn build(mut self) -> SparseBitVec<true> {
         self.ones.sort();
         SparseBitVec::new(self.ones.into(), self.universe_size)
     }
 }
 
 #[derive(Clone)]
-pub struct SparseBitVec {
+pub struct SparseBitVec<const M: bool> {
     high: DenseBitVec,
     low: IntBuf,
     num_ones: u32,
@@ -72,7 +72,7 @@ pub struct SparseBitVec {
     num_unique_ones: u32,
 }
 
-impl SparseBitVec {
+impl<const M: bool> SparseBitVec<M> {
     pub fn new(ones: Box<[u32]>, universe_size: u32) -> Self {
         let num_ones = ones.len() as u32;
 
@@ -124,6 +124,11 @@ impl SparseBitVec {
             low.push(remainder);
         }
 
+        assert!(
+            !has_multiplicity || M, // either we have no multiplicity, or M is true and allows multiplicity
+            "cannot construct a SparseBitVec with multiplicity when the type parameter M is false"
+        );
+
         let num_zeros = universe_size - num_unique_ones;
         Self {
             high: DenseBitVec::new(high, 10, 10),
@@ -151,9 +156,9 @@ impl SparseBitVec {
     }
 }
 
-impl BitVec for SparseBitVec {
+impl<const M: bool> SparseBitVec<M> {
     fn rank1(&self, bit_index: u32) -> u32 {
-        if bit_index >= BitVec::universe_size(self) {
+        if bit_index >= self.universe_size() {
             return self.num_ones;
         }
 
@@ -205,30 +210,44 @@ impl BitVec for SparseBitVec {
         Some((quotient << self.low_bit_width) + remainder)
     }
 
-    fn num_ones(&self) -> u32 {
-        self.num_ones
-    }
-
     fn universe_size(&self) -> u32 {
         self.universe_size
     }
+
+    fn num_ones(&self) -> u32 {
+        self.num_ones
+    }
 }
 
-impl MultiBitVec for SparseBitVec {
-    fn get(&self, bit_index: u32) -> u32 {
-        BitVec::get(self, bit_index)
-    }
-
+impl BitVec for SparseBitVec<false> {
     fn rank1(&self, bit_index: u32) -> u32 {
-        BitVec::rank1(self, bit_index)
+        self.rank1(bit_index)
     }
 
     fn select1(&self, n: u32) -> Option<u32> {
-        BitVec::select1(self, n)
+        self.select1(n)
     }
 
     fn universe_size(&self) -> u32 {
-        BitVec::universe_size(self)
+        self.universe_size()
+    }
+
+    fn num_ones(&self) -> u32 {
+        self.num_ones()
+    }
+}
+
+impl MultiBitVec for SparseBitVec<true> {
+    fn rank1(&self, bit_index: u32) -> u32 {
+        self.rank1(bit_index)
+    }
+
+    fn select1(&self, n: u32) -> Option<u32> {
+        self.select1(n)
+    }
+
+    fn universe_size(&self) -> u32 {
+        self.universe_size()
     }
 
     fn num_unique_ones(&self) -> u32 {
