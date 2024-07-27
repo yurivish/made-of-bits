@@ -3,7 +3,7 @@ use crate::{
     bitvec::{BitVec, BitVecBuilder},
     bitvecs::sortedarray::{SortedArrayBitVec, SortedArrayBitVecBuilder},
 };
-use std::{collections::BTreeMap, panic::catch_unwind};
+use std::{collections::BTreeMap, panic::AssertUnwindSafe};
 
 #[cfg(test)]
 pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
@@ -268,4 +268,13 @@ pub(crate) fn property_test_bitvec_builder<T: BitVecBuilder>(
     if minimize {
         test = test.minimize()
     }
+}
+
+/// Implements a version of `std::panic::catch_unwind` that does not require unwind safety
+/// for its closure argument. This allows us to test the panic behavior of `BitVec` implementations
+/// without requiring the trait to require `UnwindSafe`. Our testing always clones the `BitVec`
+/// for use inside the closure, so there is no danger of observing corrupted internal state after
+/// a panic occurs.
+pub fn catch_unwind<F: FnOnce() -> R, R>(f: F) -> std::thread::Result<R> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(f))
 }
