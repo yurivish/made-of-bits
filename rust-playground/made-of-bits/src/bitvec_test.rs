@@ -38,131 +38,123 @@ pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
     };
 }
 
-fn with_color_backtrace(f: impl FnOnce() -> ()) {
-    let prev_hook = std::panic::take_hook();
-    color_backtrace::install();
-    let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
-        f();
-    }));
-    std::panic::set_hook(prev_hook);
-    result.unwrap()
-}
-
 #[cfg(test)]
 pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
-    with_color_backtrace(|| {
-        // test the empty bitvec
-        test_bitvec(T::new(0).build());
+    color_backtrace::install();
 
-        // large enough to span many blocks
-        let universe_size = BASIC_BLOCK_SIZE * 10;
-        {
-            // save time by only testing with every `step`-th bit set
-            let step = (BASIC_BLOCK_SIZE >> 1) - 1;
+    // test the empty bitvec
+    test_bitvec(T::new(0).build());
 
-            // test with one bit set
-            for bit_index in (0..universe_size).step_by(step as usize) {
+    // large enough to span many blocks
+    let universe_size = BASIC_BLOCK_SIZE * 10;
+    {
+        // save time by only testing with every `step`-th bit set
+        let step = (BASIC_BLOCK_SIZE >> 1) - 1;
+
+        // test with one bit set
+        for bit_index in (0..universe_size).step_by(step as usize) {
+            let mut builder = T::new(universe_size);
+            builder.one(bit_index);
+            let bv = builder.build();
+            test_bitvec(bv.clone());
+
+            {
+                // test against the same data in a sorted array bitvec
+                let mut baseline_builder = SortedArrayBitVecBuilder::new(universe_size);
+                baseline_builder.one(bit_index);
+                let baseline = baseline_builder.build();
+                test_equal(baseline, bv.clone());
+            }
+
+            assert_eq!(bv.rank1(bit_index), 0);
+            assert_eq!(bv.rank1(bit_index + 1), 1);
+            assert_eq!(bv.rank1(1_000_000), 1);
+
+            assert_eq!(bv.rank0(bit_index), bit_index);
+            assert_eq!(bv.rank0(bit_index + 1), bit_index);
+            assert_eq!(bv.rank0(1_000_000), bv.universe_size() - 1);
+
+            // select0
+            if bv.has_select0() {
+                if bit_index == 0 {
+                    assert_eq!(bv.select0(0), Some(1));
+                } else {
+                    assert_eq!(bv.select0(0), Some(0));
+                    assert_eq!(bv.select0(bit_index - 1), Some(bit_index - 1));
+                }
+            }
+
+            if bit_index == bv.universe_size() - 1 {
+                // if we're at the final index, there is no corresponding 0- or 1-bit
+                if bv.has_select0() {
+                    assert_eq!(bv.select0(bit_index), None);
+                }
+                assert_eq!(bv.select1(bit_index), None);
+            } else {
+                if bv.has_select0() {
+                    assert_eq!(bv.select0(bit_index), Some(bit_index + 1));
+                }
+            }
+
+            // select1
+            assert_eq!(bv.select1(0), Some(bit_index));
+            assert_eq!(bv.select1(1), None);
+        }
+
+        for bit_index_1 in (0..universe_size).step_by(step as usize) {
+            for bit_index_2 in (bit_index_1 + step..universe_size).step_by(step as usize) {
                 let mut builder = T::new(universe_size);
-                builder.one(bit_index);
+                builder.one(bit_index_1);
+                builder.one(bit_index_2);
                 let bv = builder.build();
                 test_bitvec(bv.clone());
 
                 {
                     // test against the same data in a sorted array bitvec
                     let mut baseline_builder = SortedArrayBitVecBuilder::new(universe_size);
-                    baseline_builder.one(bit_index);
+                    baseline_builder.one(bit_index_1);
+                    baseline_builder.one(bit_index_2);
                     let baseline = baseline_builder.build();
                     test_equal(baseline, bv.clone());
                 }
 
-                assert_eq!(bv.rank1(bit_index), 0);
-                assert_eq!(bv.rank1(bit_index + 1), 1);
-                assert_eq!(bv.rank1(1_000_000), 1);
+                assert_eq!(bv.rank1(bit_index_1), 0);
+                assert_eq!(bv.rank1(bit_index_1 + 1), 1);
+                assert_eq!(bv.rank1(bit_index_2), 1);
+                assert_eq!(bv.rank1(bit_index_2 + 1), 2);
+                assert_eq!(bv.rank1(1_000_000), 2);
 
-                assert_eq!(bv.rank0(bit_index), bit_index);
-                assert_eq!(bv.rank0(bit_index + 1), bit_index);
-                assert_eq!(bv.rank0(1_000_000), bv.universe_size() - 1);
+                assert_eq!(bv.rank0(bit_index_1), bit_index_1);
+                assert_eq!(bv.rank0(bit_index_1 + 1), bit_index_1);
+                assert_eq!(bv.rank0(bit_index_2), bit_index_2 - 1);
+                assert_eq!(bv.rank0(bit_index_2 + 1), bit_index_2 - 1);
+                assert_eq!(bv.rank0(1_000_000), bv.universe_size() - 2);
 
                 // select0
                 if bv.has_select0() {
-                    if bit_index == 0 {
-                        assert_eq!(bv.select0(0), Some(1));
-                    } else {
-                        assert_eq!(bv.select0(0), Some(0));
-                        assert_eq!(bv.select0(bit_index - 1), Some(bit_index - 1));
-                    }
-                }
-
-                if bit_index == bv.universe_size() - 1 {
-                    // if we're at the final index, there is no corresponding 0- or 1-bit
-                    if bv.has_select0() {
-                        assert_eq!(bv.select0(bit_index), None);
-                    }
-                    assert_eq!(bv.select1(bit_index), None);
-                } else {
-                    if bv.has_select0() {
-                        assert_eq!(bv.select0(bit_index), Some(bit_index + 1));
-                    }
+                    // with 2 bits the edge cases are complex to express, so just test the first element
+                    assert_eq!(
+                        bv.select0(0),
+                        Some(
+                            (bit_index_1 == 0) as u32
+                                + (bit_index_1 == 0 && bit_index_2 == 1) as u32
+                        )
+                    );
                 }
 
                 // select1
-                assert_eq!(bv.select1(0), Some(bit_index));
-                assert_eq!(bv.select1(1), None);
-            }
-
-            for bit_index_1 in (0..universe_size).step_by(step as usize) {
-                for bit_index_2 in (bit_index_1 + step..universe_size).step_by(step as usize) {
-                    let mut builder = T::new(universe_size);
-                    builder.one(bit_index_1);
-                    builder.one(bit_index_2);
-                    let bv = builder.build();
-                    test_bitvec(bv.clone());
-
-                    {
-                        // test against the same data in a sorted array bitvec
-                        let mut baseline_builder = SortedArrayBitVecBuilder::new(universe_size);
-                        baseline_builder.one(bit_index_1);
-                        baseline_builder.one(bit_index_2);
-                        let baseline = baseline_builder.build();
-                        test_equal(baseline, bv.clone());
-                    }
-
-                    assert_eq!(bv.rank1(bit_index_1), 0);
-                    assert_eq!(bv.rank1(bit_index_1 + 1), 1);
-                    assert_eq!(bv.rank1(bit_index_2), 1);
-                    assert_eq!(bv.rank1(bit_index_2 + 1), 2);
-                    assert_eq!(bv.rank1(1_000_000), 2);
-
-                    assert_eq!(bv.rank0(bit_index_1), bit_index_1);
-                    assert_eq!(bv.rank0(bit_index_1 + 1), bit_index_1);
-                    assert_eq!(bv.rank0(bit_index_2), bit_index_2 - 1);
-                    assert_eq!(bv.rank0(bit_index_2 + 1), bit_index_2 - 1);
-                    assert_eq!(bv.rank0(1_000_000), bv.universe_size() - 2);
-
-                    // select0
-                    if bv.has_select0() {
-                        // with 2 bits the edge cases are complex to express, so just test the first element
-                        assert_eq!(
-                            bv.select0(0),
-                            Some(
-                                (bit_index_1 == 0) as u32
-                                    + (bit_index_1 == 0 && bit_index_2 == 1) as u32
-                            )
-                        );
-                    }
-
-                    // select1
-                    assert_eq!(bv.select1(0), Some(bit_index_1));
-                    assert_eq!(bv.select1(1), Some(bit_index_2));
-                    assert_eq!(bv.select1(2), None);
-                }
+                assert_eq!(bv.select1(0), Some(bit_index_1));
+                assert_eq!(bv.select1(1), Some(bit_index_2));
+                assert_eq!(bv.select1(2), None);
             }
         }
-    });
+    }
 }
 
 #[cfg(test)]
 pub(crate) fn test_bitvec<T: BitVec>(bv: T) {
+    color_backtrace::install();
+
     assert!(bv.num_unique_zeros() + bv.num_unique_ones() == bv.universe_size());
     assert!(bv.num_zeros() + bv.num_ones() >= bv.universe_size());
 
@@ -235,51 +227,50 @@ pub(crate) fn property_test_bitvec_builder<T: BitVecBuilder>(
     budget_ms: Option<u64>,
     minimize: bool,
 ) {
-    with_color_backtrace(|| {
-        use arbtest::{arbitrary, arbtest};
+    color_backtrace::install();
+    use arbtest::{arbitrary, arbtest};
 
-        fn property<T: BitVecBuilder>(u: &mut arbitrary::Unstructured) -> arbitrary::Result<()> {
-            let ones_percent = u.int_in_range(0..=100)?; // density
-            let universe_size = u.arbitrary_len::<u32>()? as u32;
-            let mut builder = T::new(universe_size);
-            // test against the same data in a sorted array bitvec
-            let mut baseline_builder = SortedArrayBitVecBuilder::new(universe_size);
-            // construct with multiplicity some of the time
-            let with_multiplicity = if T::Target::supports_multiplicity() {
-                u.ratio(1, 3)?
-            } else {
-                false
-            };
-            for i in 0..universe_size {
-                if u.int_in_range(0..=100)? < ones_percent {
-                    let count = if with_multiplicity {
-                        u.int_in_range(0..=10)?
-                    } else {
-                        1
-                    };
-                    builder.one_count(i, count);
-                    baseline_builder.one_count(i, count);
-                }
+    fn property<T: BitVecBuilder>(u: &mut arbitrary::Unstructured) -> arbitrary::Result<()> {
+        let ones_percent = u.int_in_range(0..=100)?; // density
+        let universe_size = u.arbitrary_len::<u32>()? as u32;
+        let mut builder = T::new(universe_size);
+        // test against the same data in a sorted array bitvec
+        let mut baseline_builder = SortedArrayBitVecBuilder::new(universe_size);
+        // construct with multiplicity some of the time
+        let with_multiplicity = if T::Target::supports_multiplicity() {
+            u.ratio(1, 3)?
+        } else {
+            false
+        };
+        for i in 0..universe_size {
+            if u.int_in_range(0..=100)? < ones_percent {
+                let count = if with_multiplicity {
+                    u.int_in_range(0..=10)?
+                } else {
+                    1
+                };
+                builder.one_count(i, count);
+                baseline_builder.one_count(i, count);
             }
-            let bv = builder.build();
-            let baseline = baseline_builder.build();
-            test_equal(baseline, bv.clone());
-            test_bitvec(bv);
-            return Ok(());
         }
+        let bv = builder.build();
+        let baseline = baseline_builder.build();
+        test_equal(baseline, bv.clone());
+        test_bitvec(bv);
+        return Ok(());
+    }
 
-        let mut test = arbtest(property::<T>);
+    let mut test = arbtest(property::<T>);
 
-        if let Some(seed) = seed {
-            test = test.seed(seed)
-        }
+    if let Some(seed) = seed {
+        test = test.seed(seed)
+    }
 
-        if let Some(budget_ms) = budget_ms {
-            test = test.budget_ms(budget_ms)
-        }
+    if let Some(budget_ms) = budget_ms {
+        test = test.budget_ms(budget_ms)
+    }
 
-        if minimize {
-            test = test.minimize()
-        }
-    });
+    if minimize {
+        test = test.minimize()
+    }
 }

@@ -95,21 +95,13 @@ mod tests {
     use super::*;
 
     #[test]
-    #[should_panic]
-    fn test_empty() {
-        // should disallow getting an element from an empty IntBuf
-        IntBuf::new(0, 0).get(0);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_out_of_bounds() {
-        // should throw on out-of-bounds indices
-        IntBuf::new(3, 7).get(10);
-    }
-
-    #[test]
     fn test_intbuf() {
+        // should disallow getting an element from an empty IntBuf
+        catch_unwind(|| IntBuf::new(0, 0).get(0)).unwrap_err();
+
+        // should throw on out-of-bounds indices
+        catch_unwind(|| IntBuf::new(3, 7).get(10));
+
         // should return zero elements before anything is pushed
         let xs = IntBuf::new(3, 7);
         for i in 0..3 {
