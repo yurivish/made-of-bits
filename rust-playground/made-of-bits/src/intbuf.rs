@@ -90,7 +90,7 @@ impl IntBuf {
 
 #[cfg(test)]
 mod tests {
-    use std::panic::catch_unwind;
+    use crate::catch_unwind;
 
     use super::*;
 

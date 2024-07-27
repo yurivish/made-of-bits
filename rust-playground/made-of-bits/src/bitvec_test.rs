@@ -2,8 +2,9 @@ use crate::{
     bits::BASIC_BLOCK_SIZE,
     bitvec::{BitVec, BitVecBuilder},
     bitvecs::sortedarray::{SortedArrayBitVec, SortedArrayBitVecBuilder},
+    catch_unwind,
 };
-use std::{collections::BTreeMap, panic::AssertUnwindSafe};
+use std::collections::BTreeMap;
 
 #[cfg(test)]
 pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
@@ -36,117 +37,155 @@ pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
     };
 }
 
+type PanicHook = Box<dyn Fn(&std::panic::PanicInfo<'_>) + 'static + Sync + Send>;
+
+struct ResetPanicHookOnDrop {
+    hook: Option<PanicHook>,
+    active: bool,
+}
+
+impl ResetPanicHookOnDrop {
+    fn new() -> ResetPanicHookOnDrop {
+        ResetPanicHookOnDrop {
+            hook: Some(std::panic::take_hook()),
+            active: true,
+        }
+    }
+    fn defuse(mut self) {
+        self.active = false
+    }
+}
+
+impl Drop for ResetPanicHookOnDrop {
+    fn drop(&mut self) {
+        if self.active {
+            std::panic::set_hook(self.hook.take().unwrap());
+        }
+    }
+}
+
 #[cfg(test)]
 pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
-    // test the empty bitvec
+    let x = ResetPanicHookOnDrop::new();
+    let panic_hook = std::panic::take_hook();
+    color_backtrace::install();
 
-    use crate::bitvecs::sortedarray::SortedArrayBitVec;
-    test_bitvec(T::new(0).build());
+    // wrap in catch_unwind so that we can uninstall the backtrace colorizer
+    // so that it does not colorfully print suppressed panics from other tests
+    // that have #[should_panic].
+    let result = std::panic::catch_unwind(|| {
+        // test the empty bitvec
+        use crate::bitvecs::sortedarray::SortedArrayBitVec;
+        test_bitvec(T::new(0).build());
 
-    // large enough to span many blocks
-    let universe_size = BASIC_BLOCK_SIZE * 10;
-    {
-        // save time by only testing with every `step`-th bit set
-        let step = (BASIC_BLOCK_SIZE >> 1) - 1;
+        // large enough to span many blocks
+        let universe_size = BASIC_BLOCK_SIZE * 10;
+        {
+            // save time by only testing with every `step`-th bit set
+            let step = (BASIC_BLOCK_SIZE >> 1) - 1;
 
-        // test with one bit set
-        for bit_index in (0..universe_size).step_by(step as usize) {
-            let mut builder = T::new(universe_size);
-            builder.one(bit_index);
-            let bv = builder.build();
-            test_bitvec(bv.clone());
-
-            {
-                // test against the same data in a sorted array bitvec
-                let mut baseline_builder = SortedArrayBitVecBuilder::new(universe_size);
-                baseline_builder.one(bit_index);
-                let baseline = baseline_builder.build();
-                test_equal(baseline, bv.clone());
-            }
-
-            assert_eq!(bv.rank1(bit_index), 0);
-            assert_eq!(bv.rank1(bit_index + 1), 1);
-            assert_eq!(bv.rank1(1_000_000), 1);
-
-            assert_eq!(bv.rank0(bit_index), bit_index);
-            assert_eq!(bv.rank0(bit_index + 1), bit_index);
-            assert_eq!(bv.rank0(1_000_000), bv.universe_size() - 1);
-
-            // select0
-            if bv.has_select0() {
-                if bit_index == 0 {
-                    assert_eq!(bv.select0(0), Some(1));
-                } else {
-                    assert_eq!(bv.select0(0), Some(0));
-                    assert_eq!(bv.select0(bit_index - 1), Some(bit_index - 1));
-                }
-            }
-
-            if bit_index == bv.universe_size() - 1 {
-                // if we're at the final index, there is no corresponding 0- or 1-bit
-                if bv.has_select0() {
-                    assert_eq!(bv.select0(bit_index), None);
-                }
-                assert_eq!(bv.select1(bit_index), None);
-            } else {
-                if bv.has_select0() {
-                    assert_eq!(bv.select0(bit_index), Some(bit_index + 1));
-                }
-            }
-
-            // select1
-            assert_eq!(bv.select1(0), Some(bit_index));
-            assert_eq!(bv.select1(1), None);
-        }
-
-        for bit_index_1 in (0..universe_size).step_by(step as usize) {
-            for bit_index_2 in (bit_index_1 + step..universe_size).step_by(step as usize) {
+            // test with one bit set
+            for bit_index in (0..universe_size).step_by(step as usize) {
                 let mut builder = T::new(universe_size);
-                builder.one(bit_index_1);
-                builder.one(bit_index_2);
+                builder.one(bit_index);
                 let bv = builder.build();
                 test_bitvec(bv.clone());
 
                 {
                     // test against the same data in a sorted array bitvec
                     let mut baseline_builder = SortedArrayBitVecBuilder::new(universe_size);
-                    baseline_builder.one(bit_index_1);
-                    baseline_builder.one(bit_index_2);
+                    baseline_builder.one(bit_index);
                     let baseline = baseline_builder.build();
                     test_equal(baseline, bv.clone());
                 }
 
-                assert_eq!(bv.rank1(bit_index_1), 0);
-                assert_eq!(bv.rank1(bit_index_1 + 1), 1);
-                assert_eq!(bv.rank1(bit_index_2), 1);
-                assert_eq!(bv.rank1(bit_index_2 + 1), 2);
-                assert_eq!(bv.rank1(1_000_000), 2);
+                assert_eq!(bv.rank1(bit_index), 0);
+                assert_eq!(bv.rank1(bit_index + 1), 1);
+                assert_eq!(bv.rank1(1_000_000), 1);
 
-                assert_eq!(bv.rank0(bit_index_1), bit_index_1);
-                assert_eq!(bv.rank0(bit_index_1 + 1), bit_index_1);
-                assert_eq!(bv.rank0(bit_index_2), bit_index_2 - 1);
-                assert_eq!(bv.rank0(bit_index_2 + 1), bit_index_2 - 1);
-                assert_eq!(bv.rank0(1_000_000), bv.universe_size() - 2);
+                assert_eq!(bv.rank0(bit_index), bit_index);
+                assert_eq!(bv.rank0(bit_index + 1), bit_index);
+                assert_eq!(bv.rank0(1_000_000), bv.universe_size() - 1);
 
                 // select0
                 if bv.has_select0() {
-                    // with 2 bits the edge cases are complex to express, so just test the first element
-                    assert_eq!(
-                        bv.select0(0),
-                        Some(
-                            (bit_index_1 == 0) as u32
-                                + (bit_index_1 == 0 && bit_index_2 == 1) as u32
-                        )
-                    );
+                    if bit_index == 0 {
+                        assert_eq!(bv.select0(0), Some(1));
+                    } else {
+                        assert_eq!(bv.select0(0), Some(0));
+                        assert_eq!(bv.select0(bit_index - 1), Some(bit_index - 1));
+                    }
+                }
+
+                if bit_index == bv.universe_size() - 1 {
+                    // if we're at the final index, there is no corresponding 0- or 1-bit
+                    if bv.has_select0() {
+                        assert_eq!(bv.select0(bit_index), None);
+                    }
+                    assert_eq!(bv.select1(bit_index), None);
+                } else {
+                    if bv.has_select0() {
+                        assert_eq!(bv.select0(bit_index), Some(bit_index + 1));
+                    }
                 }
 
                 // select1
-                assert_eq!(bv.select1(0), Some(bit_index_1));
-                assert_eq!(bv.select1(1), Some(bit_index_2));
-                assert_eq!(bv.select1(2), None);
+                assert_eq!(bv.select1(0), Some(bit_index));
+                assert_eq!(bv.select1(1), None);
+            }
+
+            for bit_index_1 in (0..universe_size).step_by(step as usize) {
+                for bit_index_2 in (bit_index_1 + step..universe_size).step_by(step as usize) {
+                    let mut builder = T::new(universe_size);
+                    builder.one(bit_index_1);
+                    builder.one(bit_index_2);
+                    let bv = builder.build();
+                    test_bitvec(bv.clone());
+
+                    {
+                        // test against the same data in a sorted array bitvec
+                        let mut baseline_builder = SortedArrayBitVecBuilder::new(universe_size);
+                        baseline_builder.one(bit_index_1);
+                        baseline_builder.one(bit_index_2);
+                        let baseline = baseline_builder.build();
+                        test_equal(baseline, bv.clone());
+                    }
+
+                    assert_eq!(bv.rank1(bit_index_1), 0);
+                    assert_eq!(bv.rank1(bit_index_1 + 1), 1);
+                    assert_eq!(bv.rank1(bit_index_2), 1);
+                    assert_eq!(bv.rank1(bit_index_2 + 1), 2);
+                    assert_eq!(bv.rank1(1_000_000), 2);
+
+                    assert_eq!(bv.rank0(bit_index_1), bit_index_1);
+                    assert_eq!(bv.rank0(bit_index_1 + 1), bit_index_1);
+                    assert_eq!(bv.rank0(bit_index_2), bit_index_2 - 1);
+                    assert_eq!(bv.rank0(bit_index_2 + 1), bit_index_2 - 1);
+                    assert_eq!(bv.rank0(1_000_000), bv.universe_size() - 2);
+
+                    // select0
+                    if bv.has_select0() {
+                        // with 2 bits the edge cases are complex to express, so just test the first element
+                        assert_eq!(
+                            bv.select0(0),
+                            Some(
+                                (bit_index_1 == 0) as u32
+                                    + (bit_index_1 == 0 && bit_index_2 == 1) as u32
+                            )
+                        );
+                    }
+
+                    // select1
+                    assert_eq!(bv.select1(0), Some(bit_index_1));
+                    assert_eq!(bv.select1(1), Some(bit_index_2));
+                    assert_eq!(bv.select1(2), None);
+                }
             }
         }
-    }
+    });
+
+    std::panic::set_hook(panic_hook);
+    result.unwrap();
 }
 
 #[cfg(test)]
@@ -268,13 +307,4 @@ pub(crate) fn property_test_bitvec_builder<T: BitVecBuilder>(
     if minimize {
         test = test.minimize()
     }
-}
-
-/// Implements a version of `std::panic::catch_unwind` that does not require unwind safety
-/// for its closure argument. This allows us to test the panic behavior of `BitVec` implementations
-/// without requiring the trait to require `UnwindSafe`. Our testing always clones the `BitVec`
-/// for use inside the closure, so there is no danger of observing corrupted internal state after
-/// a panic occurs.
-pub fn catch_unwind<F: FnOnce() -> R, R>(f: F) -> std::thread::Result<R> {
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(f))
 }

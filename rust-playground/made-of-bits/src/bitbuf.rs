@@ -217,7 +217,7 @@ impl PaddedBitBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::panic::catch_unwind;
+    use crate::catch_unwind;
 
     /// Run a number of checks on `buf` and a PaddedBuf
     /// constructed from it after each modification.

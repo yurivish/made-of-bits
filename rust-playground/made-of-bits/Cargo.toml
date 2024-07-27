@@ -14,6 +14,8 @@ to_js = { path = "/Users/yurivish/to_js" }
 arbtest = "0.3"
 exhaustigen = "0.1"
 expect-test = "1.5"
+ctor = "0.2.8"
+color-backtrace = "0.6.1"
 
 [profile.dev]
 opt-level = 3 # all optimizations
