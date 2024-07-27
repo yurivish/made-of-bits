@@ -1,10 +1,9 @@
-use std::collections::HashSet;
-
 use crate::{
     bits::partition_point,
-    bitvec::{BitVec, BitVecBuilder},
+    bitvec::{BitVec, BitVecBuilder, BitVecOf},
     bitvecs::sparse::SparseBitVec,
 };
+use std::collections::HashSet;
 
 pub struct RLEBitVecBuilder {
     universe_size: u32,
@@ -104,8 +103,11 @@ impl RLEBitVecRunBuilder {
         // comes at the position after `self.num_zeros` zeros, and the same idea
         // applies to zo, which marks with a 1-bit the position after each 01-run.
         RLEBitVec {
-            z: SparseBitVec::new(self.z.into(), self.num_zeros + 1),
-            zo: SparseBitVec::new(self.zo.into(), self.num_zeros + self.num_ones + 1),
+            z: BitVecOf::new(SparseBitVec::new(self.z.into(), self.num_zeros + 1)),
+            zo: BitVecOf::new(SparseBitVec::new(
+                self.zo.into(),
+                self.num_zeros + self.num_ones + 1,
+            )),
             num_zeros: self.num_zeros,
             num_ones: self.num_ones,
         }
@@ -118,10 +120,10 @@ pub struct RLEBitVec {
     /// can be thought of as pointing to the index of the first 1 in a 01-run.
     /// Since we coalesce runs there are no zero-length runs, and therefore we can use
     /// a bitvector type without multiplicity here.
-    z: SparseBitVec<false>,
+    z: BitVecOf<SparseBitVec>,
     /// zo[i]: cumulative number of ones and zeros at the end of the i-th 01-run;
     /// can be thought of as pointing just beyond the index of the last 1 in a 01-run.
-    zo: SparseBitVec<false>,
+    zo: BitVecOf<SparseBitVec>,
     num_zeros: u32,
     num_ones: u32,
 }

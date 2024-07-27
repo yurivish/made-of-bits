@@ -1,4 +1,9 @@
+use std::collections::HashSet;
+
 use crate::bits::partition_point;
+
+// a BitVec is always a MultiBitVec
+// but a MultiBitVec is not (always) a BitVec
 
 pub trait BitVec: Clone {
     /// Get the value of the bit at the specified index (0 or 1).
@@ -80,7 +85,7 @@ pub trait MultiBitVecBuilder {
 }
 
 /// Represents a multiset. 1-bits may have multiplicity, but 0-bits may not.
-pub trait MultiBitVec {
+pub trait MultiBitVec: Clone {
     fn get(&self, bit_index: u32) -> u32 {
         assert!(bit_index < self.universe_size());
         self.rank1(bit_index + 1) - self.rank1(bit_index)
@@ -90,8 +95,64 @@ pub trait MultiBitVec {
     fn select1(&self, n: u32) -> Option<u32>;
 
     fn universe_size(&self) -> u32;
+
+    fn num_ones(&self) -> u32;
+    fn num_zeros(&self) -> u32 {
+        self.universe_size() - self.num_unique_ones()
+    }
+
     fn num_unique_ones(&self) -> u32;
     fn num_unique_zeros(&self) -> u32 {
         self.universe_size() - self.num_unique_ones()
+    }
+}
+
+#[derive(Clone)]
+pub struct BitVecOf<T: MultiBitVec>(T);
+
+// impl<T: MultiBitVec> BitVec for BitVecOf<T> {
+
+// }
+
+impl<T: MultiBitVec> BitVecOf<T> {
+    pub fn new(x: T) -> Self {
+        assert_eq!(x.num_ones(), x.num_unique_ones());
+        Self(x)
+    }
+
+    pub fn inner(&self) -> &T {
+        &self.0
+    }
+}
+
+pub struct BitVecBuilderOf<B: MultiBitVecBuilder> {
+    builder: B,
+    ones: HashSet<u32>,
+}
+
+impl<B: MultiBitVecBuilder> BitVecBuilder for BitVecBuilderOf<B>
+where
+    BitVecOf<B::Target>: BitVec,
+{
+    type Target = BitVecOf<B::Target>;
+    fn new(universe_size: u32) -> Self {
+        Self {
+            builder: B::new(universe_size),
+            ones: HashSet::new(),
+        }
+    }
+
+    /// Set a 1-bit in this bit vector.
+    /// Idempotent; the same bit may be set more than once without effect.
+    /// 1-bits may be added in any order.
+    fn one(&mut self, bit_index: u32) {
+        if !self.ones.contains(&bit_index) {
+            self.builder.one_count(bit_index, 1);
+            self.ones.insert(bit_index);
+        }
+    }
+
+    fn build(self) -> Self::Target {
+        BitVecOf(self.builder.build())
     }
 }

@@ -96,6 +96,7 @@ impl SortedArrayBitVec {
     }
 }
 
+// todo
 impl BitVec for SortedArrayBitVec {
     fn rank1(&self, bit_index: u32) -> u32 {
         self.ones.partition_point(|x| *x < bit_index) as u32
@@ -129,6 +130,10 @@ impl MultiBitVec for SortedArrayBitVec {
 
     fn universe_size(&self) -> u32 {
         BitVec::universe_size(self)
+    }
+
+    fn num_ones(&self) -> u32 {
+        self.num_ones
     }
 
     fn num_unique_ones(&self) -> u32 {

@@ -1,3 +1,4 @@
+use crate::bitvec::BitVecOf;
 use crate::bitvec::MultiBitVec;
 use crate::bitvec::MultiBitVecBuilder;
 use crate::{
@@ -8,12 +9,12 @@ use crate::{
     intbuf::IntBuf,
 };
 
-pub struct SparseBitVecBuilder<const M: bool> {
+pub struct SparseBitVecBuilder {
     universe_size: u32,
     ones: Vec<u32>,
 }
 
-impl<const M: bool> SparseBitVecBuilder<M> {
+impl SparseBitVecBuilder {
     fn new(universe_size: u32) -> Self {
         Self {
             universe_size,
@@ -22,27 +23,8 @@ impl<const M: bool> SparseBitVecBuilder<M> {
     }
 }
 
-impl BitVecBuilder for SparseBitVecBuilder<false> {
-    type Target = SparseBitVec<false>;
-
-    fn new(universe_size: u32) -> Self {
-        Self::new(universe_size)
-    }
-
-    fn one(&mut self, bit_index: u32) {
-        assert!(bit_index < self.universe_size);
-        self.ones.push(bit_index);
-    }
-
-    fn build(mut self) -> SparseBitVec<false> {
-        self.ones.sort();
-        self.ones.dedup();
-        SparseBitVec::new(self.ones.into(), self.universe_size)
-    }
-}
-
-impl MultiBitVecBuilder for SparseBitVecBuilder<true> {
-    type Target = SparseBitVec<true>;
+impl MultiBitVecBuilder for SparseBitVecBuilder {
+    type Target = SparseBitVec;
 
     fn new(universe_size: u32) -> Self {
         Self::new(universe_size)
@@ -55,25 +37,43 @@ impl MultiBitVecBuilder for SparseBitVecBuilder<true> {
         }
     }
 
-    fn build(mut self) -> SparseBitVec<true> {
+    fn build(mut self) -> SparseBitVec {
         self.ones.sort();
         SparseBitVec::new(self.ones.into(), self.universe_size)
     }
 }
 
+impl BitVec for BitVecOf<SparseBitVec> {
+    fn rank1(&self, bit_index: u32) -> u32 {
+        self.inner().rank1(bit_index)
+    }
+
+    fn select1(&self, n: u32) -> Option<u32> {
+        self.inner().select1(n)
+    }
+
+    fn num_ones(&self) -> u32 {
+        self.inner().num_ones()
+    }
+
+    fn universe_size(&self) -> u32 {
+        self.inner().universe_size()
+    }
+}
+
 #[derive(Clone)]
-pub struct SparseBitVec<const M: bool> {
+pub struct SparseBitVec {
     high: DenseBitVec,
     low: IntBuf,
     num_ones: u32,
     low_bit_width: u32,
     low_mask: u32,
     universe_size: u32,
-    num_zeros: u32,
+    num_zeros: u32, // todo: remove?
     num_unique_ones: u32,
 }
 
-impl<const M: bool> SparseBitVec<M> {
+impl SparseBitVec {
     pub fn new(ones: Box<[u32]>, universe_size: u32) -> Self {
         let num_ones = ones.len() as u32;
 
@@ -125,11 +125,6 @@ impl<const M: bool> SparseBitVec<M> {
             low.push(remainder);
         }
 
-        assert!(
-            !has_multiplicity || M, // either we have no multiplicity, or M is true and allows multiplicity
-            "cannot construct a SparseBitVec with multiplicity when the type parameter M is false"
-        );
-
         let num_zeros = universe_size - num_unique_ones;
         Self {
             high: DenseBitVec::new(high, 10, 10),
@@ -157,7 +152,7 @@ impl<const M: bool> SparseBitVec<M> {
     }
 }
 
-impl<const M: bool> SparseBitVec<M> {
+impl SparseBitVec {
     fn rank1(&self, bit_index: u32) -> u32 {
         if bit_index >= self.universe_size() {
             return self.num_ones;
@@ -220,7 +215,7 @@ impl<const M: bool> SparseBitVec<M> {
     }
 }
 
-impl BitVec for SparseBitVec<false> {
+impl MultiBitVec for SparseBitVec {
     fn rank1(&self, bit_index: u32) -> u32 {
         self.rank1(bit_index)
     }
@@ -234,21 +229,7 @@ impl BitVec for SparseBitVec<false> {
     }
 
     fn num_ones(&self) -> u32 {
-        self.num_ones()
-    }
-}
-
-impl MultiBitVec for SparseBitVec<true> {
-    fn rank1(&self, bit_index: u32) -> u32 {
-        self.rank1(bit_index)
-    }
-
-    fn select1(&self, n: u32) -> Option<u32> {
-        self.select1(n)
-    }
-
-    fn universe_size(&self) -> u32 {
-        self.universe_size()
+        self.num_ones
     }
 
     fn num_unique_ones(&self) -> u32 {
@@ -259,11 +240,12 @@ impl MultiBitVec for SparseBitVec<true> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::bitvec::BitVecBuilderOf;
     use crate::bitvec_test::*;
 
     #[test]
     fn test() {
-        test_bitvec_builder::<SparseBitVecBuilder<false>>();
-        property_test_bitvec_builder::<SparseBitVecBuilder<false>>(None, None, false);
+        test_bitvec_builder::<BitVecBuilderOf<SparseBitVecBuilder>>();
+        property_test_bitvec_builder::<BitVecBuilderOf<SparseBitVecBuilder>>(None, None, false);
     }
 }
