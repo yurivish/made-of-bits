@@ -29,6 +29,7 @@ pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
         let mut b = T::new(100);
         b.one(90);
         b.one(95);
+        b.one(95);
         let bv = b.build();
         assert_eq!(bv.rank1(80), 0);
         assert_eq!(bv.rank1(93), 1);

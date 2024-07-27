@@ -15,13 +15,19 @@ pub struct DenseBitVecBuilder {
     buf: BitBuf,
 }
 
-impl BitVecBuilder for DenseBitVecBuilder {
-    type Target = DenseBitVec;
-
+impl DenseBitVecBuilder {
     fn new(universe_size: u32) -> Self {
         Self {
             buf: BitBuf::new(universe_size),
         }
+    }
+}
+
+impl BitVecBuilder for DenseBitVecBuilder {
+    type Target = DenseBitVec;
+
+    fn new(universe_size: u32) -> Self {
+        Self::new(universe_size)
     }
 
     fn build(mut self) -> DenseBitVec {

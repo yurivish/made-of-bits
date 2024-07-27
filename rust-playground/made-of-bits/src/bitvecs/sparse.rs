@@ -1,3 +1,4 @@
+use crate::bitvec::MultiBitVec;
 use crate::bitvec::MultiBitVecBuilder;
 use crate::{
     bitbuf::BitBuf,
@@ -12,14 +13,20 @@ pub struct SparseBitVecBuilder {
     ones: Vec<u32>,
 }
 
-impl BitVecBuilder for SparseBitVecBuilder {
-    type Target = SparseBitVec;
-
+impl SparseBitVecBuilder {
     fn new(universe_size: u32) -> Self {
         Self {
             universe_size,
             ones: Vec::new(),
         }
+    }
+}
+
+impl BitVecBuilder for SparseBitVecBuilder {
+    type Target = SparseBitVec;
+
+    fn new(universe_size: u32) -> Self {
+        Self::new(universe_size)
     }
 
     fn one(&mut self, bit_index: u32) {
@@ -37,10 +44,7 @@ impl MultiBitVecBuilder for SparseBitVecBuilder {
     type Target = SparseBitVec;
 
     fn new(universe_size: u32) -> Self {
-        Self {
-            universe_size,
-            ones: Vec::new(),
-        }
+        Self::new(universe_size)
     }
 
     fn one_count(&mut self, bit_index: u32, count: u32) {
@@ -149,7 +153,7 @@ impl SparseBitVec {
 
 impl BitVec for SparseBitVec {
     fn rank1(&self, bit_index: u32) -> u32 {
-        if bit_index >= self.universe_size() {
+        if bit_index >= BitVec::universe_size(self) {
             return self.num_ones;
         }
 
@@ -207,6 +211,28 @@ impl BitVec for SparseBitVec {
 
     fn universe_size(&self) -> u32 {
         self.universe_size
+    }
+}
+
+impl MultiBitVec for SparseBitVec {
+    fn get(&self, bit_index: u32) -> u32 {
+        BitVec::get(self, bit_index)
+    }
+
+    fn rank1(&self, bit_index: u32) -> u32 {
+        BitVec::rank1(self, bit_index)
+    }
+
+    fn select1(&self, n: u32) -> Option<u32> {
+        BitVec::select1(self, n)
+    }
+
+    fn universe_size(&self) -> u32 {
+        BitVec::universe_size(self)
+    }
+
+    fn num_unique_ones(&self) -> u32 {
+        self.num_unique_ones
     }
 }
 

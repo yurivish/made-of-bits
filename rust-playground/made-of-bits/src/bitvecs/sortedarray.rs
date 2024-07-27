@@ -1,3 +1,5 @@
+use crate::bitvec::MultiBitVec;
+use crate::bitvec::MultiBitVecBuilder;
 use crate::bitvec::{BitVec, BitVecBuilder};
 
 pub struct SortedArrayBitVecBuilder {
@@ -5,19 +7,48 @@ pub struct SortedArrayBitVecBuilder {
     ones: Vec<u32>,
 }
 
-impl BitVecBuilder for SortedArrayBitVecBuilder {
-    type Target = SortedArrayBitVec;
-
+impl SortedArrayBitVecBuilder {
     fn new(universe_size: u32) -> Self {
         Self {
             universe_size,
             ones: Vec::new(),
         }
     }
+}
+
+impl BitVecBuilder for SortedArrayBitVecBuilder {
+    type Target = SortedArrayBitVec;
+
+    fn new(universe_size: u32) -> Self {
+        Self::new(universe_size)
+    }
 
     fn one(&mut self, bit_index: u32) {
+        self.one_count(bit_index, 1);
+    }
+
+    fn build(mut self) -> SortedArrayBitVec {
+        // Sort the vec before deduplicating any repeated 1-bits.
+        // The sort in `MultiBitVecBuilder::build` will be redundant
+        // but likely linear-time due to optimizations in the sorting algorithm.
+        self.ones.sort();
+        self.ones.dedup();
+        MultiBitVecBuilder::build(self)
+    }
+}
+
+impl MultiBitVecBuilder for SortedArrayBitVecBuilder {
+    type Target = SortedArrayBitVec;
+
+    fn new(universe_size: u32) -> Self {
+        Self::new(universe_size)
+    }
+
+    fn one_count(&mut self, bit_index: u32, count: u32) {
         assert!(bit_index < self.universe_size);
-        self.ones.push(bit_index);
+        for _ in 0..count {
+            self.ones.push(bit_index);
+        }
     }
 
     fn build(mut self) -> SortedArrayBitVec {
@@ -32,7 +63,6 @@ pub struct SortedArrayBitVec {
     universe_size: u32,
     num_ones: u32,
     num_unique_ones: u32,
-    num_unique_zeros: u32,
 }
 
 impl SortedArrayBitVec {
@@ -58,22 +88,11 @@ impl SortedArrayBitVec {
             universe_size,
             num_ones,
             num_unique_ones,
-            num_unique_zeros: num_zeros,
         }
     }
 
     pub(crate) fn ones(&self) -> &Box<[u32]> {
         &self.ones
-    }
-}
-
-impl SortedArrayBitVec {
-    fn num_unique_zeros(&self) -> u32 {
-        self.num_unique_zeros
-    }
-
-    fn num_unique_ones(&self) -> u32 {
-        self.num_unique_ones
     }
 }
 
@@ -92,6 +111,28 @@ impl BitVec for SortedArrayBitVec {
 
     fn universe_size(&self) -> u32 {
         self.universe_size
+    }
+}
+
+impl MultiBitVec for SortedArrayBitVec {
+    fn get(&self, bit_index: u32) -> u32 {
+        BitVec::get(self, bit_index)
+    }
+
+    fn rank1(&self, bit_index: u32) -> u32 {
+        BitVec::rank1(self, bit_index)
+    }
+
+    fn select1(&self, n: u32) -> Option<u32> {
+        BitVec::select1(self, n)
+    }
+
+    fn universe_size(&self) -> u32 {
+        BitVec::universe_size(self)
+    }
+
+    fn num_unique_ones(&self) -> u32 {
+        self.num_unique_ones
     }
 }
 

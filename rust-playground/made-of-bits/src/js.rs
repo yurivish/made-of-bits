@@ -103,5 +103,5 @@ export_bitvec!("rle_", RLEBitVecBuilder, RLEBitVec);
 export_bitvec!(
     "multi_",
     MultiBuilder<DenseBitVecBuilder>,
-    Multi<DenseBitVec>
+    Multi<DenseBitVec, false>
 );
