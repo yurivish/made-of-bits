@@ -1,3 +1,4 @@
+use crate::bitvec::MultiBitVecBuilder;
 use crate::{
     bitbuf::BitBuf,
     bits::{one_mask, partition_point},
@@ -27,8 +28,42 @@ impl<B: BitVecBuilder> BitVecBuilder for MultiBuilder<B> {
     }
 
     fn one(&mut self, bit_index: u32) {
+        self.one_count(bit_index, 1);
+    }
+
+    fn build(mut self) -> Multi<B::Target> {
+        // Sort the map keys and values in ascending order of 1-bit index
+        let mut kv: Vec<_> = self.multiplicity.into_iter().collect();
+        kv.sort_by_key(|(k, v)| *k);
+
+        // Construct a parallel array of cumulative counts
+        let mut cumulative_counts: Vec<_> = kv.into_iter().map(|(k, v)| v).collect();
+        let mut acc = 0;
+        for x in cumulative_counts.iter_mut() {
+            acc += *x;
+            *x = acc;
+        }
+
+        let occupancy = self.occupancy.build();
+        let universe_size = if acc > 0 { acc + 1 } else { 0 };
+        let multiplicity = SparseBitVec::new(cumulative_counts.into(), universe_size);
+        Multi::new(occupancy, multiplicity)
+    }
+}
+
+impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
+    type Target = Multi<B::Target>;
+
+    fn new(universe_size: u32) -> Self {
+        Self {
+            occupancy: B::new(universe_size),
+            multiplicity: BTreeMap::new(),
+        }
+    }
+
+    fn one_count(&mut self, bit_index: u32, count: u32) {
         self.occupancy.one(bit_index);
-        *self.multiplicity.entry(bit_index).or_insert(0) += 1;
+        *self.multiplicity.entry(bit_index).or_insert(0) += count;
     }
 
     fn build(mut self) -> Multi<B::Target> {

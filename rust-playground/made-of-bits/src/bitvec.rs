@@ -71,6 +71,14 @@ pub trait BitVecBuilder {
     fn build(self) -> Self::Target;
 }
 
+pub trait MultiBitVecBuilder {
+    type Target: BitVec;
+    fn new(universe_size: u32) -> Self;
+    fn one_count(&mut self, bit_index: u32, count: u32);
+    fn build(self) -> Self::Target;
+}
+
+/// Represents a multiset. 1-bits have multiplicity, but 0-bits do not.
 pub trait MultiBitVec {
     fn get(&self, bit_index: u32) -> u32;
 

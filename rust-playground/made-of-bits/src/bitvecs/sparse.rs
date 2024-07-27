@@ -1,3 +1,4 @@
+use crate::bitvec::MultiBitVecBuilder;
 use crate::{
     bitbuf::BitBuf,
     bits::{one_mask, partition_point},
@@ -22,8 +23,31 @@ impl BitVecBuilder for SparseBitVecBuilder {
     }
 
     fn one(&mut self, bit_index: u32) {
+        self.one_count(bit_index, 1);
+    }
+
+    fn build(mut self) -> SparseBitVec {
+        self.ones.sort();
+        self.ones.dedup();
+        SparseBitVec::new(self.ones.into(), self.universe_size)
+    }
+}
+
+impl MultiBitVecBuilder for SparseBitVecBuilder {
+    type Target = SparseBitVec;
+
+    fn new(universe_size: u32) -> Self {
+        Self {
+            universe_size,
+            ones: Vec::new(),
+        }
+    }
+
+    fn one_count(&mut self, bit_index: u32, count: u32) {
         assert!(bit_index < self.universe_size);
-        self.ones.push(bit_index);
+        for _ in 0..count {
+            self.ones.push(bit_index);
+        }
     }
 
     fn build(mut self) -> SparseBitVec {
