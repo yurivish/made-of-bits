@@ -8,53 +8,22 @@ use crate::{
     intbuf::IntBuf,
 };
 use std::collections::BTreeMap;
-use std::ops::BitAndAssign;
 
 pub struct MultiBuilder<B> {
     /// A BitBuf marking the positions of nonzero bits
-    // occupancy: BitBuf,
     occupancy: B,
     /// A map from 1-bit index to its multiplicity (count).
     multiplicity: BTreeMap<u32, u32>,
 }
 
-impl<B: BitVecBuilder> MultiBuilder<B> {
+impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
+    type Target = Multiplicity<B::Target, true>;
+
     fn new(universe_size: u32) -> Self {
         Self {
             occupancy: B::new(universe_size),
             multiplicity: BTreeMap::new(),
         }
-    }
-}
-
-impl<B: BitVecBuilder> BitVecBuilder for MultiBuilder<B> {
-    type Target = Multi<B::Target, false>;
-
-    fn new(universe_size: u32) -> Self {
-        Self::new(universe_size)
-    }
-
-    fn one(&mut self, bit_index: u32) {
-        self.one_count(bit_index, 1);
-    }
-
-    fn build(mut self) -> Multi<B::Target, false> {
-        // Since this is a BitVecBuilder and not a MultiBitVecBuilder, set all counts to 1,
-        // then call the MultiBitVecBuilder build method.
-        // Since one_count counts must exceed zero, all values in this map are positive and
-        // can be replaced with 1 to satisfy the requirements of a bitvector without multiplicity.
-        for x in self.multiplicity.values_mut() {
-            *x = 1;
-        }
-        MultiBitVecBuilder::build(self).to_bitvec()
-    }
-}
-
-impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
-    type Target = Multi<B::Target, true>;
-
-    fn new(universe_size: u32) -> Self {
-        Self::new(universe_size)
     }
 
     fn one_count(&mut self, bit_index: u32, count: u32) {
@@ -64,7 +33,7 @@ impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
         }
     }
 
-    fn build(mut self) -> Multi<B::Target, true> {
+    fn build(mut self) -> Multiplicity<B::Target, true> {
         // Sort the map keys and values in ascending order of 1-bit index
         let mut kv: Vec<_> = self.multiplicity.into_iter().collect();
         kv.sort_by_key(|(k, v)| *k);
@@ -80,18 +49,51 @@ impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
         let occupancy = self.occupancy.build();
         let universe_size = if acc > 0 { acc + 1 } else { 0 };
         let multiplicity = SparseBitVec::new(cumulative_counts.into(), universe_size);
-        Multi::new(occupancy, multiplicity)
+        Multiplicity::new(occupancy, multiplicity)
+    }
+}
+
+pub struct MultiBuilder2<B> {
+    /// A BitBuf marking the positions of nonzero bits
+    occupancy: B,
+}
+
+impl<B: BitVecBuilder> BitVecBuilder for MultiBuilder2<B> {
+    type Target = Multiplicity<B::Target, false>;
+
+    fn new(universe_size: u32) -> Self {
+        Self {
+            occupancy: B::new(universe_size),
+        }
+    }
+
+    fn one(&mut self, bit_index: u32) {
+        self.occupancy.one(bit_index);
+    }
+
+    fn build(mut self) -> Multiplicity<B::Target, false> {
+        let occupancy = self.occupancy.build();
+        let universe_size = if occupancy.num_ones() > 0 {
+            occupancy.num_ones() + 1
+        } else {
+            0
+        };
+        let multiplicity = SparseBitVec::new(
+            (1..=occupancy.num_ones()).collect::<Vec<_>>().into(),
+            universe_size,
+        );
+        Multiplicity::new(occupancy, multiplicity)
     }
 }
 
 #[derive(Clone)]
-pub struct Multi<T, const M: bool> {
+pub struct Multiplicity<T, const M: bool> {
     occupancy: T,
     multiplicity: SparseBitVec<false>,
     num_ones: u32,
 }
 
-impl<T: BitVec, const M: bool> Multi<T, M> {
+impl<T: BitVec, const M: bool> Multiplicity<T, M> {
     fn new(occupancy: T, multiplicity: SparseBitVec<false>) -> Self {
         let n = multiplicity.num_ones();
         let num_ones = if n == 0 {
@@ -106,9 +108,9 @@ impl<T: BitVec, const M: bool> Multi<T, M> {
         }
     }
 
-    fn to_bitvec(self) -> Multi<T, false> {
+    fn to_bitvec(self) -> Multiplicity<T, false> {
         assert!(self.num_ones == self.occupancy.num_ones());
-        Multi {
+        Multiplicity {
             occupancy: self.occupancy,
             multiplicity: self.multiplicity,
             num_ones: self.num_ones,
@@ -117,7 +119,7 @@ impl<T: BitVec, const M: bool> Multi<T, M> {
 }
 
 // These implementations work in the general case
-impl<T: BitVec, const M: bool> Multi<T, M> {
+impl<T: BitVec, const M: bool> Multiplicity<T, M> {
     fn rank1(&self, bit_index: u32) -> u32 {
         let n = self.occupancy.rank1(bit_index);
         if n == 0 {
@@ -146,7 +148,7 @@ impl<T: BitVec, const M: bool> Multi<T, M> {
 }
 
 // Implement BitVec
-impl<T: BitVec> BitVec for Multi<T, false> {
+impl<T: BitVec> BitVec for Multiplicity<T, false> {
     fn rank1(&self, bit_index: u32) -> u32 {
         self.rank1(bit_index)
     }
@@ -173,7 +175,7 @@ impl<T: BitVec> BitVec for Multi<T, false> {
 }
 
 // Implement MultiBitVec
-impl<T: BitVec> MultiBitVec for Multi<T, true> {
+impl<T: BitVec> MultiBitVec for Multiplicity<T, true> {
     fn rank1(&self, bit_index: u32) -> u32 {
         self.rank1(bit_index)
     }
@@ -201,10 +203,12 @@ mod tests {
 
     #[test]
     fn test() {
-        test_bitvec_builder::<MultiBuilder<DenseBitVecBuilder>>();
-        property_test_bitvec_builder::<MultiBuilder<DenseBitVecBuilder>>(None, None, false);
+        test_bitvec_builder::<MultiBuilder2<DenseBitVecBuilder>>();
+        property_test_bitvec_builder::<MultiBuilder2<DenseBitVecBuilder>>(None, None, false);
 
-        test_bitvec_builder::<MultiBuilder<SparseBitVecBuilder>>();
-        property_test_bitvec_builder::<MultiBuilder<SparseBitVecBuilder>>(None, None, false);
+        test_bitvec_builder::<MultiBuilder2<SparseBitVecBuilder<false>>>();
+        property_test_bitvec_builder::<MultiBuilder2<SparseBitVecBuilder<false>>>(
+            None, None, false,
+        );
     }
 }

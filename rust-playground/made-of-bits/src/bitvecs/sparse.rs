@@ -8,12 +8,12 @@ use crate::{
     intbuf::IntBuf,
 };
 
-pub struct SparseBitVecBuilder {
+pub struct SparseBitVecBuilder<const M: bool> {
     universe_size: u32,
     ones: Vec<u32>,
 }
 
-impl SparseBitVecBuilder {
+impl<const M: bool> SparseBitVecBuilder<M> {
     fn new(universe_size: u32) -> Self {
         Self {
             universe_size,
@@ -22,7 +22,7 @@ impl SparseBitVecBuilder {
     }
 }
 
-impl BitVecBuilder for SparseBitVecBuilder {
+impl BitVecBuilder for SparseBitVecBuilder<false> {
     type Target = SparseBitVec<false>;
 
     fn new(universe_size: u32) -> Self {
@@ -30,7 +30,8 @@ impl BitVecBuilder for SparseBitVecBuilder {
     }
 
     fn one(&mut self, bit_index: u32) {
-        self.one_count(bit_index, 1);
+        assert!(bit_index < self.universe_size);
+        self.ones.push(bit_index);
     }
 
     fn build(mut self) -> SparseBitVec<false> {
@@ -40,7 +41,7 @@ impl BitVecBuilder for SparseBitVecBuilder {
     }
 }
 
-impl MultiBitVecBuilder for SparseBitVecBuilder {
+impl MultiBitVecBuilder for SparseBitVecBuilder<true> {
     type Target = SparseBitVec<true>;
 
     fn new(universe_size: u32) -> Self {
@@ -262,7 +263,7 @@ mod tests {
 
     #[test]
     fn test() {
-        test_bitvec_builder::<SparseBitVecBuilder>();
-        property_test_bitvec_builder::<SparseBitVecBuilder>(None, None, false);
+        test_bitvec_builder::<SparseBitVecBuilder<false>>();
+        property_test_bitvec_builder::<SparseBitVecBuilder<false>>(None, None, false);
     }
 }

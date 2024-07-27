@@ -1,5 +1,6 @@
-use crate::bitvecs::multi::Multi;
+use crate::bitvecs::multi::Multiplicity;
 use crate::bitvecs::multi::MultiBuilder;
+use crate::bitvecs::multi::MultiBuilder2;
 use crate::bitvecs::rle::RLEBitVec;
 use crate::bitvecs::rle::RLEBitVecBuilder;
 use crate::bitvecs::sparse::SparseBitVec;
@@ -98,10 +99,10 @@ macro_rules! export_bitvec {
 
 export_bitvec!("sorted_array_", SortedArrayBitVecBuilder, SortedArrayBitVec);
 export_bitvec!("dense_", DenseBitVecBuilder, DenseBitVec);
-export_bitvec!("sparse_", SparseBitVecBuilder, SparseBitVec<false>);
+export_bitvec!("sparse_", SparseBitVecBuilder<false>, SparseBitVec<false>);
 export_bitvec!("rle_", RLEBitVecBuilder, RLEBitVec);
 export_bitvec!(
     "multi_",
-    MultiBuilder<DenseBitVecBuilder>,
-    Multi<DenseBitVec, false>
+    MultiBuilder2<DenseBitVecBuilder>,
+    Multiplicity<DenseBitVec, false>
 );
