@@ -40,14 +40,14 @@ pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
 }
 
 #[cfg(test)]
-pub(crate) fn test_bit_vec_builder<T: BitVecBuilder>()
+pub(crate) fn test_bitvvec_builder<T: BitVecBuilder>()
 where
     T::Target: UnwindSafe,
 {
     // test the empty bitvec
 
     use crate::bitvecs::sortedarray::SortedArrayBitVec;
-    test_bit_vec(T::new(0).build());
+    test_bitvec(T::new(0).build());
 
     // large enough to span many blocks
     let universe_size = BASIC_BLOCK_SIZE * 10;
@@ -60,7 +60,7 @@ where
             let mut builder = T::new(universe_size);
             builder.one(bit_index);
             let bv = builder.build();
-            test_bit_vec(bv.clone());
+            test_bitvec(bv.clone());
 
             {
                 // test against the same data in a sorted array bitvec
@@ -111,7 +111,7 @@ where
                 builder.one(bit_index_1);
                 builder.one(bit_index_2);
                 let bv = builder.build();
-                test_bit_vec(bv.clone());
+                test_bitvec(bv.clone());
 
                 {
                     // test against the same data in a sorted array bitvec
@@ -156,7 +156,7 @@ where
 }
 
 #[cfg(test)]
-pub(crate) fn test_bit_vec<T: BitVec + UnwindSafe>(bv: T) {
+pub(crate) fn test_bitvec<T: BitVec + UnwindSafe>(bv: T) {
     assert!(bv.num_unique_zeros() + bv.num_unique_ones() == bv.universe_size());
     assert!(bv.num_zeros() + bv.num_ones() >= bv.universe_size());
 
@@ -223,8 +223,8 @@ pub(crate) fn test_bit_vec<T: BitVec + UnwindSafe>(bv: T) {
     }
 }
 
-/// Generate bitvectors with arbitrary densities of 1-bits and run them through our basic test_bit_vec test function.
-pub(crate) fn test_bit_vec_builder_arbtest<T: BitVecBuilder>(
+/// Generate bitvectors with arbitrary densities of 1-bits and run them through our basic test_bitvec test function.
+pub(crate) fn test_bitvec_builder_arbtest<T: BitVecBuilder>(
     seed: Option<u64>,
     budget_ms: Option<u64>,
     minimize: bool,
@@ -263,7 +263,7 @@ pub(crate) fn test_bit_vec_builder_arbtest<T: BitVecBuilder>(
         let bv = builder.build();
         let baseline = baseline_builder.build();
         test_equal(baseline, bv.clone());
-        test_bit_vec(bv);
+        test_bitvec(bv);
         return Ok(());
     }
 
