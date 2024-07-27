@@ -8,37 +8,6 @@ use std::{collections::BTreeMap, panic::AssertUnwindSafe};
 use testresult::TestResult;
 
 #[cfg(test)]
-pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
-    // hack around the weird support for multiplicity for now
-    assert_eq!(a.num_zeros(), b.num_zeros());
-    assert_eq!(a.num_ones(), b.num_ones());
-    assert_eq!(a.num_unique_zeros(), b.num_unique_zeros());
-    assert_eq!(a.num_unique_ones(), b.num_unique_ones());
-    assert_eq!(a.universe_size(), b.universe_size());
-    // assert_eq!(a.has_multiplicity(), b.has_multiplicity());
-
-    for i in 0..a.universe_size() {
-        assert_eq!(a.rank1(i), b.rank1(i));
-    }
-
-    if a.has_rank0() && b.has_rank0() {
-        for i in 0..a.universe_size() {
-            assert_eq!(a.rank0(i), b.rank0(i));
-        }
-    };
-
-    for n in 0..a.num_ones() {
-        assert_eq!(a.select1(n), b.select1(n));
-    }
-
-    if a.has_select0() && b.has_select0() {
-        for n in 0..a.num_zeros() {
-            assert_eq!(a.select0(n), b.select0(n));
-        }
-    };
-}
-
-#[cfg(test)]
 pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
     color_backtrace::install();
 
@@ -149,6 +118,37 @@ pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
             }
         }
     }
+}
+
+#[cfg(test)]
+pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
+    // hack around the weird support for multiplicity for now
+    assert_eq!(a.num_zeros(), b.num_zeros());
+    assert_eq!(a.num_ones(), b.num_ones());
+    assert_eq!(a.num_unique_zeros(), b.num_unique_zeros());
+    assert_eq!(a.num_unique_ones(), b.num_unique_ones());
+    assert_eq!(a.universe_size(), b.universe_size());
+    // assert_eq!(a.has_multiplicity(), b.has_multiplicity());
+
+    for i in 0..a.universe_size() {
+        assert_eq!(a.rank1(i), b.rank1(i));
+    }
+
+    if a.has_rank0() && b.has_rank0() {
+        for i in 0..a.universe_size() {
+            assert_eq!(a.rank0(i), b.rank0(i));
+        }
+    };
+
+    for n in 0..a.num_ones() {
+        assert_eq!(a.select1(n), b.select1(n));
+    }
+
+    if a.has_select0() && b.has_select0() {
+        for n in 0..a.num_zeros() {
+            assert_eq!(a.select0(n), b.select0(n));
+        }
+    };
 }
 
 #[cfg(test)]
