@@ -109,6 +109,10 @@ impl SparseBitVec {
         }
     }
 
+    fn num_unique_ones(&self) -> u32 {
+        self.num_unique_ones
+    }
+
     // todo: document this and remainder
     fn quotient(&self, x: u32) -> u32 {
         return x >> self.low_bit_width;
@@ -179,14 +183,6 @@ impl BitVec for SparseBitVec {
 
     fn universe_size(&self) -> u32 {
         self.universe_size
-    }
-
-    fn num_unique_zeros(&self) -> u32 {
-        self.universe_size() - self.num_unique_ones()
-    }
-
-    fn num_unique_ones(&self) -> u32 {
-        self.num_unique_ones
     }
 }
 

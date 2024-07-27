@@ -8,15 +8,15 @@ use crate::{
 use std::collections::BTreeMap;
 use std::ops::BitAndAssign;
 
-pub struct MultiBitVecBuilder {
+pub struct MultiBuilder {
     /// A BitBuf marking the positions of nonzero bits
     occupancy: BitBuf,
     /// A map from 1-bit index to its multiplicity (count).
     ones: BTreeMap<u32, u32>,
 }
 
-impl BitVecBuilder for MultiBitVecBuilder {
-    type Target = MultiBitVec;
+impl BitVecBuilder for MultiBuilder {
+    type Target = Multi;
 
     fn new(universe_size: u32) -> Self {
         Self {
@@ -31,7 +31,7 @@ impl BitVecBuilder for MultiBitVecBuilder {
         *self.ones.entry(bit_index).or_insert(0) += 1;
     }
 
-    fn build(mut self) -> MultiBitVec {
+    fn build(mut self) -> Multi {
         // Sort the map keys and values in ascending order of 1-bit index
         // Note: We could instead iterate over the set bits of `occupancy` in ascending order,
         // resulting in a linear-time "sort".
@@ -49,20 +49,29 @@ impl BitVecBuilder for MultiBitVecBuilder {
         let occupancy = DenseBitVec::new(self.occupancy, 10, 10);
         let universe_size = if acc > 0 { acc + 1 } else { 0 };
         let multiplicity = SparseBitVec::new(cumulative_counts.into(), universe_size);
-        MultiBitVec::new(occupancy, multiplicity)
+        Multi::new(occupancy, multiplicity)
     }
 }
 
-// todo
-
 #[derive(Clone)]
-pub struct MultiBitVec {
+pub struct Multi {
+    // todo: parameterize?
     occupancy: DenseBitVec,
     multiplicity: SparseBitVec,
     num_ones: u32,
 }
 
-impl MultiBitVec {
+impl Multi {
+    fn num_unique_zeros(&self) -> u32 {
+        self.occupancy.num_zeros()
+    }
+
+    fn num_unique_ones(&self) -> u32 {
+        self.occupancy.num_ones()
+    }
+}
+
+impl Multi {
     fn new(occupancy: DenseBitVec, multiplicity: SparseBitVec) -> Self {
         let n = multiplicity.num_ones();
         let num_ones = if n == 0 {
@@ -78,7 +87,7 @@ impl MultiBitVec {
     }
 }
 
-impl BitVec for MultiBitVec {
+impl BitVec for Multi {
     fn rank1(&self, bit_index: u32) -> u32 {
         let n = self.occupancy.rank1(bit_index);
         if n == 0 {
@@ -108,14 +117,6 @@ impl BitVec for MultiBitVec {
     fn universe_size(&self) -> u32 {
         self.occupancy.universe_size()
     }
-
-    fn num_unique_zeros(&self) -> u32 {
-        self.occupancy.num_zeros()
-    }
-
-    fn num_unique_ones(&self) -> u32 {
-        self.occupancy.num_ones()
-    }
 }
 
 #[cfg(test)]
@@ -125,7 +126,7 @@ mod tests {
 
     #[test]
     fn test() {
-        test_bitvec_builder::<MultiBitVecBuilder>();
-        property_test_bitvec_builder::<MultiBitVecBuilder>(None, None, false);
+        test_bitvec_builder::<MultiBuilder>();
+        property_test_bitvec_builder::<MultiBuilder>(None, None, false);
     }
 }

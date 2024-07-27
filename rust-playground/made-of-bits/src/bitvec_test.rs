@@ -142,8 +142,8 @@ pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
     // hack around the weird support for multiplicity for now
     assert_eq!(a.num_zeros(), b.num_zeros());
     assert_eq!(a.num_ones(), b.num_ones());
-    assert_eq!(a.num_unique_zeros(), b.num_unique_zeros());
-    assert_eq!(a.num_unique_ones(), b.num_unique_ones());
+    // assert_eq!(a.num_unique_zeros(), b.num_unique_zeros());
+    // assert_eq!(a.num_unique_ones(), b.num_unique_ones());
     assert_eq!(a.universe_size(), b.universe_size());
     // assert_eq!(a.has_multiplicity(), b.has_multiplicity());
 
@@ -169,7 +169,7 @@ pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
 }
 
 pub(crate) fn test_bitvec<T: BitVec>(bv: T) {
-    assert!(bv.num_unique_zeros() + bv.num_unique_ones() == bv.universe_size());
+    // assert!(bv.num_unique_zeros() + bv.num_unique_ones() == bv.universe_size());
     assert!(bv.num_zeros() + bv.num_ones() >= bv.universe_size());
 
     // Rank before any element should be zero
@@ -185,13 +185,13 @@ pub(crate) fn test_bitvec<T: BitVec>(bv: T) {
     for n in 0..bv.num_ones() {
         // Verify that rank1(select1(n)) === n
         let select1 = bv.select1(n).unwrap();
-        if !bv.has_multiplicity() {
-            assert!(bv.rank1(select1) == n);
-            assert!(bv.rank1(select1 + 1) == n + 1);
-        } else {
-            assert!(bv.rank1(select1) <= n);
-            assert!(bv.rank1(select1 + 1) <= n + bv.get(select1));
-        }
+        // if !bv.has_multiplicity() {
+        assert!(bv.rank1(select1) == n);
+        assert!(bv.rank1(select1 + 1) == n + 1);
+        // } else {
+        //     assert!(bv.rank1(select1) <= n);
+        //     assert!(bv.rank1(select1 + 1) <= n + bv.get(select1));
+        // }
 
         // the rank at a next position is the rank at the current position,
         // plus the number of ones at the current position (given by `get`).
@@ -211,7 +211,7 @@ pub(crate) fn test_bitvec<T: BitVec>(bv: T) {
     // if !bv.has_multiplicity() {
     // Perform some exact checks when we know that multiplicity is not in play
     assert!(bv.num_zeros() + bv.num_ones() == bv.universe_size());
-    assert!(bv.num_unique_zeros() + bv.num_unique_ones() == bv.universe_size());
+    // assert!(bv.num_unique_zeros() + bv.num_unique_ones() == bv.universe_size());
     // if bv.has_select0() {
     assert_eq!(bv.select0(bv.num_zeros()), None);
     // }

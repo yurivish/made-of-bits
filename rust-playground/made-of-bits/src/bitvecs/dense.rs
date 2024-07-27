@@ -362,14 +362,6 @@ impl BitVec for DenseBitVec {
         debug_assert!(self.num_ones + self.num_zeros == self.buf.universe_size());
         self.buf.universe_size()
     }
-
-    fn num_unique_ones(&self) -> u32 {
-        self.num_ones()
-    }
-
-    fn num_unique_zeros(&self) -> u32 {
-        self.num_zeros
-    }
 }
 
 #[cfg(test)]

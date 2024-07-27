@@ -5,7 +5,7 @@ pub trait BitVec: Clone {
     /// Note: This is rather inefficient since it does two rank calls,
     /// each of which takes O(log(n)) time.
     ///
-    /// In the presence of multiplicity, returns the count of the bit.
+    /// The comparable method on MultiBitVec the presence of multiplicity, returns the count of the bit.
     fn get(&self, bit_index: u32) -> u32 {
         assert!(
             bit_index < self.universe_size(),
@@ -22,9 +22,8 @@ pub trait BitVec: Clone {
 
     /// Return the number of 0-bits below `bit_index`
     fn rank0(&self, bit_index: u32) -> u32 {
-        // The implementation below assumes no multiplicity;
-        // otherwise, subtracting rank1 from the bit index can go negative.
-        assert!(!self.has_multiplicity());
+        // The implementation below assumes no multiplicity; otherwise,
+        // subtracting rank1 from the bit index can go negative.
         if bit_index >= self.universe_size() {
             self.num_zeros()
         } else {
@@ -55,20 +54,11 @@ pub trait BitVec: Clone {
         Some(bit_index as u32)
     }
 
-    fn has_multiplicity(&self) -> bool {
-        self.num_ones() > self.num_unique_ones()
-    }
-
-    fn num_ones(&self) -> u32;
-    // todo: remove this?
-    fn num_zeros(&self) -> u32 {
-        self.num_unique_zeros()
-    }
-
     fn universe_size(&self) -> u32;
-
-    fn num_unique_zeros(&self) -> u32;
-    fn num_unique_ones(&self) -> u32;
+    fn num_ones(&self) -> u32;
+    fn num_zeros(&self) -> u32 {
+        self.universe_size() - self.num_ones()
+    }
 }
 
 pub trait BitVecBuilder {
@@ -79,4 +69,17 @@ pub trait BitVecBuilder {
     /// 1-bits may be added in any order.
     fn one(&mut self, bit_index: u32);
     fn build(self) -> Self::Target;
+}
+
+pub trait MultiBitVec {
+    fn get(&self, bit_index: u32) -> u32;
+
+    fn rank1(&self, bit_index: u32) -> u32;
+    fn select1(&self, n: u32) -> Option<u32>;
+
+    fn universe_size(&self) -> u32;
+    fn num_unique_ones(&self) -> u32;
+    fn num_unique_zeros(&self) -> u32 {
+        self.universe_size() - self.num_unique_ones()
+    }
 }

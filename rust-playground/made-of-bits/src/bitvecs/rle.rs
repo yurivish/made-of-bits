@@ -227,14 +227,6 @@ impl BitVec for RLEBitVec {
     fn universe_size(&self) -> u32 {
         self.num_zeros + self.num_ones
     }
-
-    fn num_unique_zeros(&self) -> u32 {
-        self.num_zeros
-    }
-
-    fn num_unique_ones(&self) -> u32 {
-        self.num_ones
-    }
 }
 
 #[cfg(test)]

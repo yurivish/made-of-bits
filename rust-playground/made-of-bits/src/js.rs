@@ -1,5 +1,5 @@
-use crate::bitvecs::multi::MultiBitVec;
-use crate::bitvecs::multi::MultiBitVecBuilder;
+use crate::bitvecs::multi::Multi;
+use crate::bitvecs::multi::MultiBuilder;
 use crate::bitvecs::rle::RLEBitVec;
 use crate::bitvecs::rle::RLEBitVecBuilder;
 use crate::bitvecs::sparse::SparseBitVec;
@@ -65,16 +65,6 @@ macro_rules! export_bitvec {
         }
 
         #[js(name_prefix = $name_prefix)]
-        fn num_unique_zeros(x: &$bitvec_type) -> u32 {
-            x.num_unique_zeros()
-        }
-
-        #[js(name_prefix = $name_prefix)]
-        fn num_unique_ones(x: &$bitvec_type) -> u32 {
-            x.num_unique_ones()
-        }
-
-        #[js(name_prefix = $name_prefix)]
         fn get(x: &$bitvec_type, bit_index: u32) -> u32 {
             x.get(bit_index)
         }
@@ -110,4 +100,4 @@ export_bitvec!("sorted_array_", SortedArrayBitVecBuilder, SortedArrayBitVec);
 export_bitvec!("dense_", DenseBitVecBuilder, DenseBitVec);
 export_bitvec!("sparse_", SparseBitVecBuilder, SparseBitVec);
 export_bitvec!("rle_", RLEBitVecBuilder, RLEBitVec);
-export_bitvec!("multi_", MultiBitVecBuilder, MultiBitVec);
+export_bitvec!("multi_", MultiBuilder, Multi);
