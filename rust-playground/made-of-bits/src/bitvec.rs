@@ -45,7 +45,7 @@ pub trait BitVec: Clone {
 
     // Return the bit index of the k-th occurrence of a 0-bit
     fn select0(&self, n: u32) -> Option<u32> {
-        assert!(self.has_select0());
+        // assert!(self.has_select0());
         if n >= self.num_zeros() {
             return None;
         }
@@ -69,29 +69,14 @@ pub trait BitVec: Clone {
 
     fn num_unique_zeros(&self) -> u32;
     fn num_unique_ones(&self) -> u32;
-
-    /// Some `BitVec`s with multiplicity disallow 0-based queries because
-    /// the representation does not support them. Multiplicity is a dynamic
-    /// property so we use instance methods.
-    fn has_rank0(&self) -> bool {
-        true
-    }
-
-    fn has_select0(&self) -> bool {
-        true
-    }
-
-    fn supports_multiplicity() -> bool {
-        true
-    }
 }
 
 pub trait BitVecBuilder {
     type Target: BitVec;
     fn new(universe_size: u32) -> Self;
-    fn one_count(&mut self, bit_index: u32, count: u32);
-    fn one(&mut self, bit_index: u32) {
-        self.one_count(bit_index, 1);
-    }
+    /// Set a 1-bit in this bit vector.
+    /// Idempotent; the same bit may be set more than once without effect.
+    /// 1-bits may be added in any order.
+    fn one(&mut self, bit_index: u32);
     fn build(self) -> Self::Target;
 }

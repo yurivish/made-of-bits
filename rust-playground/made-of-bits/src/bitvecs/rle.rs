@@ -1,35 +1,14 @@
+use std::collections::HashSet;
+
 use crate::{
     bits::partition_point,
     bitvec::{BitVec, BitVecBuilder},
     bitvecs::sparse::SparseBitVec,
 };
 
-// todo
-// - consider implementing aligned rank0 and rank1, with debug asserts
-/*
-pub fn aligned_rank0(&self, index: Ones) -> Ones {
-    if index >= self.len {
-        return self.num_zeros;
-    };
-
-    // Number of complete 01-runs up to virtual index i
-    let j = self.zo.rank1(index);
-
-    // Number of zeros preceding the (aligned) index i
-    self.z.select1(j + Ones::one())
-}
-
-pub fn aligned_rank1(&self, index: Ones) -> Ones {
-    if index >= self.len {
-        return self.num_ones;
-    };
-    index - self.aligned_rank0(index) + Ones::one()
-}
- */
-
 pub struct RLEBitVecBuilder {
     universe_size: u32,
-    ones: Vec<u32>,
+    ones: HashSet<u32>,
 }
 
 impl BitVecBuilder for RLEBitVecBuilder {
@@ -38,26 +17,21 @@ impl BitVecBuilder for RLEBitVecBuilder {
     fn new(universe_size: u32) -> Self {
         Self {
             universe_size,
-            ones: Vec::new(),
+            ones: HashSet::new(),
         }
     }
 
-    fn one_count(&mut self, bit_index: u32, count: u32) {
+    fn one(&mut self, bit_index: u32) {
         assert!(bit_index < self.universe_size);
-        assert!(count == 1);
-        if let Some(prev) = self.ones.last() {
-            assert!(bit_index > *prev);
-        }
-        for _ in 0..count {
-            self.ones.push(bit_index);
-        }
+        self.ones.insert(bit_index);
     }
 
-    fn build(mut self) -> RLEBitVec {
-        self.ones.sort();
-        let mut b = RLERunBuilder::new();
+    fn build(self) -> RLEBitVec {
+        let mut ones = self.ones.into_iter().collect::<Vec<_>>();
+        ones.sort();
+        let mut b = RLEBitVecRunBuilder::new();
         let mut prev = u32::MAX;
-        for &cur in &self.ones {
+        for cur in ones {
             let num_preceding_zeros = cur.wrapping_sub(prev) - 1;
             b.run(num_preceding_zeros, 1);
             prev = cur;
@@ -70,14 +44,14 @@ impl BitVecBuilder for RLEBitVecBuilder {
 }
 
 // Run-specific bitvector builder. Does not implement the BitVecBuilder interface.
-struct RLERunBuilder {
+struct RLEBitVecRunBuilder {
     z: Vec<u32>,
     zo: Vec<u32>,
     num_zeros: u32,
     num_ones: u32,
 }
 
-impl RLERunBuilder {
+impl RLEBitVecRunBuilder {
     fn new() -> Self {
         Self {
             z: Vec::new(),
@@ -144,6 +118,30 @@ pub struct RLEBitVec {
     zo: SparseBitVec,
     num_zeros: u32,
     num_ones: u32,
+}
+
+impl RLEBitVec {
+    // TODO: Document (and debug_assert) the invariants of these functions.
+    // They are more efficient versions of rank0 and rank1 that take advantage of the fact
+    // that the queries happen precisely on run boundaries.
+    pub fn aligned_rank0(&self, bit_index: u32) -> u32 {
+        if bit_index >= self.universe_size() {
+            return self.num_zeros;
+        };
+
+        // Number of complete 01-runs up to virtual index i
+        let j = self.zo.rank1(bit_index);
+
+        // Number of zeros preceding the (aligned) index i
+        self.z.select1(j + 1).unwrap()
+    }
+
+    pub fn aligned_rank1(&self, bit_index: u32) -> u32 {
+        if bit_index >= self.universe_size() {
+            return self.num_ones;
+        };
+        bit_index - self.aligned_rank0(bit_index) + 1
+    }
 }
 
 impl BitVec for RLEBitVec {
@@ -236,10 +234,6 @@ impl BitVec for RLEBitVec {
 
     fn num_unique_ones(&self) -> u32 {
         self.num_ones
-    }
-
-    fn supports_multiplicity() -> bool {
-        false
     }
 }
 

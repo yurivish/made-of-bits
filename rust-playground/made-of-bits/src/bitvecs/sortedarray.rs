@@ -15,11 +15,9 @@ impl BitVecBuilder for SortedArrayBitVecBuilder {
         }
     }
 
-    fn one_count(&mut self, bit_index: u32, count: u32) {
+    fn one(&mut self, bit_index: u32) {
         assert!(bit_index < self.universe_size);
-        for _ in 0..count {
-            self.ones.push(bit_index);
-        }
+        self.ones.push(bit_index);
     }
 
     fn build(mut self) -> SortedArrayBitVec {
@@ -42,7 +40,7 @@ impl SortedArrayBitVec {
         let mut num_unique_ones = 0;
         let mut prev = None;
 
-        for &cur in &ones {
+        for cur in ones.iter().copied() {
             let same = prev == Some(cur);
             num_unique_ones += if same { 0 } else { 1 };
             if let Some(prev) = prev {
@@ -92,18 +90,6 @@ impl BitVec for SortedArrayBitVec {
 
     fn num_unique_ones(&self) -> u32 {
         self.num_unique_ones
-    }
-
-    fn has_rank0(&self) -> bool {
-        !self.has_multiplicity()
-    }
-
-    fn has_select0(&self) -> bool {
-        !self.has_multiplicity()
-    }
-
-    fn supports_multiplicity() -> bool {
-        true
     }
 }
 

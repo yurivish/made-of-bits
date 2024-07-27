@@ -9,8 +9,9 @@ use std::collections::BTreeMap;
 use std::ops::BitAndAssign;
 
 pub struct MultiBitVecBuilder {
-    buf: BitBuf,
-    // Stores a mal from 1-bit index to its multiplicity (count).
+    /// A BitBuf marking the positions of nonzero bits
+    occupancy: BitBuf,
+    /// A map from 1-bit index to its multiplicity (count).
     ones: BTreeMap<u32, u32>,
 }
 
@@ -19,23 +20,20 @@ impl BitVecBuilder for MultiBitVecBuilder {
 
     fn new(universe_size: u32) -> Self {
         Self {
-            buf: BitBuf::new(universe_size),
+            occupancy: BitBuf::new(universe_size),
             ones: BTreeMap::new(),
         }
     }
 
-    fn one_count(&mut self, bit_index: u32, count: u32) {
-        if count == 0 {
-            return;
-        }
-        assert!(bit_index < self.buf.universe_size());
-        self.buf.set_one(bit_index);
-        *self.ones.entry(bit_index).or_insert(0) += count;
+    fn one(&mut self, bit_index: u32) {
+        assert!(bit_index < self.occupancy.universe_size());
+        self.occupancy.set_one(bit_index);
+        *self.ones.entry(bit_index).or_insert(0) += 1;
     }
 
     fn build(mut self) -> MultiBitVec {
         // Sort the map keys and values in ascending order of 1-bit index
-        // Note: We could instead iterate over the set bits of `buf` in ascending order,
+        // Note: We could instead iterate over the set bits of `occupancy` in ascending order,
         // resulting in a linear-time "sort".
         let mut kv: Vec<_> = self.ones.into_iter().collect();
         kv.sort_by_key(|(k, v)| *k);
@@ -48,7 +46,7 @@ impl BitVecBuilder for MultiBitVecBuilder {
             *x = acc;
         }
 
-        let occupancy = DenseBitVec::new(self.buf, 10, 10);
+        let occupancy = DenseBitVec::new(self.occupancy, 10, 10);
         let universe_size = if acc > 0 { acc + 1 } else { 0 };
         let multiplicity = SparseBitVec::new(cumulative_counts.into(), universe_size);
         MultiBitVec::new(occupancy, multiplicity)
@@ -117,19 +115,6 @@ impl BitVec for MultiBitVec {
 
     fn num_unique_ones(&self) -> u32 {
         self.occupancy.num_ones()
-    }
-
-    fn get(&self, bit_index: u32) -> u32 {
-        assert!(bit_index < self.universe_size());
-        self.rank1(bit_index + 1) - self.rank1(bit_index)
-    }
-
-    fn has_rank0(&self) -> bool {
-        true
-    }
-
-    fn has_select0(&self) -> bool {
-        !self.has_multiplicity()
     }
 }
 

@@ -24,21 +24,15 @@ impl BitVecBuilder for DenseBitVecBuilder {
         }
     }
 
-    fn one_count(&mut self, bit_index: u32, count: u32) {
-        if count == 0 {
-            return;
-        }
-
-        assert!(bit_index < self.buf.universe_size());
-        // assert!(count == 1, "each 1-bit should be set only once");
-        // assert!(self.buf.get(bit_index) == 0, "each 1-bit should be set only once");
-        self.buf.set_one(bit_index);
-    }
-
     fn build(mut self) -> DenseBitVec {
         // todo: configurable sample rates
         // todo: compress to padded bit buf if favorable?
         DenseBitVec::new(self.buf, 10, 10)
+    }
+
+    fn one(&mut self, bit_index: u32) {
+        assert!(bit_index < self.buf.universe_size());
+        self.buf.set_one(bit_index);
     }
 }
 
@@ -375,10 +369,6 @@ impl BitVec for DenseBitVec {
 
     fn num_unique_zeros(&self) -> u32 {
         self.num_zeros
-    }
-
-    fn supports_multiplicity() -> bool {
-        false
     }
 }
 

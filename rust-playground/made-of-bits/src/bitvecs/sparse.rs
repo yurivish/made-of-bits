@@ -21,15 +21,9 @@ impl BitVecBuilder for SparseBitVecBuilder {
         }
     }
 
-    fn one_count(&mut self, bit_index: u32, count: u32) {
-        if count == 0 {
-            return;
-        }
-
+    fn one(&mut self, bit_index: u32) {
         assert!(bit_index < self.universe_size);
-        for _ in 0..count {
-            self.ones.push(bit_index);
-        }
+        self.ones.push(bit_index);
     }
 
     fn build(mut self) -> SparseBitVec {
@@ -193,14 +187,6 @@ impl BitVec for SparseBitVec {
 
     fn num_unique_ones(&self) -> u32 {
         self.num_unique_ones
-    }
-
-    fn has_rank0(&self) -> bool {
-        !self.has_multiplicity()
-    }
-
-    fn has_select0(&self) -> bool {
-        !self.has_multiplicity()
     }
 }
 

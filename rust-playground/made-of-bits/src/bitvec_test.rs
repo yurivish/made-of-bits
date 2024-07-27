@@ -16,6 +16,10 @@ use testresult::TestResult;
 // ) {
 // }
 
+// pub(crate) fn test_bitvec<T: BitVec>() {
+
+// }
+
 pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
     // test the empty bitvec
     test_bitvec(T::new(0).build());
@@ -61,25 +65,25 @@ pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
             assert_eq!(bv.rank0(1_000_000), bv.universe_size() - 1);
 
             // select0
-            if bv.has_select0() {
-                if bit_index == 0 {
-                    assert_eq!(bv.select0(0), Some(1));
-                } else {
-                    assert_eq!(bv.select0(0), Some(0));
-                    assert_eq!(bv.select0(bit_index - 1), Some(bit_index - 1));
-                }
+            // if bv.has_select0() {
+            if bit_index == 0 {
+                assert_eq!(bv.select0(0), Some(1));
+            } else {
+                assert_eq!(bv.select0(0), Some(0));
+                assert_eq!(bv.select0(bit_index - 1), Some(bit_index - 1));
             }
+            // }
 
             if bit_index == bv.universe_size() - 1 {
                 // if we're at the final index, there is no corresponding 0- or 1-bit
-                if bv.has_select0() {
-                    assert_eq!(bv.select0(bit_index), None);
-                }
+                // if bv.has_select0() {
+                assert_eq!(bv.select0(bit_index), None);
+                // }
                 assert_eq!(bv.select1(bit_index), None);
             } else {
-                if bv.has_select0() {
-                    assert_eq!(bv.select0(bit_index), Some(bit_index + 1));
-                }
+                // if bv.has_select0() {
+                assert_eq!(bv.select0(bit_index), Some(bit_index + 1));
+                // }
             }
 
             // select1
@@ -117,16 +121,13 @@ pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
                 assert_eq!(bv.rank0(1_000_000), bv.universe_size() - 2);
 
                 // select0
-                if bv.has_select0() {
-                    // with 2 bits the edge cases are complex to express, so just test the first element
-                    assert_eq!(
-                        bv.select0(0),
-                        Some(
-                            (bit_index_1 == 0) as u32
-                                + (bit_index_1 == 0 && bit_index_2 == 1) as u32
-                        )
-                    );
-                }
+                // if bv.has_select0() {
+                // with 2 bits the edge cases are complex to express, so just test the first element
+                assert_eq!(
+                    bv.select0(0),
+                    Some((bit_index_1 == 0) as u32 + (bit_index_1 == 0 && bit_index_2 == 1) as u32)
+                );
+                // }
 
                 // select1
                 assert_eq!(bv.select1(0), Some(bit_index_1));
@@ -150,21 +151,21 @@ pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
         assert_eq!(a.rank1(i), b.rank1(i));
     }
 
-    if a.has_rank0() && b.has_rank0() {
-        for i in 0..a.universe_size() {
-            assert_eq!(a.rank0(i), b.rank0(i));
-        }
-    };
+    // if a.has_rank0() && b.has_rank0() {
+    for i in 0..a.universe_size() {
+        assert_eq!(a.rank0(i), b.rank0(i));
+    }
+    // };
 
     for n in 0..a.num_ones() {
         assert_eq!(a.select1(n), b.select1(n));
     }
 
-    if a.has_select0() && b.has_select0() {
-        for n in 0..a.num_zeros() {
-            assert_eq!(a.select0(n), b.select0(n));
-        }
-    };
+    // if a.has_select0() && b.has_select0() {
+    for n in 0..a.num_zeros() {
+        assert_eq!(a.select0(n), b.select0(n));
+    }
+    // };
 }
 
 pub(crate) fn test_bitvec<T: BitVec>(bv: T) {
@@ -175,10 +176,10 @@ pub(crate) fn test_bitvec<T: BitVec>(bv: T) {
     assert_eq!(bv.rank1(0), 0);
     assert_eq!(bv.rank1(bv.num_zeros() + bv.num_ones() + 1), bv.num_ones());
 
-    if bv.has_rank0() {
-        assert_eq!(bv.rank0(0), 0);
-        assert_eq!(bv.rank0(bv.num_zeros() + bv.num_ones() + 1), bv.num_zeros());
-    }
+    // if bv.has_rank0() {
+    assert_eq!(bv.rank0(0), 0);
+    assert_eq!(bv.rank0(bv.num_zeros() + bv.num_ones() + 1), bv.num_zeros());
+    // }
 
     // select1
     for n in 0..bv.num_ones() {
@@ -197,25 +198,25 @@ pub(crate) fn test_bitvec<T: BitVec>(bv: T) {
         assert!(bv.rank1(select1 + 1) == bv.rank1(select1) + bv.get(select1));
     }
 
-    if bv.has_rank0() && bv.has_select0() {
-        // select0
-        for n in 0..bv.num_zeros() {
-            // Verify that rank0(select0(n)) === n
-            let select0 = bv.select0(n).unwrap();
-            assert!(bv.rank0(select0) == n);
-            assert!(bv.rank0(select0 + 1) == n + 1);
-        }
+    // if bv.has_rank0() && bv.has_select0() {
+    // select0
+    for n in 0..bv.num_zeros() {
+        // Verify that rank0(select0(n)) === n
+        let select0 = bv.select0(n).unwrap();
+        assert!(bv.rank0(select0) == n);
+        assert!(bv.rank0(select0 + 1) == n + 1);
     }
+    // }
 
-    if !bv.has_multiplicity() {
-        // Perform some exact checks when we know that multiplicity is not in play
-        assert!(bv.num_zeros() + bv.num_ones() == bv.universe_size());
-        assert!(bv.num_unique_zeros() + bv.num_unique_ones() == bv.universe_size());
-        if bv.has_select0() {
-            assert_eq!(bv.select0(bv.num_zeros()), None);
-        }
-        assert_eq!(bv.select1(bv.num_ones()), None);
-    }
+    // if !bv.has_multiplicity() {
+    // Perform some exact checks when we know that multiplicity is not in play
+    assert!(bv.num_zeros() + bv.num_ones() == bv.universe_size());
+    assert!(bv.num_unique_zeros() + bv.num_unique_ones() == bv.universe_size());
+    // if bv.has_select0() {
+    assert_eq!(bv.select0(bv.num_zeros()), None);
+    // }
+    assert_eq!(bv.select1(bv.num_ones()), None);
+    // }
 
     {
         // Check `get` behavior for all valid indices using a map from index -> count
@@ -249,20 +250,23 @@ pub(crate) fn property_test_bitvec_builder<T: BitVecBuilder>(
         // test against the same data in a sorted array bitvec
         let mut baseline_builder = SortedArrayBitVecBuilder::new(universe_size);
         // construct with multiplicity some of the time
-        let with_multiplicity = if T::Target::supports_multiplicity() {
-            u.ratio(1, 3)?
-        } else {
-            false
-        };
+        let with_multiplicity = false;
+        // let with_multiplicity = if T::Target::supports_multiplicity() {
+        // false // TODO  u.ratio(1, 3)?
+        // } else {
+        // false
+        // };
         for i in 0..universe_size {
             if u.int_in_range(0..=100)? < ones_percent {
-                let count = if with_multiplicity {
-                    u.int_in_range(0..=10)?
+                if with_multiplicity {
+                    let count = u.int_in_range(0..=10)?;
+                    // todo
+                    // b.one_count(i, count);
+                    // baseline_builder.one_count(i, count);
                 } else {
-                    1
+                    b.one(i);
+                    baseline_builder.one(i);
                 };
-                b.one_count(i, count);
-                baseline_builder.one_count(i, count);
             }
         }
         let bv = b.build();
