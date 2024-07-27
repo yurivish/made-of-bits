@@ -12,6 +12,10 @@ use to_js::{allocate, js, to_owned};
 
 use crate::bitvecs::dense::{DenseBitVec, DenseBitVecBuilder};
 
+/// This macro takes as arguments a function name prefix (eg. "dense_"),
+/// a BitVecBuilder type name (eg. DenseBitVecBuilder), and a BitVec
+/// type name (eg. DenseBitVec), and builds a set of to_js exports for
+/// the builder and bit vector methods.
 macro_rules! export_bitvec {
     ($name_prefix:expr, $builder_type:ident, $bitvec_type:ident) => {
         // BitVecBuilder

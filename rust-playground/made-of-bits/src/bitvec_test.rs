@@ -7,7 +7,15 @@ use crate::{
 use std::{collections::BTreeMap, panic::AssertUnwindSafe};
 use testresult::TestResult;
 
-#[cfg(test)]
+// pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {}
+
+// pub(crate) fn property_test_bitvec_builder<T: BitVecBuilder>(
+//     seed: Option<u64>,
+//     budget_ms: Option<u64>,
+//     minimize: bool,
+// ) {
+// }
+
 pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
     // test the empty bitvec
     test_bitvec(T::new(0).build());
