@@ -51,7 +51,6 @@ pub struct SparseBitVec {
     low_bit_width: u32,
     low_mask: u32,
     universe_size: u32,
-    num_zeros: u32, // todo: remove?
     num_unique_ones: u32,
 }
 
@@ -107,14 +106,12 @@ impl SparseBitVec {
             low.push(remainder);
         }
 
-        let num_zeros = universe_size - num_unique_ones;
         Self {
             high: DenseBitVec::new(high, 10, 10),
             low,
             low_bit_width,
             low_mask,
             num_ones,
-            num_zeros,
             num_unique_ones,
             universe_size,
         }
