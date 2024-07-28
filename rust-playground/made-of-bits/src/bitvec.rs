@@ -2,9 +2,6 @@ use std::collections::HashSet;
 
 use crate::bits::partition_point;
 
-// a BitVec is always a MultiBitVec
-// but a MultiBitVec is not (always) a BitVec
-
 pub trait BitVec: Clone {
     /// Get the value of the bit at the specified index (0 or 1).
     /// Note: This is rather inefficient since it does two rank calls,
@@ -71,7 +68,7 @@ pub trait BitVecBuilder {
     fn new(universe_size: u32) -> Self;
     /// Set a 1-bit in this bit vector.
     /// Idempotent; the same bit may be set more than once without effect.
-    /// 1-bits may be added in any order.
+    /// The 1-bits may be added in any order.
     fn one(&mut self, bit_index: u32);
     fn build(self) -> Self::Target;
 }
