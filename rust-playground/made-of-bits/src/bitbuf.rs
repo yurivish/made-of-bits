@@ -212,6 +212,14 @@ impl PaddedBitBuf {
             self.blocks[(block_index - self.left_block_offset) as usize]
         }
     }
+
+    pub(crate) fn num_trailing_bits(&self) -> u32 {
+        self.num_trailing_bits
+    }
+
+    pub(crate) fn universe_size(&self) -> u32 {
+        self.universe_size
+    }
 }
 
 #[cfg(test)]

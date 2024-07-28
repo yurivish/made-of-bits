@@ -49,6 +49,9 @@ impl<T: BitVec> MultiBitVec for Multi<T> {
     }
 
     fn select1(&self, n: u32) -> Option<u32> {
+        if n == u32::MAX {
+            return None;
+        }
         let i = self.multiplicity.rank1(n + 1);
         self.occupancy.select1(i)
     }
@@ -119,7 +122,7 @@ mod tests {
 
     #[test]
     fn test() {
-        test_bitvec_builder::<BitVecBuilderOf<MultiBuilder<DenseBitVecBuilder>>>();
-        test_bitvec_builder::<BitVecBuilderOf<MultiBuilder<BitVecBuilderOf<ArrayBitVecBuilder>>>>();
+        test_multi_bitvec_builder::<MultiBuilder<DenseBitVecBuilder>>();
+        test_multi_bitvec_builder::<MultiBuilder<BitVecBuilderOf<ArrayBitVecBuilder>>>();
     }
 }

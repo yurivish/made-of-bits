@@ -188,12 +188,10 @@ impl MultiBitVecBuilder for SparseBitVecBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bitvec::BitVecBuilderOf;
     use crate::bitvec_test::*;
 
     #[test]
     fn test() {
-        test_bitvec_builder::<BitVecBuilderOf<SparseBitVecBuilder>>();
-        property_test_bitvec_builder::<BitVecBuilderOf<SparseBitVecBuilder>>(None, None, false);
+        test_multi_bitvec_builder::<SparseBitVecBuilder>();
     }
 }

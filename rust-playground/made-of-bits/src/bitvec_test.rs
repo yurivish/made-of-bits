@@ -1,6 +1,8 @@
+// #![allow(unused)]
+
 use crate::{
     bits::BASIC_BLOCK_SIZE,
-    bitvec::{BitVec, BitVecBuilder, BitVecBuilderOf, BitVecOf},
+    bitvec::{BitVec, BitVecBuilder, BitVecBuilderOf, BitVecOf, MultiBitVecBuilder},
     bitvecs::array::{ArrayBitVec, ArrayBitVecBuilder},
     catch_unwind,
 };
@@ -19,14 +21,36 @@ to build a baseline and other bitvec
 (added .from_ones and .from_one_counts)
 */
 
-pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {}
+pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
+    {
+        // test the empty bitvec
+        let bv = T::new(0).build();
 
-pub(crate) fn property_test_bitvec_builder<T: BitVecBuilder>(
-    seed: Option<u64>,
-    budget_ms: Option<u64>,
-    minimize: bool,
-) {
+        assert_eq!(bv.rank1(0), 0);
+        assert_eq!(bv.rank1(1), 0);
+        assert_eq!(bv.rank1(u32::MAX), 0);
+
+        assert_eq!(bv.select1(0), None);
+        assert_eq!(bv.select1(1), None);
+        assert_eq!(bv.select1(u32::MAX), None);
+
+        assert_eq!(bv.num_ones(), 0);
+        assert_eq!(bv.num_zeros(), 0);
+        assert_eq!(bv.universe_size(), 0);
+    }
 }
+
+pub(crate) fn test_multi_bitvec_builder<T: MultiBitVecBuilder>() {
+    test_bitvec_builder::<BitVecBuilderOf<T>>()
+    // test zero bitvec (unique zeros = ones = 0)
+}
+
+// pub(crate) fn property_test_bitvec_builder<T: BitVecBuilder>(
+//     seed: Option<u64>,
+//     budget_ms: Option<u64>,
+//     minimize: bool,
+// ) {
+// }
 
 // pub(crate) fn test_bitvec<T: BitVec>() {}
 

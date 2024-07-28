@@ -100,7 +100,7 @@ mod tests {
         catch_unwind(|| IntBuf::new(0, 0).get(0)).unwrap_err();
 
         // should throw on out-of-bounds indices
-        catch_unwind(|| IntBuf::new(3, 7).get(10));
+        catch_unwind(|| IntBuf::new(3, 7).get(10)).unwrap_err();
 
         // should return zero elements before anything is pushed
         let xs = IntBuf::new(3, 7);

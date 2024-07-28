@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use crate::{bitbuf::BitBuf, bits::partition_point};
 
 pub trait BitVec: Clone {
