@@ -1,4 +1,3 @@
-use crate::bitvec::DefaultBitVec;
 use crate::bitvec::MultiBitVec;
 use crate::bitvec::MultiBitVecBuilder;
 use crate::bitvec::{BitVec, BitVecBuilder};
@@ -69,9 +68,6 @@ impl SortedArrayBitVec {
         &self.ones
     }
 }
-
-// Implement BitVec for BitVecOf<SortedArrayBitVec>
-impl DefaultBitVec for SortedArrayBitVec {}
 
 impl MultiBitVec for SortedArrayBitVec {
     fn rank1(&self, bit_index: u32) -> u32 {

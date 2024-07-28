@@ -54,29 +54,6 @@ impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
     }
 }
 
-// Use a custom implementation of BitVec so we can specialize the impl of rank0.
-impl<T: BitVec> BitVec for BitVecOf<Multi<T>> {
-    fn rank1(&self, bit_index: u32) -> u32 {
-        self.inner().rank1(bit_index)
-    }
-
-    fn rank0(&self, bit_index: u32) -> u32 {
-        self.inner().rank0(bit_index)
-    }
-
-    fn select1(&self, n: u32) -> Option<u32> {
-        self.inner().select1(n)
-    }
-
-    fn num_ones(&self) -> u32 {
-        self.inner().num_ones()
-    }
-
-    fn universe_size(&self) -> u32 {
-        self.inner().universe_size()
-    }
-}
-
 #[derive(Clone)]
 pub struct Multi<T> {
     occupancy: T,

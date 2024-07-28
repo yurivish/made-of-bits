@@ -111,22 +111,22 @@ pub trait MultiBitVec: Clone {
 pub struct BitVecOf<T: MultiBitVec>(T);
 
 /// This trait is used to provide a BitVec implementation for
-/// MultiBitVecs by being  implemented for BitVecOf<T>.
+/// MultiBitVecs by being implemented for BitVecOf<T>.
 ///
 /// A BitVec is a specialization of a MultiBitVec where every
 /// bit is present 0 or 1 times. Constructing a BitVecOf performs
 /// a uniqueness check to enforce this invariant.
+///
+/// Note:
 /// Some MultiBitVecs afford more efficient implementations
-/// in the case without multiplicity; those can provide their
+/// in the case without multiplicity; in the future, we can introduce
+/// a new `DefaultBitVec` trait to allow them to provide their
 /// own BitVec implementations for BitVecOf<T>. (Example: Multi<T>
 /// can provide more efficient rank1 and rank0 by looking only at
 /// its occupancy vector).
-/// Others (such as SparseBitVec) don't have any tricks up their
-/// sleeve (that I'm aware of) in the non-multiplicity case, so
-/// they impl DefaultBitVec and use this default implementation.
-pub trait DefaultBitVec: MultiBitVec {}
-
-impl<T: DefaultBitVec> BitVec for BitVecOf<T> {
+///
+/// For now, though, we just impl BitVec for all MultiBitVecs this way.
+impl<T: MultiBitVec> BitVec for BitVecOf<T> {
     fn rank1(&self, bit_index: u32) -> u32 {
         self.inner().rank1(bit_index)
     }

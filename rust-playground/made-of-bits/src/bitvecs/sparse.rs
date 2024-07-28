@@ -1,5 +1,4 @@
 use crate::bitvec::BitVecOf;
-use crate::bitvec::DefaultBitVec;
 use crate::bitvec::MultiBitVec;
 use crate::bitvec::MultiBitVecBuilder;
 use crate::{
@@ -134,9 +133,6 @@ impl SparseBitVec {
         return x & self.low_mask;
     }
 }
-
-// Implement BitVec for BitVecOf<SparseBitVec>
-impl DefaultBitVec for SparseBitVec {}
 
 impl MultiBitVec for SparseBitVec {
     fn rank1(&self, bit_index: u32) -> u32 {
