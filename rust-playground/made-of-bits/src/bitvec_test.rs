@@ -19,6 +19,8 @@ use testresult::TestResult;
 // pub(crate) fn test_bitvec<T: BitVec>() {
 // }
 
+// todo: test zero counts for one_count in MultiBitVecBuilder
+
 pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
     // test the empty bitvec
     test_bitvec(T::new(0).build());

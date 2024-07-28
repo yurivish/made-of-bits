@@ -4,10 +4,10 @@ use crate::bits::partition_point;
 
 pub trait BitVec: Clone {
     /// Get the value of the bit at the specified index (0 or 1).
+    /// The comparable method on MultiBitVec the presence of multiplicity,
+    // returns the count of the bit.
     /// Note: This is rather inefficient since it does two rank calls,
-    /// each of which takes O(log(n)) time.
-    ///
-    /// The comparable method on MultiBitVec the presence of multiplicity, returns the count of the bit.
+    /// each of which may take O(log(n)) time, depending on the BitVec.
     fn get(&self, bit_index: u32) -> u32 {
         assert!(
             bit_index < self.universe_size(),
@@ -15,7 +15,6 @@ pub trait BitVec: Clone {
             bit_index,
             self.universe_size()
         );
-
         self.rank1(bit_index + 1) - self.rank1(bit_index)
     }
 
@@ -46,7 +45,6 @@ pub trait BitVec: Clone {
 
     // Return the bit index of the k-th occurrence of a 0-bit
     fn select0(&self, n: u32) -> Option<u32> {
-        // assert!(self.has_select0());
         if n >= self.num_zeros() {
             return None;
         }
@@ -76,7 +74,6 @@ pub trait BitVecBuilder {
 pub trait MultiBitVecBuilder {
     type Target: MultiBitVec;
     fn new(universe_size: u32) -> Self;
-    // todo: test zero counts for one_count
     fn one_count(&mut self, bit_index: u32, count: u32);
     fn build(self) -> Self::Target;
 }
@@ -163,6 +160,8 @@ impl<T: MultiBitVec> BitVecOf<T> {
 /// by tracking the ones and disallowing more than 1 count
 /// of each individual bit to be added to the builder,
 /// which enforces idempotency of `BitVecBuilder::one`.
+/// (The idempotency requirement is why we can't just use the
+/// MultiBitVecBuilder directly).
 pub struct BitVecBuilderOf<B: MultiBitVecBuilder> {
     builder: B,
     ones: HashSet<u32>,
