@@ -215,6 +215,11 @@ impl RLEBitVecRunBuilder {
     }
 
     fn build(self) -> RLEBitVec {
+        assert!(
+            self.num_zeros + self.num_ones < u32::MAX,
+            "maximum allowed universe size is 2^32-1"
+        );
+
         // The +1 to the universe size is needed because the 1-bit marker in z
         // comes at the position after `self.num_zeros` zeros, and the same idea
         // applies to zo, which marks with a 1-bit the position after each 01-run.

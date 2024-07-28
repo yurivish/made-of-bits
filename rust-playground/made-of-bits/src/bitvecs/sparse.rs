@@ -21,6 +21,11 @@ pub struct SparseBitVec {
 
 impl SparseBitVec {
     pub fn new(ones: Box<[u32]>, universe_size: u32) -> Self {
+        assert!(
+            universe_size < u32::MAX,
+            "maximum allowed universe size is 2^32-1"
+        );
+
         let num_ones = ones.len() as u32;
 
         // The paper "On Elias-Fano for Rank Queries in FM-Indexes" recommends a formula to compute

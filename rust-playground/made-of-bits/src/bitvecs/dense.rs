@@ -29,6 +29,11 @@ impl DenseBitVec {
     /// `rank1_samples_pow2`: power of 2 of the rank1 sample rate
     /// `select_samples_pow2`: power of 2 of the select sample rate for both select0 and select1
     pub fn new(buf: BitBuf, rank1_samples_pow2: u32, select_samples_pow2: u32) -> Self {
+        assert!(
+            buf.universe_size() < u32::MAX,
+            "maximum allowed universe size is 2^32-1"
+        );
+
         assert!((BASIC_BLOCK_BITS..32).contains(&rank1_samples_pow2));
         assert!((BASIC_BLOCK_BITS..32).contains(&select_samples_pow2));
 
@@ -119,7 +124,7 @@ impl DenseBitVec {
                 debug_assert!(cumulative_bits & correction == 0);
                 // Add the select sample and bump the onesThreshold.
                 select1_samples.push(cumulative_bits | correction);
-                ones_threshold += select1_sample_rate;
+                ones_threshold = ones_threshold.saturating_add(select1_sample_rate);
             }
 
             // Sample 0-bits for the select0 index.
@@ -128,7 +133,7 @@ impl DenseBitVec {
                 let correction = zeros_threshold - cumulative_zeros;
                 debug_assert!(cumulative_bits & correction == 0);
                 select0_samples.push(cumulative_bits | correction);
-                zeros_threshold += select0_sample_rate;
+                zeros_threshold = zeros_threshold.saturating_add(select0_sample_rate);
             }
 
             cumulative_ones += block_ones;

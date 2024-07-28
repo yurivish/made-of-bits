@@ -30,6 +30,10 @@ pub fn catch_unwind<F: FnOnce() -> R, R>(f: F) -> std::thread::Result<R> {
     result
 }
 
+pub fn panics<F: FnOnce() -> R, R>(f: F) -> bool {
+    catch_unwind(f).is_err()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

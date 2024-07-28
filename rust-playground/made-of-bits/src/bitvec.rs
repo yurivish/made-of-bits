@@ -1,5 +1,9 @@
 use crate::{bitbuf::BitBuf, bits::partition_point};
 
+// Design decisions
+// - Universe size must be strictly less than u32::MAX since there would
+//   otherwise be no way to select the last element.
+
 pub trait BitVec: Clone {
     /// Get the value of the bit at the specified index (0 or 1).
     /// The comparable method on MultiBitVec the presence of multiplicity,
@@ -59,27 +63,6 @@ pub trait BitVec: Clone {
     }
 }
 
-pub trait BitVecBuilder {
-    type Target: BitVec;
-    fn new(universe_size: u32) -> Self;
-    /// Set a 1-bit in this bit vector.
-    /// Idempotent; the same bit may be set more than once without effect.
-    /// 1-bits may be added in any order.
-    fn one(&mut self, bit_index: u32);
-    fn build(self) -> Self::Target;
-
-    fn from_ones(universe_size: u32, ones: &[u32]) -> Self::Target
-    where
-        Self: Sized,
-    {
-        let mut b = Self::new(universe_size);
-        for one in ones.iter().copied() {
-            b.one(one)
-        }
-        b.build()
-    }
-}
-
 /// Represents a multiset. 1-bits may have multiplicity, but 0-bits may not.
 pub trait MultiBitVec: Clone {
     fn get(&self, bit_index: u32) -> u32 {
@@ -101,8 +84,33 @@ pub trait MultiBitVec: Clone {
     }
 }
 
+pub trait BitVecBuilder {
+    type Target: BitVec;
+
+    /// Universe size must be strictly less than u32::MAX.
+    fn new(universe_size: u32) -> Self;
+    /// Set a 1-bit in this bit vector.
+    /// Idempotent; the same bit may be set more than once without effect.
+    /// 1-bits may be added in any order.
+    fn one(&mut self, bit_index: u32);
+    fn build(self) -> Self::Target;
+
+    fn from_ones(universe_size: u32, ones: &[u32]) -> Self::Target
+    where
+        Self: Sized,
+    {
+        let mut b = Self::new(universe_size);
+        for one in ones.iter().copied() {
+            b.one(one)
+        }
+        b.build()
+    }
+}
+
 pub trait MultiBitVecBuilder {
     type Target: MultiBitVec;
+
+    /// Universe size must be strictly less than u32::MAX.
     fn new(universe_size: u32) -> Self;
     fn one_count(&mut self, bit_index: u32, count: u32);
     fn build(self) -> Self::Target;
