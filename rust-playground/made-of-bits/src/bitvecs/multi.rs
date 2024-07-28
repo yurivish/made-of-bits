@@ -1,13 +1,9 @@
+use crate::bitvec::BitVec;
+use crate::bitvec::BitVecBuilder;
 use crate::bitvec::BitVecOf;
 use crate::bitvec::MultiBitVec;
 use crate::bitvec::MultiBitVecBuilder;
-use crate::{
-    bitbuf::BitBuf,
-    bits::{one_mask, partition_point},
-    bitvec::{BitVec, BitVecBuilder},
-    bitvecs::{dense::DenseBitVec, sparse::SparseBitVec},
-    intbuf::IntBuf,
-};
+use crate::bitvecs::sparse::SparseBitVec;
 use std::collections::BTreeMap;
 
 #[derive(Clone)]
@@ -32,11 +28,14 @@ impl<T: BitVec> Multi<T> {
         }
     }
 
-    fn rank0(&self, bit_index: u32) -> u32 {
+    // While `MultiBitVec`s do not usually support rank0 and select0,
+    // this one does since the zeros of the occupancy bitvec are the
+    // zeros of the `Multi`.
+    pub fn rank0(&self, bit_index: u32) -> u32 {
         self.occupancy.rank0(bit_index)
     }
 
-    fn select0(&self, n: u32) -> Option<u32> {
+    pub fn select0(&self, n: u32) -> Option<u32> {
         self.occupancy.select0(n)
     }
 }
@@ -91,13 +90,13 @@ impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
         }
     }
 
-    fn build(mut self) -> Multi<B::Target> {
+    fn build(self) -> Multi<B::Target> {
         // Sort the map keys and values in ascending order of 1-bit index
         let mut kv: Vec<_> = self.multiplicity.into_iter().collect();
-        kv.sort_by_key(|(k, v)| *k);
+        kv.sort_by_key(|(k, _v)| *k);
 
         // Construct a parallel array of cumulative counts
-        let mut cumulative_counts: Vec<_> = kv.into_iter().map(|(k, v)| v).collect();
+        let mut cumulative_counts: Vec<_> = kv.into_iter().map(|(_k, v)| v).collect();
         let mut acc = 0;
         for x in cumulative_counts.iter_mut() {
             acc += *x;
@@ -115,22 +114,12 @@ impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
 mod tests {
     use super::*;
     use crate::bitvec::BitVecBuilderOf;
-    use crate::{
-        bitvec_test::*,
-        bitvecs::{dense::DenseBitVecBuilder, sparse::SparseBitVecBuilder},
-    };
+    use crate::bitvecs::array::ArrayBitVecBuilder;
+    use crate::{bitvec_test::*, bitvecs::dense::DenseBitVecBuilder};
 
     #[test]
     fn test() {
         test_bitvec_builder::<BitVecBuilderOf<MultiBuilder<DenseBitVecBuilder>>>();
-        property_test_bitvec_builder::<BitVecBuilderOf<MultiBuilder<DenseBitVecBuilder>>>(
-            None, None, false,
-        );
-
-        test_bitvec_builder::<BitVecBuilderOf<MultiBuilder<BitVecBuilderOf<SparseBitVecBuilder>>>>(
-        );
-        property_test_bitvec_builder::<
-            BitVecBuilderOf<MultiBuilder<BitVecBuilderOf<SparseBitVecBuilder>>>,
-        >(None, None, false);
+        test_bitvec_builder::<BitVecBuilderOf<MultiBuilder<BitVecBuilderOf<ArrayBitVecBuilder>>>>();
     }
 }

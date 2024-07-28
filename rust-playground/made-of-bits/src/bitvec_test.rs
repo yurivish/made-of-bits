@@ -28,7 +28,7 @@ pub(crate) fn property_test_bitvec_builder<T: BitVecBuilder>(
 ) {
 }
 
-pub(crate) fn test_bitvec<T: BitVec>() {}
+// pub(crate) fn test_bitvec<T: BitVec>() {}
 
 // pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
 //     // test the empty bitvec

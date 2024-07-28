@@ -1,6 +1,5 @@
 use crate::bitvec::MultiBitVec;
 use crate::bitvec::MultiBitVecBuilder;
-use crate::bitvec::{BitVec, BitVecBuilder};
 
 #[derive(Clone)]
 pub struct ArrayBitVec {
@@ -24,8 +23,6 @@ impl ArrayBitVec {
             prev = Some(cur);
         }
 
-        // Zeros are never repeated, so any non-one bits are singleton zeros.
-        let num_zeros = universe_size - num_unique_ones;
         let num_ones = ones.len() as u32;
 
         Self {
@@ -36,9 +33,10 @@ impl ArrayBitVec {
         }
     }
 
-    pub(crate) fn ones(&self) -> &Box<[u32]> {
-        &self.ones
-    }
+    // #[cfg(test)]
+    // pub(crate) fn ones(&self) -> &Box<[u32]> {
+    //     &self.ones
+    // }
 }
 
 impl MultiBitVec for ArrayBitVec {
@@ -104,6 +102,5 @@ mod tests {
     #[test]
     fn test() {
         test_bitvec_builder::<BitVecBuilderOf<ArrayBitVecBuilder>>();
-        property_test_bitvec_builder::<BitVecBuilderOf<ArrayBitVecBuilder>>(None, None, false);
     }
 }

@@ -1,4 +1,4 @@
-#![allow(unused)]
+// #![allow(unused)]
 
 mod bitbuf;
 mod bits;
@@ -30,6 +30,7 @@ pub fn catch_unwind<F: FnOnce() -> R, R>(f: F) -> std::thread::Result<R> {
     result
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
 

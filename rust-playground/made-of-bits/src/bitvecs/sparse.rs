@@ -1,10 +1,9 @@
-use crate::bitvec::BitVecOf;
 use crate::bitvec::MultiBitVec;
 use crate::bitvec::MultiBitVecBuilder;
 use crate::{
     bitbuf::BitBuf,
     bits::{one_mask, partition_point},
-    bitvec::{BitVec, BitVecBuilder},
+    bitvec::BitVec,
     bitvecs::dense::DenseBitVec,
     intbuf::IntBuf,
 };
@@ -48,7 +47,6 @@ impl SparseBitVec {
         let low_mask = one_mask(low_bit_width);
 
         let mut num_unique_ones = 0;
-        let mut has_multiplicity = false;
         let mut prev = None;
         for (i, &cur) in ones.iter().enumerate() {
             let same = prev == Some(cur);
