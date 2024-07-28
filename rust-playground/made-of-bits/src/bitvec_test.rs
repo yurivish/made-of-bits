@@ -17,7 +17,6 @@ use testresult::TestResult;
 // }
 
 // pub(crate) fn test_bitvec<T: BitVec>() {
-
 // }
 
 pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
