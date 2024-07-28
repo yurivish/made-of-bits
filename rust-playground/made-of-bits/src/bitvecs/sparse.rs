@@ -1,4 +1,5 @@
 use crate::bitvec::BitVecOf;
+use crate::bitvec::DefaultBitVec;
 use crate::bitvec::MultiBitVec;
 use crate::bitvec::MultiBitVecBuilder;
 use crate::{
@@ -40,24 +41,6 @@ impl MultiBitVecBuilder for SparseBitVecBuilder {
     fn build(mut self) -> SparseBitVec {
         self.ones.sort();
         SparseBitVec::new(self.ones.into(), self.universe_size)
-    }
-}
-
-impl BitVec for BitVecOf<SparseBitVec> {
-    fn rank1(&self, bit_index: u32) -> u32 {
-        self.inner().rank1(bit_index)
-    }
-
-    fn select1(&self, n: u32) -> Option<u32> {
-        self.inner().select1(n)
-    }
-
-    fn num_ones(&self) -> u32 {
-        self.inner().num_ones()
-    }
-
-    fn universe_size(&self) -> u32 {
-        self.inner().universe_size()
     }
 }
 
@@ -152,7 +135,10 @@ impl SparseBitVec {
     }
 }
 
-impl SparseBitVec {
+// Implement BitVec for BitVecOf<SparseBitVec>
+impl DefaultBitVec for SparseBitVec {}
+
+impl MultiBitVec for SparseBitVec {
     fn rank1(&self, bit_index: u32) -> u32 {
         if bit_index >= self.universe_size() {
             return self.num_ones;
@@ -208,24 +194,6 @@ impl SparseBitVec {
 
     fn universe_size(&self) -> u32 {
         self.universe_size
-    }
-
-    fn num_ones(&self) -> u32 {
-        self.num_ones
-    }
-}
-
-impl MultiBitVec for SparseBitVec {
-    fn rank1(&self, bit_index: u32) -> u32 {
-        self.rank1(bit_index)
-    }
-
-    fn select1(&self, n: u32) -> Option<u32> {
-        self.select1(n)
-    }
-
-    fn universe_size(&self) -> u32 {
-        self.universe_size()
     }
 
     fn num_ones(&self) -> u32 {

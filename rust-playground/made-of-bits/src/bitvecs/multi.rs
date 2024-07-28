@@ -11,9 +11,9 @@ use crate::{
 use std::collections::BTreeMap;
 
 pub struct MultiBuilder<B> {
-    /// A BitBuf marking the positions of nonzero bits
+    /// BitBuf marking the positions of nonzero bits
     occupancy: B,
-    /// A map from 1-bit index to its multiplicity (count).
+    /// Map from 1-bit index to its multiplicity (count).
     multiplicity: BTreeMap<u32, u32>,
 }
 
@@ -54,6 +54,29 @@ impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
     }
 }
 
+// Use a custom implementation of BitVec so we can specialize the impl of rank0.
+impl<T: BitVec> BitVec for BitVecOf<Multi<T>> {
+    fn rank1(&self, bit_index: u32) -> u32 {
+        self.inner().rank1(bit_index)
+    }
+
+    fn rank0(&self, bit_index: u32) -> u32 {
+        self.inner().rank0(bit_index)
+    }
+
+    fn select1(&self, n: u32) -> Option<u32> {
+        self.inner().select1(n)
+    }
+
+    fn num_ones(&self) -> u32 {
+        self.inner().num_ones()
+    }
+
+    fn universe_size(&self) -> u32 {
+        self.inner().universe_size()
+    }
+}
+
 #[derive(Clone)]
 pub struct Multi<T> {
     occupancy: T,
@@ -74,6 +97,10 @@ impl<T: BitVec> Multi<T> {
             multiplicity,
             num_ones,
         }
+    }
+
+    fn rank0(&self, bit_index: u32) -> u32 {
+        self.occupancy.rank0(bit_index)
     }
 }
 
@@ -103,32 +130,6 @@ impl<T: BitVec> Multi<T> {
 
     fn universe_size(&self) -> u32 {
         self.occupancy.universe_size()
-    }
-}
-
-impl<T: BitVec> BitVec for BitVecOf<Multi<T>> {
-    fn rank1(&self, bit_index: u32) -> u32 {
-        self.inner().rank1(bit_index)
-    }
-
-    fn rank0(&self, bit_index: u32) -> u32 {
-        self.inner().occupancy.rank0(bit_index)
-    }
-
-    fn select1(&self, n: u32) -> Option<u32> {
-        self.inner().select1(n)
-    }
-
-    fn select0(&self, n: u32) -> Option<u32> {
-        self.inner().select0(n)
-    }
-
-    fn num_ones(&self) -> u32 {
-        self.inner().num_ones()
-    }
-
-    fn universe_size(&self) -> u32 {
-        self.inner().universe_size()
     }
 }
 

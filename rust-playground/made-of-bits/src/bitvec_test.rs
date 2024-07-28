@@ -1,6 +1,6 @@
 use crate::{
     bits::BASIC_BLOCK_SIZE,
-    bitvec::{BitVec, BitVecBuilder},
+    bitvec::{BitVec, BitVecBuilder, BitVecBuilderOf, BitVecOf},
     bitvecs::sortedarray::{SortedArrayBitVec, SortedArrayBitVecBuilder},
     catch_unwind,
 };
@@ -51,10 +51,11 @@ pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
 
             {
                 // test against the same data in a sorted array bitvec
-                let mut baseline_builder = SortedArrayBitVecBuilder::new(universe_size);
+                let mut baseline_builder =
+                    BitVecBuilderOf::<SortedArrayBitVecBuilder>::new(universe_size);
                 baseline_builder.one(bit_index);
                 let baseline = baseline_builder.build();
-                test_equal(baseline, bv.clone());
+                test_bitvec_equal(baseline, bv.clone());
             }
 
             assert_eq!(bv.rank1(bit_index), 0);
@@ -102,11 +103,12 @@ pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
 
                 {
                     // test against the same data in a sorted array bitvec
-                    let mut baseline_builder = SortedArrayBitVecBuilder::new(universe_size);
+                    let mut baseline_builder =
+                        BitVecBuilderOf::<SortedArrayBitVecBuilder>::new(universe_size);
                     baseline_builder.one(bit_index_1);
                     baseline_builder.one(bit_index_2);
                     let baseline = baseline_builder.build();
-                    test_equal(baseline, bv.clone());
+                    test_bitvec_equal(baseline, bv.clone());
                 }
 
                 assert_eq!(bv.rank1(bit_index_1), 0);
@@ -139,7 +141,7 @@ pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
     }
 }
 
-pub(crate) fn test_equal(a: SortedArrayBitVec, b: impl BitVec) {
+pub(crate) fn test_bitvec_equal(a: BitVecOf<SortedArrayBitVec>, b: impl BitVec) {
     // hack around the weird support for multiplicity for now
     assert_eq!(a.num_zeros(), b.num_zeros());
     assert_eq!(a.num_ones(), b.num_ones());
@@ -249,7 +251,7 @@ pub(crate) fn property_test_bitvec_builder<T: BitVecBuilder>(
         let universe_size = u.arbitrary_len::<u32>()? as u32;
         let mut b = T::new(universe_size);
         // test against the same data in a sorted array bitvec
-        let mut baseline_builder = SortedArrayBitVecBuilder::new(universe_size);
+        let mut baseline_builder = BitVecBuilderOf::<SortedArrayBitVecBuilder>::new(universe_size);
         // construct with multiplicity some of the time
         let with_multiplicity = false;
         // let with_multiplicity = if T::Target::supports_multiplicity() {
@@ -272,7 +274,7 @@ pub(crate) fn property_test_bitvec_builder<T: BitVecBuilder>(
         }
         let bv = b.build();
         let baseline = baseline_builder.build();
-        test_equal(baseline, bv.clone());
+        test_bitvec_equal(baseline, bv.clone());
         test_bitvec(bv);
         return Ok(());
     }
