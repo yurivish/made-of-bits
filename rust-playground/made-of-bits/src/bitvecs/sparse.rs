@@ -117,10 +117,6 @@ impl SparseBitVec {
         }
     }
 
-    fn num_unique_ones(&self) -> u32 {
-        self.num_unique_ones
-    }
-
     // todo: document this and remainder
     fn quotient(&self, x: u32) -> u32 {
         return x >> self.low_bit_width;
