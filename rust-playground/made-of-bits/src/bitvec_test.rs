@@ -42,7 +42,8 @@ pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
 
 pub(crate) fn test_multi_bitvec_builder<T: MultiBitVecBuilder>() {
     test_bitvec_builder::<BitVecBuilderOf<T>>()
-    // test zero bitvec (unique zeros = ones = 0)
+    // todo
+    // - test zero bitvec (unique zeros = ones = 0)
 }
 
 // pub(crate) fn property_test_bitvec_builder<T: BitVecBuilder>(
