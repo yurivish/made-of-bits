@@ -69,6 +69,17 @@ pub trait BitVecBuilder {
     /// 1-bits may be added in any order.
     fn one(&mut self, bit_index: u32);
     fn build(self) -> Self::Target;
+
+    fn from_ones(universe_size: u32, ones: &[u32]) -> Self::Target
+    where
+        Self: Sized,
+    {
+        let mut b = Self::new(universe_size);
+        for one in ones.iter().copied() {
+            b.one(one)
+        }
+        b.build()
+    }
 }
 
 /// Represents a multiset. 1-bits may have multiplicity, but 0-bits may not.
@@ -97,6 +108,16 @@ pub trait MultiBitVecBuilder {
     fn new(universe_size: u32) -> Self;
     fn one_count(&mut self, bit_index: u32, count: u32);
     fn build(self) -> Self::Target;
+    fn from_one_counts(universe_size: u32, one_counts: &[(u32, u32)]) -> Self::Target
+    where
+        Self: Sized,
+    {
+        let mut b = Self::new(universe_size);
+        for (one, count) in one_counts.iter().copied() {
+            b.one_count(one, count)
+        }
+        b.build()
+    }
 }
 
 /// Adapter to allow MultiBitVecs to serve as BitVecs.
