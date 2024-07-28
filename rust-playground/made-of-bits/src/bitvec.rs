@@ -107,11 +107,15 @@ pub trait MultiBitVec: Clone {
     }
 }
 
+/// Adapter to allow MultiBitVecs to serve as BitVecs.
+/// The blanket impl below provides an impl that uses the
+/// default BitVec methods to provide implementations of rank0/select0
+/// which rely on the absence of multiplicity.
 #[derive(Clone)]
 pub struct BitVecOf<T: MultiBitVec>(T);
 
 /// This trait is used to provide a BitVec implementation for
-/// MultiBitVecs by being implemented for BitVecOf<T>.
+/// MultiBitVecs via a blanket impl for BitVecOf<T> where T: MultiBitVec.
 ///
 /// A BitVec is a specialization of a MultiBitVec where every
 /// bit is present 0 or 1 times. Constructing a BitVecOf performs
@@ -126,7 +130,10 @@ pub struct BitVecOf<T: MultiBitVec>(T);
 /// its occupancy vector).
 ///
 /// For now, though, we just impl BitVec for all MultiBitVecs this way.
-impl<T: MultiBitVec> BitVec for BitVecOf<T> {
+impl<T> BitVec for BitVecOf<T>
+where
+    T: MultiBitVec,
+{
     fn rank1(&self, bit_index: u32) -> u32 {
         self.inner().rank1(bit_index)
     }
@@ -155,6 +162,10 @@ impl<T: MultiBitVec> BitVecOf<T> {
     }
 }
 
+/// Allows use of a MultiBitVecBuilder as a BitVecBuilder
+/// by tracking the ones and disallowing more than 1 count
+/// of each individual bit to be added to the builder,
+/// which enforces idempotency of `BitVecBuilder::one`.
 pub struct BitVecBuilderOf<B: MultiBitVecBuilder> {
     builder: B,
     ones: HashSet<u32>,

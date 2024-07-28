@@ -98,16 +98,17 @@ macro_rules! export_bitvec {
     };
 }
 
-// export_bitvec!("sorted_array_", SortedArrayBitVecBuilder, SortedArrayBitVec);
-// export_bitvec!("dense_", DenseBitVecBuilder, DenseBitVec);
-// export_bitvec!(
-//     "sparse_",
-//     BitVecBuilderOf<SparseBitVecBuilder>,
-//     BitVecOf<SparseBitVec>
-// );
-// export_bitvec!("rle_", RLEBitVecBuilder, RLEBitVec);
+export_bitvec!("dense_", DenseBitVecBuilder, DenseBitVec);
+export_bitvec!("rle_", RLEBitVecBuilder, RLEBitVec);
+
+// Export MultiBitVecs as BitVecs for now
 export_bitvec!(
     "multi_",
     BitVecBuilderOf<MultiBuilder<DenseBitVecBuilder>>,
     BitVecOf<Multi<DenseBitVec>>
+);
+export_bitvec!(
+    "array_",
+    BitVecBuilderOf<ArrayBitVecBuilder>,
+    BitVecOf<ArrayBitVec>
 );
