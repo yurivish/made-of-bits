@@ -41,7 +41,6 @@ pub struct DenseBitVec {
     // needs densebitvec actually, for the high bits.
     buf: BitBuf,
     num_ones: u32,
-    num_zeros: u32,
     rank1_samples_pow2: u32,
     select0_samples_pow2: u32,
     select1_samples_pow2: u32,
@@ -162,12 +161,9 @@ impl DenseBitVec {
             cumulative_bits += BASIC_BLOCK_SIZE;
         }
 
-        let num_zeros = buf.universe_size() - cumulative_ones;
-
         Self {
             buf,
             num_ones: cumulative_ones,
-            num_zeros: num_zeros,
             rank1_samples_pow2,
             select0_samples_pow2: select_samples_pow2,
             select1_samples_pow2: select_samples_pow2,
@@ -359,7 +355,6 @@ impl BitVec for DenseBitVec {
     }
 
     fn universe_size(&self) -> u32 {
-        debug_assert!(self.num_ones + self.num_zeros == self.buf.universe_size());
         self.buf.universe_size()
     }
 }

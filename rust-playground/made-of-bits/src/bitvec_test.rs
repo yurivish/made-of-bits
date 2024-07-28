@@ -1,7 +1,7 @@
 use crate::{
     bits::BASIC_BLOCK_SIZE,
     bitvec::{BitVec, BitVecBuilder, BitVecBuilderOf, BitVecOf},
-    bitvecs::sortedarray::{SortedArrayBitVec, SortedArrayBitVecBuilder},
+    bitvecs::array::{ArrayBitVec, ArrayBitVecBuilder},
     catch_unwind,
 };
 use std::{collections::BTreeMap, panic::AssertUnwindSafe};
@@ -52,7 +52,7 @@ pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
             {
                 // test against the same data in a sorted array bitvec
                 let mut baseline_builder =
-                    BitVecBuilderOf::<SortedArrayBitVecBuilder>::new(universe_size);
+                    BitVecBuilderOf::<ArrayBitVecBuilder>::new(universe_size);
                 baseline_builder.one(bit_index);
                 let baseline = baseline_builder.build();
                 test_bitvec_equal(baseline, bv.clone());
@@ -104,7 +104,7 @@ pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
                 {
                     // test against the same data in a sorted array bitvec
                     let mut baseline_builder =
-                        BitVecBuilderOf::<SortedArrayBitVecBuilder>::new(universe_size);
+                        BitVecBuilderOf::<ArrayBitVecBuilder>::new(universe_size);
                     baseline_builder.one(bit_index_1);
                     baseline_builder.one(bit_index_2);
                     let baseline = baseline_builder.build();
@@ -141,7 +141,7 @@ pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
     }
 }
 
-pub(crate) fn test_bitvec_equal(a: BitVecOf<SortedArrayBitVec>, b: impl BitVec) {
+pub(crate) fn test_bitvec_equal(a: BitVecOf<ArrayBitVec>, b: impl BitVec) {
     // hack around the weird support for multiplicity for now
     assert_eq!(a.num_zeros(), b.num_zeros());
     assert_eq!(a.num_ones(), b.num_ones());
@@ -251,7 +251,7 @@ pub(crate) fn property_test_bitvec_builder<T: BitVecBuilder>(
         let universe_size = u.arbitrary_len::<u32>()? as u32;
         let mut b = T::new(universe_size);
         // test against the same data in a sorted array bitvec
-        let mut baseline_builder = BitVecBuilderOf::<SortedArrayBitVecBuilder>::new(universe_size);
+        let mut baseline_builder = BitVecBuilderOf::<ArrayBitVecBuilder>::new(universe_size);
         // construct with multiplicity some of the time
         let with_multiplicity = false;
         // let with_multiplicity = if T::Target::supports_multiplicity() {

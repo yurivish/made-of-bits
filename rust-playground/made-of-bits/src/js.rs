@@ -8,7 +8,7 @@ use crate::bitvecs::sparse::SparseBitVec;
 use crate::bitvecs::sparse::SparseBitVecBuilder;
 use crate::{
     bitvec::{BitVec, BitVecBuilder},
-    bitvecs::sortedarray::{SortedArrayBitVec, SortedArrayBitVecBuilder},
+    bitvecs::array::{ArrayBitVec, ArrayBitVecBuilder},
 };
 use to_js::{allocate, js, to_owned};
 
