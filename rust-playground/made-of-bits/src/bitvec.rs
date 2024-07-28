@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::bits::partition_point;
+use crate::{bitbuf::BitBuf, bits::partition_point};
 
 pub trait BitVec: Clone {
     /// Get the value of the bit at the specified index (0 or 1).
@@ -23,8 +23,8 @@ pub trait BitVec: Clone {
 
     /// Return the number of 0-bits below `bit_index`
     fn rank0(&self, bit_index: u32) -> u32 {
-        // The implementation below assumes no multiplicity; otherwise,
-        // subtracting rank1 from the bit index can go negative.
+        // The implementation below is valid for bit vectors without multiplicity,
+        // since otherwise the subtraction in the second branch can go negative.
         if bit_index >= self.universe_size() {
             self.num_zeros()
         } else {
@@ -66,15 +66,8 @@ pub trait BitVecBuilder {
     fn new(universe_size: u32) -> Self;
     /// Set a 1-bit in this bit vector.
     /// Idempotent; the same bit may be set more than once without effect.
-    /// The 1-bits may be added in any order.
+    /// 1-bits may be added in any order.
     fn one(&mut self, bit_index: u32);
-    fn build(self) -> Self::Target;
-}
-
-pub trait MultiBitVecBuilder {
-    type Target: MultiBitVec;
-    fn new(universe_size: u32) -> Self;
-    fn one_count(&mut self, bit_index: u32, count: u32);
     fn build(self) -> Self::Target;
 }
 
@@ -89,16 +82,21 @@ pub trait MultiBitVec: Clone {
     fn select1(&self, n: u32) -> Option<u32>;
 
     fn universe_size(&self) -> u32;
-
     fn num_ones(&self) -> u32;
     fn num_zeros(&self) -> u32 {
         self.universe_size() - self.num_unique_ones()
     }
-
     fn num_unique_ones(&self) -> u32;
     fn num_unique_zeros(&self) -> u32 {
         self.universe_size() - self.num_unique_ones()
     }
+}
+
+pub trait MultiBitVecBuilder {
+    type Target: MultiBitVec;
+    fn new(universe_size: u32) -> Self;
+    fn one_count(&mut self, bit_index: u32, count: u32);
+    fn build(self) -> Self::Target;
 }
 
 /// Adapter to allow MultiBitVecs to serve as BitVecs.
@@ -159,12 +157,12 @@ impl<T: MultiBitVec> BitVecOf<T> {
 /// Allows use of a MultiBitVecBuilder as a BitVecBuilder
 /// by tracking the ones and disallowing more than 1 count
 /// of each individual bit to be added to the builder,
-/// which enforces idempotency of `BitVecBuilder::one`.
-/// (The idempotency requirement is why we can't just use the
+/// enforcing idempotency of `BitVecBuilder::one`.
+/// (The idempotency requirement is why we can't just use
 /// MultiBitVecBuilder directly).
 pub struct BitVecBuilderOf<B: MultiBitVecBuilder> {
     builder: B,
-    ones: HashSet<u32>,
+    ones: BitBuf,
 }
 
 impl<B: MultiBitVecBuilder> BitVecBuilder for BitVecBuilderOf<B>
@@ -175,17 +173,14 @@ where
     fn new(universe_size: u32) -> Self {
         Self {
             builder: B::new(universe_size),
-            ones: HashSet::new(),
+            ones: BitBuf::new(universe_size),
         }
     }
 
-    /// Set a 1-bit in this bit vector.
-    /// Idempotent; the same bit may be set more than once without effect.
-    /// 1-bits may be added in any order.
     fn one(&mut self, bit_index: u32) {
-        if !self.ones.contains(&bit_index) {
+        if !self.ones.get(bit_index) {
             self.builder.one_count(bit_index, 1);
-            self.ones.insert(bit_index);
+            self.ones.set_one(bit_index);
         }
     }
 

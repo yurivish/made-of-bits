@@ -9,48 +9,14 @@ use crate::{
     intbuf::IntBuf,
 };
 
-pub struct SparseBitVecBuilder {
-    universe_size: u32,
-    ones: Vec<u32>,
-}
-
-impl SparseBitVecBuilder {
-    fn new(universe_size: u32) -> Self {
-        Self {
-            universe_size,
-            ones: Vec::new(),
-        }
-    }
-}
-
-impl MultiBitVecBuilder for SparseBitVecBuilder {
-    type Target = SparseBitVec;
-
-    fn new(universe_size: u32) -> Self {
-        Self::new(universe_size)
-    }
-
-    fn one_count(&mut self, bit_index: u32, count: u32) {
-        assert!(bit_index < self.universe_size);
-        for _ in 0..count {
-            self.ones.push(bit_index);
-        }
-    }
-
-    fn build(mut self) -> SparseBitVec {
-        self.ones.sort();
-        SparseBitVec::new(self.ones.into(), self.universe_size)
-    }
-}
-
 #[derive(Clone)]
 pub struct SparseBitVec {
     high: DenseBitVec,
     low: IntBuf,
-    num_ones: u32,
-    low_bit_width: u32,
     low_mask: u32,
+    low_bit_width: u32,
     universe_size: u32,
+    num_ones: u32,
     num_unique_ones: u32,
 }
 
@@ -109,11 +75,11 @@ impl SparseBitVec {
         Self {
             high: DenseBitVec::new(high, 10, 10),
             low,
-            low_bit_width,
             low_mask,
+            low_bit_width,
+            universe_size,
             num_ones,
             num_unique_ones,
-            universe_size,
         }
     }
 
@@ -160,9 +126,8 @@ impl MultiBitVec for SparseBitVec {
             upper_bound = n.unwrap_or(self.num_ones());
         }
 
-        // Count the number of elements in this bucket that are strictly below i
+        // Count the number of elements in this bucket that are strictly below `bit_index`
         // using just the low bits.
-
         let remainder = self.remainder(bit_index);
         let bucket_count = partition_point((upper_bound - lower_bound) as usize, |n| {
             let index = lower_bound + n as u32;
@@ -191,6 +156,34 @@ impl MultiBitVec for SparseBitVec {
 
     fn num_unique_ones(&self) -> u32 {
         self.num_unique_ones
+    }
+}
+
+pub struct SparseBitVecBuilder {
+    universe_size: u32,
+    ones: Vec<u32>,
+}
+
+impl MultiBitVecBuilder for SparseBitVecBuilder {
+    type Target = SparseBitVec;
+
+    fn new(universe_size: u32) -> Self {
+        Self {
+            universe_size,
+            ones: Vec::new(),
+        }
+    }
+
+    fn one_count(&mut self, bit_index: u32, count: u32) {
+        assert!(bit_index < self.universe_size);
+        for _ in 0..count {
+            self.ones.push(bit_index);
+        }
+    }
+
+    fn build(mut self) -> SparseBitVec {
+        self.ones.sort();
+        SparseBitVec::new(self.ones.into(), self.universe_size)
     }
 }
 

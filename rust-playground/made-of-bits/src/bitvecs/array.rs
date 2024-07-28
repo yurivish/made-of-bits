@@ -2,34 +2,6 @@ use crate::bitvec::MultiBitVec;
 use crate::bitvec::MultiBitVecBuilder;
 use crate::bitvec::{BitVec, BitVecBuilder};
 
-pub struct ArrayBitVecBuilder {
-    universe_size: u32,
-    ones: Vec<u32>,
-}
-
-impl MultiBitVecBuilder for ArrayBitVecBuilder {
-    type Target = ArrayBitVec;
-
-    fn new(universe_size: u32) -> Self {
-        Self {
-            universe_size,
-            ones: Vec::new(),
-        }
-    }
-
-    fn one_count(&mut self, bit_index: u32, count: u32) {
-        assert!(bit_index < self.universe_size);
-        for _ in 0..count {
-            self.ones.push(bit_index);
-        }
-    }
-
-    fn build(mut self) -> ArrayBitVec {
-        self.ones.sort();
-        ArrayBitVec::new(self.ones.into(), self.universe_size)
-    }
-}
-
 #[derive(Clone)]
 pub struct ArrayBitVec {
     ones: Box<[u32]>,
@@ -88,6 +60,34 @@ impl MultiBitVec for ArrayBitVec {
 
     fn num_unique_ones(&self) -> u32 {
         self.num_unique_ones
+    }
+}
+
+pub struct ArrayBitVecBuilder {
+    universe_size: u32,
+    ones: Vec<u32>,
+}
+
+impl MultiBitVecBuilder for ArrayBitVecBuilder {
+    type Target = ArrayBitVec;
+
+    fn new(universe_size: u32) -> Self {
+        Self {
+            universe_size,
+            ones: Vec::new(),
+        }
+    }
+
+    fn one_count(&mut self, bit_index: u32, count: u32) {
+        assert!(bit_index < self.universe_size);
+        for _ in 0..count {
+            self.ones.push(bit_index);
+        }
+    }
+
+    fn build(mut self) -> ArrayBitVec {
+        self.ones.sort();
+        ArrayBitVec::new(self.ones.into(), self.universe_size)
     }
 }
 

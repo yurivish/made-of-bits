@@ -108,7 +108,12 @@ export_bitvec!(
     BitVecOf<Multi<DenseBitVec>>
 );
 export_bitvec!(
-    "array_",
+    "sparse_",
     BitVecBuilderOf<ArrayBitVecBuilder>,
     BitVecOf<ArrayBitVec>
+);
+export_bitvec!(
+    "array_",
+    BitVecBuilderOf<SparseBitVecBuilder>,
+    BitVecOf<SparseBitVec>
 );

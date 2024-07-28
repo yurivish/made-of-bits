@@ -11,34 +11,8 @@ use crate::{
 // - figure out how to optionally use a PaddedBitBuf – Buf trait + type parameter?
 // - do a pass over the code and convert it to a more Rust-like style: the current impls are fairly direct ports from JavaScript.
 
-pub struct DenseBitVecBuilder {
-    buf: BitBuf,
-}
-
-impl BitVecBuilder for DenseBitVecBuilder {
-    type Target = DenseBitVec;
-
-    fn new(universe_size: u32) -> Self {
-        Self {
-            buf: BitBuf::new(universe_size),
-        }
-    }
-
-    fn build(mut self) -> DenseBitVec {
-        // todo: configurable sample rates
-        // todo: compress to padded bit buf if favorable?
-        DenseBitVec::new(self.buf, 10, 10)
-    }
-
-    fn one(&mut self, bit_index: u32) {
-        assert!(bit_index < self.buf.universe_size());
-        self.buf.set_one(bit_index);
-    }
-}
-
 #[derive(Clone)]
 pub struct DenseBitVec {
-    // needs densebitvec actually, for the high bits.
     buf: BitBuf,
     num_ones: u32,
     rank1_samples_pow2: u32,
@@ -99,10 +73,10 @@ impl DenseBitVec {
         // A select sample `select1_samples[i]` tells us about the basic block that contains the
         // `selectSamplingRate * i + 1`-th 1-bit.
 
-        let mut cumulative_ones: u32 = 0; // 1-bits preceding the current raw block
-        let mut cumulative_bits: u32 = 0; // bits preceding the current raw block
-        let mut zeros_threshold: u32 = 0; // take a select0 sample at the (zerosThreshold+1)th 1-bit
-        let mut ones_threshold: u32 = 0; // take a select1 sample at the (onesThreshold+1)th 1-bit
+        let mut cumulative_ones = 0; // 1-bits preceding the current raw block
+        let mut cumulative_bits = 0; // bits preceding the current raw block
+        let mut zeros_threshold = 0; // take a select0 sample at the (zerosThreshold+1)th 1-bit
+        let mut ones_threshold = 0; // take a select1 sample at the (onesThreshold+1)th 1-bit
 
         let basic_blocks_per_rank1_sample = rank1_sample_rate >> BASIC_BLOCK_BITS;
 
@@ -350,12 +324,37 @@ impl BitVec for DenseBitVec {
         Some(basic_block_bit_index + bit_offset)
     }
 
+    fn universe_size(&self) -> u32 {
+        self.buf.universe_size()
+    }
+
     fn num_ones(&self) -> u32 {
         self.num_ones
     }
+}
 
-    fn universe_size(&self) -> u32 {
-        self.buf.universe_size()
+pub struct DenseBitVecBuilder {
+    buf: BitBuf,
+}
+
+impl BitVecBuilder for DenseBitVecBuilder {
+    type Target = DenseBitVec;
+
+    fn new(universe_size: u32) -> Self {
+        Self {
+            buf: BitBuf::new(universe_size),
+        }
+    }
+
+    fn build(mut self) -> DenseBitVec {
+        // todo: configurable sample rates
+        // todo: compress to padded bit buf if favorable?
+        DenseBitVec::new(self.buf, 10, 10)
+    }
+
+    fn one(&mut self, bit_index: u32) {
+        assert!(bit_index < self.buf.universe_size());
+        self.buf.set_one(bit_index);
     }
 }
 

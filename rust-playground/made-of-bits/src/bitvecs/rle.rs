@@ -5,121 +5,14 @@ use crate::{
 };
 use std::collections::HashSet;
 
-pub struct RLEBitVecBuilder {
-    universe_size: u32,
-    ones: HashSet<u32>,
-}
-
-impl BitVecBuilder for RLEBitVecBuilder {
-    type Target = RLEBitVec;
-
-    fn new(universe_size: u32) -> Self {
-        Self {
-            universe_size,
-            ones: HashSet::new(),
-        }
-    }
-
-    fn one(&mut self, bit_index: u32) {
-        assert!(bit_index < self.universe_size);
-        self.ones.insert(bit_index);
-    }
-
-    fn build(self) -> RLEBitVec {
-        let mut ones = self.ones.into_iter().collect::<Vec<_>>();
-        ones.sort();
-        let mut b = RLEBitVecRunBuilder::new();
-        let mut prev = u32::MAX;
-        for cur in ones {
-            let num_preceding_zeros = cur.wrapping_sub(prev) - 1;
-            b.run(num_preceding_zeros, 1);
-            prev = cur;
-        }
-        // pad out with zeros if needed
-        let num_zeros = self.universe_size.wrapping_sub(prev) - 1;
-        b.run(num_zeros, 0);
-        b.build()
-    }
-}
-
-// Run-specific bitvector builder. Does not implement the BitVecBuilder interface.
-struct RLEBitVecRunBuilder {
-    z: Vec<u32>,
-    zo: Vec<u32>,
-    num_zeros: u32,
-    num_ones: u32,
-}
-
-impl RLEBitVecRunBuilder {
-    fn new() -> Self {
-        Self {
-            z: Vec::new(),
-            zo: Vec::new(),
-            num_zeros: 0,
-            num_ones: 0,
-        }
-    }
-
-    fn run(&mut self, num_zeros: u32, num_ones: u32) {
-        if num_zeros == 0 && num_ones == 0 {
-            return;
-        }
-        let len = self.z.len();
-        self.num_zeros += num_zeros;
-        self.num_ones += num_ones;
-        if num_zeros == 0 && len > 0 {
-            // this run consists of only ones; coalesce it with the
-            // previous run (since all runs contain ones at their end).
-            *self.zo.last_mut().unwrap() += num_ones;
-        } else if num_ones == 0 && self.last_block_contains_only_zeros() {
-            // this run consists of only zeros; coalesce it with the
-            // previous run (since it turns out to consist of only zeros).
-            *self.z.last_mut().unwrap() += num_zeros;
-            *self.zo.last_mut().unwrap() += num_zeros;
-        } else {
-            // No coalescing is possible; create a new block of runs.
-            // Append the cumulative number of zeros to the Z array
-            self.z.push(self.num_zeros);
-            // Append the cumulative number of ones and zeros to the ZO array
-            self.zo.push(self.num_zeros + self.num_ones);
-        }
-    }
-
-    fn last_block_contains_only_zeros(&self) -> bool {
-        let len = self.z.len();
-        match len {
-            0 => false,
-            1 => self.z[0] == self.zo[0],
-            _ => {
-                let last_block_length = self.zo[len - 1] - self.zo[len - 2];
-                let last_block_num_zeros = self.z[len - 1] - self.z[len - 2];
-                last_block_length == last_block_num_zeros
-            }
-        }
-    }
-
-    fn build(self) -> RLEBitVec {
-        // The +1 to the universe size is needed because the 1-bit marker in z
-        // comes at the position after `self.num_zeros` zeros, and the same idea
-        // applies to zo, which marks with a 1-bit the position after each 01-run.
-        RLEBitVec {
-            z: BitVecOf::new(SparseBitVec::new(self.z.into(), self.num_zeros + 1)),
-            zo: BitVecOf::new(SparseBitVec::new(
-                self.zo.into(),
-                self.num_zeros + self.num_ones + 1,
-            )),
-            num_zeros: self.num_zeros,
-            num_ones: self.num_ones,
-        }
-    }
-}
-
 #[derive(Clone)]
 pub struct RLEBitVec {
     /// z[i]: cumulative number of zeros before the start of the i-th 1-run;
     /// can be thought of as pointing to the index of the first 1 in a 01-run.
-    /// Since we coalesce runs there are no zero-length runs, and therefore we can use
-    /// a bitvector type without multiplicity here.
+    /// Since we coalesce runs there are no zero-length runs, and therefore we
+    /// can use a bitvector type without multiplicity here and for `zo` (though
+    /// this isn't strictly required and is done for clarity and to enforce the
+    /// invariant with the quick runtime check in `BitVecOf` construction).
     z: BitVecOf<SparseBitVec>,
     /// zo[i]: cumulative number of ones and zeros at the end of the i-th 01-run;
     /// can be thought of as pointing just beyond the index of the last 1 in a 01-run.
@@ -228,6 +121,10 @@ impl BitVec for RLEBitVec {
         Some(block_start + (n - num_preceding_zeros))
     }
 
+    fn universe_size(&self) -> u32 {
+        self.num_zeros + self.num_ones
+    }
+
     fn num_ones(&self) -> u32 {
         self.num_ones
     }
@@ -235,9 +132,114 @@ impl BitVec for RLEBitVec {
     fn num_zeros(&self) -> u32 {
         self.num_zeros
     }
+}
 
-    fn universe_size(&self) -> u32 {
-        self.num_zeros + self.num_ones
+pub struct RLEBitVecBuilder {
+    universe_size: u32,
+    ones: HashSet<u32>,
+}
+
+impl BitVecBuilder for RLEBitVecBuilder {
+    type Target = RLEBitVec;
+
+    fn new(universe_size: u32) -> Self {
+        Self {
+            universe_size,
+            ones: HashSet::new(),
+        }
+    }
+
+    fn one(&mut self, bit_index: u32) {
+        assert!(bit_index < self.universe_size);
+        self.ones.insert(bit_index);
+    }
+
+    fn build(self) -> RLEBitVec {
+        let mut ones = self.ones.into_iter().collect::<Vec<_>>();
+        ones.sort();
+        let mut b = RLEBitVecRunBuilder::new();
+        let mut prev = u32::MAX;
+        for cur in ones {
+            let num_preceding_zeros = cur.wrapping_sub(prev) - 1;
+            b.run(num_preceding_zeros, 1);
+            prev = cur;
+        }
+        // pad out with zeros if needed
+        let num_zeros = self.universe_size.wrapping_sub(prev) - 1;
+        b.run(num_zeros, 0);
+        b.build()
+    }
+}
+
+// Run-specific bitvector builder. Does not implement the BitVecBuilder interface.
+struct RLEBitVecRunBuilder {
+    z: Vec<u32>,
+    zo: Vec<u32>,
+    num_zeros: u32,
+    num_ones: u32,
+}
+
+impl RLEBitVecRunBuilder {
+    fn new() -> Self {
+        Self {
+            z: Vec::new(),
+            zo: Vec::new(),
+            num_zeros: 0,
+            num_ones: 0,
+        }
+    }
+
+    fn run(&mut self, num_zeros: u32, num_ones: u32) {
+        if num_zeros == 0 && num_ones == 0 {
+            return;
+        }
+        let len = self.z.len();
+        self.num_zeros += num_zeros;
+        self.num_ones += num_ones;
+        if num_zeros == 0 && len > 0 {
+            // this run consists of only ones; coalesce it with the
+            // previous run (since all runs contain ones at their end).
+            *self.zo.last_mut().unwrap() += num_ones;
+        } else if num_ones == 0 && self.last_block_contains_only_zeros() {
+            // this run consists of only zeros; coalesce it with the
+            // previous run (since it turns out to consist of only zeros).
+            *self.z.last_mut().unwrap() += num_zeros;
+            *self.zo.last_mut().unwrap() += num_zeros;
+        } else {
+            // No coalescing is possible; create a new block of runs.
+            // Append the cumulative number of zeros to the Z array
+            self.z.push(self.num_zeros);
+            // Append the cumulative number of ones and zeros to the ZO array
+            self.zo.push(self.num_zeros + self.num_ones);
+        }
+    }
+
+    fn build(self) -> RLEBitVec {
+        // The +1 to the universe size is needed because the 1-bit marker in z
+        // comes at the position after `self.num_zeros` zeros, and the same idea
+        // applies to zo, which marks with a 1-bit the position after each 01-run.
+        RLEBitVec {
+            z: BitVecOf::new(SparseBitVec::new(self.z.into(), self.num_zeros + 1)),
+            zo: BitVecOf::new(SparseBitVec::new(
+                self.zo.into(),
+                self.num_zeros + self.num_ones + 1,
+            )),
+            num_zeros: self.num_zeros,
+            num_ones: self.num_ones,
+        }
+    }
+
+    fn last_block_contains_only_zeros(&self) -> bool {
+        let len = self.z.len();
+        match len {
+            0 => false,
+            1 => self.z[0] == self.zo[0],
+            _ => {
+                let last_block_length = self.zo[len - 1] - self.zo[len - 2];
+                let last_block_num_zeros = self.z[len - 1] - self.z[len - 2];
+                last_block_length == last_block_num_zeros
+            }
+        }
     }
 }
 

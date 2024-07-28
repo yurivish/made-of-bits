@@ -10,6 +10,63 @@ use crate::{
 };
 use std::collections::BTreeMap;
 
+#[derive(Clone)]
+pub struct Multi<T> {
+    occupancy: T,
+    multiplicity: BitVecOf<SparseBitVec>,
+    num_ones: u32,
+}
+
+impl<T: BitVec> Multi<T> {
+    fn new(occupancy: T, multiplicity: BitVecOf<SparseBitVec>) -> Self {
+        // `multiplicity` represents the cumulative multiplicity of each 1-bit, so
+        // the number of ones in this bitvector is the index of its last 1-bit.
+        let num_ones = match multiplicity.num_ones() {
+            0 => 0,
+            n => multiplicity.select1(n - 1).unwrap(),
+        };
+        Self {
+            occupancy,
+            multiplicity,
+            num_ones,
+        }
+    }
+
+    fn rank0(&self, bit_index: u32) -> u32 {
+        self.occupancy.rank0(bit_index)
+    }
+
+    fn select0(&self, n: u32) -> Option<u32> {
+        self.occupancy.select0(n)
+    }
+}
+
+impl<T: BitVec> MultiBitVec for Multi<T> {
+    fn rank1(&self, bit_index: u32) -> u32 {
+        match self.occupancy.rank1(bit_index) {
+            0 => 0,
+            n => self.multiplicity.select1(n - 1).unwrap(),
+        }
+    }
+
+    fn select1(&self, n: u32) -> Option<u32> {
+        let i = self.multiplicity.rank1(n + 1);
+        self.occupancy.select1(i)
+    }
+
+    fn num_ones(&self) -> u32 {
+        self.num_ones
+    }
+
+    fn num_unique_ones(&self) -> u32 {
+        self.occupancy.num_ones()
+    }
+
+    fn universe_size(&self) -> u32 {
+        self.occupancy.universe_size()
+    }
+}
+
 pub struct MultiBuilder<B> {
     /// BitBuf marking the positions of nonzero bits
     occupancy: B,
@@ -51,85 +108,6 @@ impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
         let universe_size = if acc > 0 { acc + 1 } else { 0 };
         let multiplicity = SparseBitVec::new(cumulative_counts.into(), universe_size);
         Multi::new(occupancy, BitVecOf::new(multiplicity))
-    }
-}
-
-#[derive(Clone)]
-pub struct Multi<T> {
-    occupancy: T,
-    multiplicity: BitVecOf<SparseBitVec>,
-    num_ones: u32,
-}
-
-impl<T: BitVec> Multi<T> {
-    fn new(occupancy: T, multiplicity: BitVecOf<SparseBitVec>) -> Self {
-        let n = multiplicity.num_ones();
-        let num_ones = if n == 0 {
-            0
-        } else {
-            multiplicity.select1(n - 1).unwrap()
-        };
-        Self {
-            occupancy,
-            multiplicity,
-            num_ones,
-        }
-    }
-
-    fn rank0(&self, bit_index: u32) -> u32 {
-        self.occupancy.rank0(bit_index)
-    }
-}
-
-// These implementations work in the general case
-impl<T: BitVec> Multi<T> {
-    fn rank1(&self, bit_index: u32) -> u32 {
-        let n = self.occupancy.rank1(bit_index);
-        if n == 0 {
-            0
-        } else {
-            self.multiplicity.select1(n - 1).unwrap()
-        }
-    }
-
-    fn select1(&self, n: u32) -> Option<u32> {
-        let i = self.multiplicity.rank1(n + 1);
-        self.occupancy.select1(i)
-    }
-
-    fn select0(&self, n: u32) -> Option<u32> {
-        self.occupancy.select0(n)
-    }
-
-    fn num_ones(&self) -> u32 {
-        self.num_ones
-    }
-
-    fn universe_size(&self) -> u32 {
-        self.occupancy.universe_size()
-    }
-}
-
-// Implement MultiBitVec
-impl<T: BitVec> MultiBitVec for Multi<T> {
-    fn rank1(&self, bit_index: u32) -> u32 {
-        self.rank1(bit_index)
-    }
-
-    fn select1(&self, n: u32) -> Option<u32> {
-        self.select1(n)
-    }
-
-    fn universe_size(&self) -> u32 {
-        self.universe_size()
-    }
-
-    fn num_unique_ones(&self) -> u32 {
-        self.occupancy.num_ones()
-    }
-
-    fn num_ones(&self) -> u32 {
-        self.occupancy.num_ones()
     }
 }
 
