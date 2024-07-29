@@ -338,6 +338,7 @@ pub struct DenseBitVecBuilder {
 
 impl BitVecBuilder for DenseBitVecBuilder {
     type Target = DenseBitVec;
+    type Options = ();
 
     fn new(universe_size: u32) -> Self {
         Self {

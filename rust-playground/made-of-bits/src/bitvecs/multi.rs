@@ -78,6 +78,7 @@ pub struct MultiBuilder<B> {
 
 impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
     type Target = Multi<B::Target>;
+    type Options = ();
 
     fn new(universe_size: u32) -> Self {
         Self {

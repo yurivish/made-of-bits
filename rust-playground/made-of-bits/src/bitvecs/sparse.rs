@@ -100,9 +100,9 @@ impl MultiBitVec for SparseBitVec {
             return self.num_ones;
         }
 
-        let quotient = self.quotient(bit_index);
         let lower_bound;
         let upper_bound;
+        let quotient = self.quotient(bit_index);
         if quotient == 0 {
             // We're searching within the first group, so the lower bound is zero.
             // Look for the divider that separates the first group from the subsequent groups.
@@ -167,6 +167,7 @@ pub struct SparseBitVecBuilder {
 
 impl MultiBitVecBuilder for SparseBitVecBuilder {
     type Target = SparseBitVec;
+    type Options = ();
 
     fn new(universe_size: u32) -> Self {
         Self {

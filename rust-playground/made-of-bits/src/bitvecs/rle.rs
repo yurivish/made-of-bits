@@ -141,6 +141,7 @@ pub struct RLEBitVecBuilder {
 
 impl BitVecBuilder for RLEBitVecBuilder {
     type Target = RLEBitVec;
+    type Options = ();
 
     fn new(universe_size: u32) -> Self {
         Self {

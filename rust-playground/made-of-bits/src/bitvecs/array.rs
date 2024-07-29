@@ -68,6 +68,7 @@ pub struct ArrayBitVecBuilder {
 
 impl MultiBitVecBuilder for ArrayBitVecBuilder {
     type Target = ArrayBitVec;
+    type Options = ();
 
     fn new(universe_size: u32) -> Self {
         Self {

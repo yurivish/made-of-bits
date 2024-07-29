@@ -83,6 +83,7 @@ pub trait MultiBitVec: Clone {
 
 pub trait BitVecBuilder {
     type Target: BitVec;
+    type Options;
 
     /// Universe size must be strictly less than u32::MAX for most BitVec types.
     /// The exception is RLEBitVec, for which the maximum universe size is 2^32-2.
@@ -107,6 +108,7 @@ pub trait BitVecBuilder {
 
 pub trait MultiBitVecBuilder {
     type Target: MultiBitVec;
+    type Options;
 
     /// Universe size must be strictly less than u32::MAX.
     fn new(universe_size: u32) -> Self;
@@ -195,6 +197,8 @@ where
     BitVecOf<B::Target>: BitVec,
 {
     type Target = BitVecOf<B::Target>;
+    type Options = B::Options;
+
     fn new(universe_size: u32) -> Self {
         Self {
             builder: B::new(universe_size),
