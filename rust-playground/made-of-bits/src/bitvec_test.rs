@@ -12,6 +12,10 @@ use std::any::type_name;
 // This file contains test functions for the BitVec and MultiBitVec interfaces.
 // `test_bitvec_builder` and `test_multi_bitvec_builder` are called from the tests of individual
 // BitVec and MultiBitVec implementations.
+//
+// Currently un- or under-tested corners
+// - test adding bits with count=0 to a multibitvec using builder.ones
+// - test an all-1-bits bitvec
 
 /// Top-level function for testing the BitVec interface
 /// Runs
@@ -258,9 +262,3 @@ pub(crate) fn test_multi_bitvec<T: MultiBitVecBuilder>(
         assert_eq!(a.select1(i), b.select1(i));
     }
 }
-
-/*
-Currently un- or under-tested corners
-- test adding bits with count=0 to a multibitvec using builder.ones
-- test an all-1-bits bitvec
-*/
