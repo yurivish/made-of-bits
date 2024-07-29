@@ -10,23 +10,6 @@ use arbtest::ArbTest;
 use exhaustigen::Gen;
 use std::any::type_name;
 
-// Notes
-// - We use the number 70 as the size for a small bit vector since it's
-
-// todo: test zero counts for one_count in MultiBitVecBuilder
-
-/*
-idea
-- represent the input to a bitvec builder as an array of ones
-- represnt the input to a multi bitvec builder as an array of (one, count)
-then use this to more easily do test-equal: another way to say this is perhaps
-we can add a method to construct a bitvec from these serialized forms, to make it easier
-to build a baseline and other bitvec
-(added .from_ones and .from_one_counts)
-*/
-
-// todo: use that iterator-generating method to generate an iterator of bitvecs?
-
 /// Top-level function for testing the BitVec interface
 /// Runs
 /// - Spot tests (manually-written individual test cases for basic checking)
@@ -157,7 +140,9 @@ pub(crate) fn spot_test_bitvec_builder<T: BitVecBuilder>() {
     }
 
     {
-        // bitvec gives correct answers for some basic rank and select queries
+        // bitvec gives correct answers for some basic rank and select queries.
+        // we use a universe size of 70 since it's enough to cover a few basic blocks.
+
         let mut b = T::new(70);
         b.one(0);
         b.one(31);
