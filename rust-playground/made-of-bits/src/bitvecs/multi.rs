@@ -86,7 +86,7 @@ impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
         }
     }
 
-    fn one_count(&mut self, bit_index: u32, count: u32) {
+    fn ones(&mut self, bit_index: u32, count: u32) {
         if count > 0 {
             self.occupancy.one(bit_index);
             *self.multiplicity.entry(bit_index).or_insert(0) += count;

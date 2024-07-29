@@ -81,7 +81,7 @@ impl MultiBitVecBuilder for ArrayBitVecBuilder {
         }
     }
 
-    fn one_count(&mut self, bit_index: u32, count: u32) {
+    fn ones(&mut self, bit_index: u32, count: u32) {
         assert!(bit_index < self.universe_size);
         for _ in 0..count {
             self.ones.push(bit_index);

@@ -113,7 +113,7 @@ pub trait MultiBitVecBuilder {
 
     /// Universe size must be strictly less than u32::MAX.
     fn new(universe_size: u32) -> Self;
-    fn one_count(&mut self, bit_index: u32, count: u32);
+    fn ones(&mut self, bit_index: u32, count: u32);
     fn build(self) -> Self::Target;
     fn from_ones_counts(universe_size: u32, ones: &[u32], counts: &[u32]) -> Self::Target
     where
@@ -121,7 +121,7 @@ pub trait MultiBitVecBuilder {
     {
         let mut b = Self::new(universe_size);
         for (&one, &count) in ones.iter().zip(counts.iter()) {
-            b.one_count(one, count)
+            b.ones(one, count)
         }
         b.build()
     }
@@ -207,7 +207,7 @@ where
 
     fn one(&mut self, bit_index: u32) {
         if !self.ones.get(bit_index) {
-            self.builder.one_count(bit_index, 1);
+            self.builder.ones(bit_index, 1);
             self.ones.set_one(bit_index);
         }
     }
