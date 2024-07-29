@@ -5,21 +5,6 @@ use crate::{bitbuf::BitBuf, bits::partition_point};
 //   otherwise be no way to select the last element.
 
 pub trait BitVec: Clone {
-    /// Get the value of the bit at the specified index (0 or 1).
-    /// The comparable method on MultiBitVec the presence of multiplicity,
-    // returns the count of the bit.
-    /// Note: This is rather inefficient since it does two rank calls,
-    /// each of which may take O(log(n)) time, depending on the BitVec.
-    fn get(&self, bit_index: u32) -> u32 {
-        assert!(
-            bit_index < self.universe_size(),
-            "bit index {} cannot exceed universe size {}",
-            bit_index,
-            self.universe_size()
-        );
-        self.rank1(bit_index + 1) - self.rank1(bit_index)
-    }
-
     /// Return the number of 1-bits below `bit_index`
     fn rank1(&self, bit_index: u32) -> u32;
 
@@ -54,6 +39,21 @@ pub trait BitVec: Clone {
         let universe = self.universe_size() as usize;
         let bit_index = partition_point(universe, |i| self.rank0(i as u32) <= n) - 1;
         Some(bit_index as u32)
+    }
+
+    /// Get the value of the bit at the specified index (0 or 1).
+    /// The comparable method on MultiBitVec the presence of multiplicity,
+    // returns the count of the bit.
+    /// Note: This is rather inefficient since it does two rank calls,
+    /// each of which may take O(log(n)) time, depending on the BitVec.
+    fn get(&self, bit_index: u32) -> u32 {
+        assert!(
+            bit_index < self.universe_size(),
+            "bit index {} cannot exceed universe size {}",
+            bit_index,
+            self.universe_size()
+        );
+        self.rank1(bit_index + 1) - self.rank1(bit_index)
     }
 
     fn universe_size(&self) -> u32;
