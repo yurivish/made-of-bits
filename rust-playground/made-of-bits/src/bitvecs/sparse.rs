@@ -57,7 +57,7 @@ impl SparseBitVec {
             let same = prev == Some(cur);
             num_unique_ones += if same { 0 } else { 1 };
             if let Some(prev) = prev {
-                debug_assert!(prev <= cur, "ones must be in sorted order")
+                debug_assert!(prev <= cur, "ones must be in ascending order")
             }
             assert!(
                 cur < universe_size,
