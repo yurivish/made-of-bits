@@ -334,22 +334,32 @@ impl BitVec for DenseBitVec {
 
 pub struct DenseBitVecBuilder {
     buf: BitBuf,
+    rank1_samples_pow2: u32,
+    select_samples_pow2: u32,
 }
 
 impl BitVecBuilder for DenseBitVecBuilder {
     type Target = DenseBitVec;
-    type Options = ();
+    /// (rank1_samples_pow2, select_samples_pow2)
+    type Options = (u32, u32);
 
     fn new(universe_size: u32) -> Self {
         Self {
             buf: BitBuf::new(universe_size),
+            rank1_samples_pow2: 10,
+            select_samples_pow2: 10,
         }
     }
 
+    fn options(mut self, options: Self::Options) -> Self {
+        self.rank1_samples_pow2 = options.0;
+        self.select_samples_pow2 = options.1;
+        self
+    }
+
     fn build(self) -> DenseBitVec {
-        // todo: configurable sample rates
         // todo: compress to padded bit buf if favorable?
-        DenseBitVec::new(self.buf, 10, 10)
+        DenseBitVec::new(self.buf, self.rank1_samples_pow2, self.select_samples_pow2)
     }
 
     fn one(&mut self, bit_index: u32) {

@@ -83,17 +83,23 @@ pub trait MultiBitVec: Clone {
 
 pub trait BitVecBuilder {
     type Target: BitVec;
-    type Options;
+    type Options: Default;
 
     /// Universe size must be strictly less than u32::MAX for most BitVec types.
     /// The exception is RLEBitVec, for which the maximum universe size is 2^32-2.
     fn new(universe_size: u32) -> Self;
+    fn options(self, options: Self::Options) -> Self
+    where
+        Self: Sized,
+    {
+        self
+    }
+
     /// Set a 1-bit in this bit vector.
     /// Idempotent; the same bit may be set more than once without effect.
     /// 1-bits may be added in any order.
     fn one(&mut self, bit_index: u32);
     fn build(self) -> Self::Target;
-
     fn from_ones(universe_size: u32, ones: &[u32]) -> Self::Target
     where
         Self: Sized,
@@ -108,10 +114,17 @@ pub trait BitVecBuilder {
 
 pub trait MultiBitVecBuilder {
     type Target: MultiBitVec;
-    type Options;
+    type Options: Default;
 
     /// Universe size must be strictly less than u32::MAX.
     fn new(universe_size: u32) -> Self;
+    fn options(self, options: Self::Options) -> Self
+    where
+        Self: Sized,
+    {
+        self
+    }
+
     fn ones(&mut self, bit_index: u32, count: u32);
     fn build(self) -> Self::Target;
     fn from_ones_counts(universe_size: u32, ones: &[u32], counts: &[u32]) -> Self::Target
