@@ -32,11 +32,6 @@ impl ArrayBitVec {
             num_unique_ones,
         }
     }
-
-    // #[cfg(test)]
-    // pub(crate) fn ones(&self) -> &Box<[u32]> {
-    //     &self.ones
-    // }
 }
 
 impl MultiBitVec for ArrayBitVec {
