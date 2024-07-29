@@ -1,4 +1,3 @@
-// #![warn(unused)]
 use crate::{
     bits::BASIC_BLOCK_SIZE,
     bitvec::{BitVec, BitVecBuilder, BitVecBuilderOf, MultiBitVec, MultiBitVecBuilder},
@@ -9,6 +8,10 @@ use arbtest::arbitrary;
 use arbtest::ArbTest;
 use exhaustigen::Gen;
 use std::any::type_name;
+
+// This file contains test functions for the BitVec and MultiBitVec interfaces.
+// `test_bitvec_builder` and `test_multi_bitvec_builder` are called from the tests of individual
+// BitVec and MultiBitVec implementations.
 
 /// Top-level function for testing the BitVec interface
 /// Runs

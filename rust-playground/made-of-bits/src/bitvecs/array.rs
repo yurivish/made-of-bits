@@ -102,7 +102,7 @@ mod tests {
     use crate::bitvec_test::*;
 
     #[test]
-    fn test() {
+    fn test_interface() {
         test_multi_bitvec_builder::<ArrayBitVecBuilder>();
     }
 }
