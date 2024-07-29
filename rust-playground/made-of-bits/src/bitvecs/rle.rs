@@ -229,10 +229,11 @@ impl RLEBitVecRunBuilder {
         // comes at the position after `self.num_zeros` zeros, and the same idea
         // applies to zo, which marks with a 1-bit the position after each 01-run.
         RLEBitVec {
-            z: BitVecOf::new(SparseBitVec::new(self.z.into(), self.num_zeros + 1)),
+            z: BitVecOf::new(SparseBitVec::new(self.z.into(), self.num_zeros + 1, None)),
             zo: BitVecOf::new(SparseBitVec::new(
                 self.zo.into(),
                 self.num_zeros + self.num_ones + 1,
+                None,
             )),
             num_zeros: self.num_zeros,
             num_ones: self.num_ones,

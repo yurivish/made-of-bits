@@ -20,7 +20,7 @@ pub struct SparseBitVec {
 }
 
 impl SparseBitVec {
-    pub fn new(ones: Box<[u32]>, universe_size: u32) -> Self {
+    pub fn new(ones: Box<[u32]>, universe_size: u32, low_bit_width: Option<u32>) -> Self {
         let num_ones: u32 = ones
             .len()
             .try_into()
@@ -33,11 +33,13 @@ impl SparseBitVec {
         // This approach chooses the split point by noting that the trade-off effectively is between having numOnes
         // low bits, or the next power of two of the universe size separators in the high bits. Hopefully this will
         // be explained clearly in the accompanying design & background documentation.
-        let low_bit_width = if num_ones == 0 {
-            0
-        } else {
-            (universe_size / num_ones).max(1).ilog2()
-        };
+        let low_bit_width = low_bit_width.unwrap_or_else(|| {
+            if num_ones == 0 {
+                0
+            } else {
+                (universe_size / num_ones).max(1).ilog2()
+            }
+        });
 
         // unary coding; 1 denotes values and 0 denotes separators, since that way
         // encoding becomes more efficient and we have a chance of saving space due to runs of
@@ -160,20 +162,32 @@ impl MultiBitVec for SparseBitVec {
     }
 }
 
+#[derive(Default)]
+pub struct SparseBitVecOptions {
+    low_bit_width: Option<u32>,
+}
+
 pub struct SparseBitVecBuilder {
     universe_size: u32,
     ones: Vec<u32>,
+    options: SparseBitVecOptions,
 }
 
 impl MultiBitVecBuilder for SparseBitVecBuilder {
     type Target = SparseBitVec;
-    type Options = ();
+    type Options = SparseBitVecOptions;
 
     fn new(universe_size: u32) -> Self {
         Self {
             universe_size,
             ones: Vec::new(),
+            options: Default::default(),
         }
+    }
+
+    fn options(mut self, options: Self::Options) -> Self {
+        self.options = options;
+        self
     }
 
     fn ones(&mut self, bit_index: u32, count: u32) {
@@ -185,7 +199,11 @@ impl MultiBitVecBuilder for SparseBitVecBuilder {
 
     fn build(mut self) -> SparseBitVec {
         self.ones.sort();
-        SparseBitVec::new(self.ones.into(), self.universe_size)
+        SparseBitVec::new(
+            self.ones.into(),
+            self.universe_size,
+            self.options.low_bit_width,
+        )
     }
 }
 

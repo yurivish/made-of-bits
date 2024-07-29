@@ -109,7 +109,7 @@ impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
 
         let occupancy = self.occupancy.build();
         let universe_size = if acc > 0 { acc + 1 } else { 0 };
-        let multiplicity = SparseBitVec::new(cumulative_counts.into(), universe_size);
+        let multiplicity = SparseBitVec::new(cumulative_counts.into(), universe_size, None);
         Multi::new(occupancy, BitVecOf::new(multiplicity))
     }
 }
