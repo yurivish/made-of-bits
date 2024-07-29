@@ -11,11 +11,6 @@ pub struct ArrayBitVec {
 
 impl ArrayBitVec {
     fn new(ones: Box<[u32]>, universe_size: u32) -> Self {
-        assert!(
-            universe_size < u32::MAX,
-            "maximum allowed universe size is 2^32-1"
-        );
-
         let mut num_unique_ones = 0;
         let mut prev = None;
 

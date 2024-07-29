@@ -155,17 +155,21 @@ impl BitVecBuilder for RLEBitVecBuilder {
     }
 
     fn build(self) -> RLEBitVec {
+        assert!(
+            self.universe_size < u32::MAX,
+            "univere size cannot exceed 2^32 - 1"
+        );
         let mut ones = self.ones.into_iter().collect::<Vec<_>>();
         ones.sort();
         let mut b = RLEBitVecRunBuilder::new();
         let mut prev = u32::MAX;
         for cur in ones {
-            let num_preceding_zeros = cur.wrapping_sub(prev) - 1;
+            let num_preceding_zeros = cur.wrapping_sub(prev).saturating_sub(1);
             b.run(num_preceding_zeros, 1);
             prev = cur;
         }
         // pad out with zeros if needed
-        let num_zeros = self.universe_size.wrapping_sub(prev) - 1;
+        let num_zeros = self.universe_size.wrapping_sub(prev).saturating_sub(1);
         b.run(num_zeros, 0);
         b.build()
     }
@@ -216,8 +220,8 @@ impl RLEBitVecRunBuilder {
 
     fn build(self) -> RLEBitVec {
         assert!(
-            self.num_zeros + self.num_ones < u32::MAX - 1,
-            "maximum allowed universe size is 2^32-2"
+            self.num_zeros + self.num_ones < u32::MAX,
+            "maximum allowed universe size is 2^32 - 1"
         );
 
         // The +1 to the universe size is needed because the 1-bit marker in z

@@ -21,12 +21,10 @@ pub struct SparseBitVec {
 
 impl SparseBitVec {
     pub fn new(ones: Box<[u32]>, universe_size: u32) -> Self {
-        assert!(
-            universe_size < u32::MAX,
-            "maximum allowed universe size is 2^32-1"
-        );
-
-        let num_ones = ones.len() as u32;
+        let num_ones: u32 = ones
+            .len()
+            .try_into()
+            .expect("number of 1-bits cannot exceed 2^32 - 1");
 
         // The paper "On Elias-Fano for Rank Queries in FM-Indexes" recommends a formula to compute
         // the number of low bits that is mostly equivalent to the version used below, except that

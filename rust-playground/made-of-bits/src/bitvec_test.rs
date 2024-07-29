@@ -82,6 +82,8 @@ pub(crate) fn sweep_test_bitvec_builder<T: BitVecBuilder>() {
     // and individually test bitvectors built from them.
     let universe_size = 5 * BASIC_BLOCK_SIZE;
     while !gen.done() {
+        // NOTE: Does double the work necessary since `gen_elts` generates both [x, y] and [y, x].
+        // TODO: figure out how to generate each unique combination only once (ignoring order).
         let ones: Vec<u32> = gen
             .gen_elts(2, universe_size as usize - 1) // note the inclusive upper bound
             .map(|x| x as u32)
@@ -205,19 +207,31 @@ pub(crate) fn spot_test_bitvec_builder<T: BitVecBuilder>() {
     }
 
     {
-        // No BitVecs accept a universe size of u32::MAX.
-        // The RLEBitVec additionally rejects a universe size of u32::MAX-2
-        // due to the fact that it needs to place a 1 into one of its internal
-        // bit vectors at index `universe_size`.
-        // Test that construction at these limits panics, and construction
-        // at just under the limit does not panic.
-        assert!(panics(|| T::new(u32::MAX).build()));
-        if type_name::<T>() == type_name::<RLEBitVecBuilder>() {
-            assert!(panics(|| T::new(u32::MAX - 1).build()));
-            T::new(u32::MAX - 2).build();
+        // check that maximum-size bitvecs are constructible and queryable
+        let bv = if type_name::<T>() == type_name::<RLEBitVecBuilder>() {
+            // The RLEBitVec rejects a universe size of u32::MAX
+            // due to the fact that it needs to place a 1 into one of its inner
+            // bit vectors at index `universe_size`.
+            assert!(panics(|| T::new(u32::MAX).build()));
+
+            let mut b = T::new(u32::MAX - 1);
+            // can add a bit at the maximum allowed index
+            b.one(u32::MAX - 2);
+            // cannot add one beyond that
+            assert!(panics(|| b.one(u32::MAX - 1)));
+            // builds without panic
+            b.build()
         } else {
-            T::new(u32::MAX - 1).build();
-        }
+            let mut b = T::new(u32::MAX);
+            // can add a bit at the maximum allowed index
+            b.one(u32::MAX - 1);
+            // cannot add one beyond that
+            assert!(panics(|| b.one(u32::MAX)));
+            // builds without panic
+            b.build()
+        };
+        assert_eq!(bv.num_ones(), 1);
+        assert_eq!(bv.rank1(u32::MAX), 1);
     }
 }
 
