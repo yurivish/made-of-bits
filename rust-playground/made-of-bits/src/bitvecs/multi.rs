@@ -122,7 +122,7 @@ mod tests {
 
     #[test]
     fn test_interface() {
-        test_multi_bitvec_builder::<MultiBuilder<DenseBitVecBuilder>>();
-        test_multi_bitvec_builder::<MultiBuilder<BitVecBuilderOf<ArrayBitVecBuilder>>>();
+        test_multibitvec_builder::<MultiBuilder<DenseBitVecBuilder>>();
+        test_multibitvec_builder::<MultiBuilder<BitVecBuilderOf<ArrayBitVecBuilder>>>();
     }
 }

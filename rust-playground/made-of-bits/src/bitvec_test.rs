@@ -10,7 +10,7 @@ use exhaustigen::Gen;
 use std::any::type_name;
 
 // This file contains test functions for the BitVec and MultiBitVec interfaces.
-// `test_bitvec_builder` and `test_multi_bitvec_builder` are called from the tests of individual
+// `test_bitvec_builder` and `test_multibitvec_builder` are called from the tests of individual
 // BitVec and MultiBitVec implementations.
 //
 // Currently un- or under-tested corners
@@ -34,16 +34,16 @@ pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
 /// Top-level function for testing the MultiBitVec interface.
 /// Doesn't currently run sweep tests, relying on randomized testing plus the passing BitVec sweep tests
 /// to find bugs.
-pub(crate) fn test_multi_bitvec_builder<T: MultiBitVecBuilder>() {
+pub(crate) fn test_multibitvec_builder<T: MultiBitVecBuilder>() {
     // run bitvec tests
     test_bitvec_builder::<BitVecBuilderOf<T>>();
 
     // run multibitvec tests
-    spot_test_multi_bitvec_builder::<T>();
-    prop_test_multi_bitvec_builder::<T>();
+    spot_test_multibitvec_builder::<T>();
+    prop_test_multibitvec_builder::<T>();
 }
 
-pub(crate) fn spot_test_multi_bitvec_builder<T: MultiBitVecBuilder>() {
+pub(crate) fn spot_test_multibitvec_builder<T: MultiBitVecBuilder>() {
     {
         // empty bitvec
         let bv = T::new(0).build();
@@ -221,7 +221,7 @@ pub(crate) fn spot_test_bitvec_builder<T: BitVecBuilder>() {
     }
 }
 
-pub(crate) fn prop_test_multi_bitvec_builder<T: MultiBitVecBuilder>(
+pub(crate) fn prop_test_multibitvec_builder<T: MultiBitVecBuilder>(
 ) -> ArbTest<impl FnMut(&mut arbitrary::Unstructured<'_>) -> arbitrary::Result<()>> {
     use arbtest::arbtest;
     arbtest(|u| {
@@ -234,12 +234,12 @@ pub(crate) fn prop_test_multi_bitvec_builder<T: MultiBitVecBuilder>(
             .iter()
             .map(|_| u.arbitrary::<u32>().map(|x| x % 100))
             .collect::<arbitrary::Result<Vec<_>>>()?;
-        test_multi_bitvec::<T>(universe_size, ones, counts);
+        test_multibitvec::<T>(universe_size, ones, counts);
         Ok(())
     })
 }
 
-pub(crate) fn test_multi_bitvec<T: MultiBitVecBuilder>(
+pub(crate) fn test_multibitvec<T: MultiBitVecBuilder>(
     universe_size: u32,
     ones: Vec<u32>,
     counts: Vec<u32>,

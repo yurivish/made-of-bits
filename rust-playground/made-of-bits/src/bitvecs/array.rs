@@ -103,6 +103,6 @@ mod tests {
 
     #[test]
     fn test_interface() {
-        test_multi_bitvec_builder::<ArrayBitVecBuilder>();
+        test_multibitvec_builder::<ArrayBitVecBuilder>();
     }
 }

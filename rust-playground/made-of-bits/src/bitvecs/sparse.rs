@@ -197,6 +197,6 @@ mod tests {
 
     #[test]
     fn test_interface() {
-        test_multi_bitvec_builder::<SparseBitVecBuilder>();
+        test_multibitvec_builder::<SparseBitVecBuilder>();
     }
 }
