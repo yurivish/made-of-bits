@@ -35,11 +35,6 @@ macro_rules! export_bitvec {
             x.one(bit_index)
         }
 
-        // #[js(name_prefix = $name_prefix)]
-        // fn builder_one_count(x: &mut $builder_type, bit_index: u32, count: u32) {
-        //     x.one_count(bit_index, count)
-        // }
-
         #[js(name_prefix = $name_prefix)]
         fn builder_build(x: *mut $builder_type) -> *mut $bitvec_type {
             allocate(to_owned(x).build())
@@ -52,26 +47,6 @@ macro_rules! export_bitvec {
 
         // BitVec
         //
-
-        #[js(name_prefix = $name_prefix)]
-        fn num_ones(x: &$bitvec_type) -> u32 {
-            x.num_ones()
-        }
-
-        #[js(name_prefix = $name_prefix)]
-        fn num_zeros(x: &$bitvec_type) -> u32 {
-            x.num_zeros()
-        }
-
-        #[js(name_prefix = $name_prefix)]
-        fn universe_size(x: &$bitvec_type) -> u32 {
-            x.universe_size()
-        }
-
-        #[js(name_prefix = $name_prefix)]
-        fn get(x: &$bitvec_type, bit_index: u32) -> u32 {
-            x.get(bit_index)
-        }
 
         #[js(name_prefix = $name_prefix)]
         fn rank1(x: &$bitvec_type, bit_index: u32) -> u32 {
@@ -91,6 +66,26 @@ macro_rules! export_bitvec {
         #[js(name_prefix = $name_prefix)]
         fn select0(x: &$bitvec_type, n: u32) -> Option<u32> {
             x.select0(n)
+        }
+
+        #[js(name_prefix = $name_prefix)]
+        fn get(x: &$bitvec_type, bit_index: u32) -> u32 {
+            x.get(bit_index)
+        }
+
+        #[js(name_prefix = $name_prefix)]
+        fn universe_size(x: &$bitvec_type) -> u32 {
+            x.universe_size()
+        }
+
+        #[js(name_prefix = $name_prefix)]
+        fn num_ones(x: &$bitvec_type) -> u32 {
+            x.num_ones()
+        }
+
+        #[js(name_prefix = $name_prefix)]
+        fn num_zeros(x: &$bitvec_type) -> u32 {
+            x.num_zeros()
         }
 
         #[js(name_prefix = $name_prefix)]
@@ -130,21 +125,6 @@ macro_rules! export_multibitvec {
         //
 
         #[js(name_prefix = $name_prefix)]
-        fn num_ones(x: &$bitvec_type) -> u32 {
-            x.num_ones()
-        }
-
-        #[js(name_prefix = $name_prefix)]
-        fn num_zeros(x: &$bitvec_type) -> u32 {
-            x.num_zeros()
-        }
-
-        #[js(name_prefix = $name_prefix)]
-        fn universe_size(x: &$bitvec_type) -> u32 {
-            x.universe_size()
-        }
-
-        #[js(name_prefix = $name_prefix)]
         fn get(x: &$bitvec_type, bit_index: u32) -> u32 {
             x.get(bit_index)
         }
@@ -157,6 +137,26 @@ macro_rules! export_multibitvec {
         #[js(name_prefix = $name_prefix)]
         fn select1(x: &$bitvec_type, n: u32) -> Option<u32> {
             x.select1(n)
+        }
+
+        #[js(name_prefix = $name_prefix)]
+        fn universe_size(x: &$bitvec_type) -> u32 {
+            x.universe_size()
+        }
+
+        #[js(name_prefix = $name_prefix)]
+        fn num_ones(x: &$bitvec_type) -> u32 {
+            x.num_ones()
+        }
+
+        #[js(name_prefix = $name_prefix)]
+        fn num_zeros(x: &$bitvec_type) -> u32 {
+            x.num_zeros()
+        }
+
+        #[js(name_prefix = $name_prefix)]
+        fn num_unique_ones(x: &$bitvec_type) -> u32 {
+            x.num_unique_ones()
         }
 
         #[js(name_prefix = $name_prefix)]

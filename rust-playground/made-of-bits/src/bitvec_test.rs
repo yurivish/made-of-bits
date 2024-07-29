@@ -210,7 +210,7 @@ pub(crate) fn spot_test_bitvec_builder<T: BitVecBuilder>() {
 pub(crate) fn prop_test_bitvec_builder<T: BitVecBuilder>(
 ) -> ArbTest<impl FnMut(&mut arbitrary::Unstructured<'_>) -> arbitrary::Result<()>> {
     arbtest(|u| {
-        let universe_size = u.arbitrary_len::<u32>()? as u32 % (u32::MAX - 1);
+        let universe_size = u.arbitrary_len::<u32>()? as u32;
         let ones = arbitrary_ones(u, universe_size)?;
         test_bitvec::<T>(universe_size, ones);
         Ok(())
@@ -266,7 +266,6 @@ pub(crate) fn spot_test_multibitvec_builder<T: MultiBitVecBuilder>() {
     {
         // empty bitvec
         let bv = T::new(0).build();
-        assert_eq!(bv.num_unique_zeros(), 0);
         assert_eq!(bv.num_unique_ones(), 0);
     }
 }
@@ -275,7 +274,7 @@ pub(crate) fn spot_test_multibitvec_builder<T: MultiBitVecBuilder>() {
 pub(crate) fn prop_test_multibitvec_builder<T: MultiBitVecBuilder>(
 ) -> ArbTest<impl FnMut(&mut arbitrary::Unstructured<'_>) -> arbitrary::Result<()>> {
     arbtest(|u| {
-        let universe_size = u.arbitrary_len::<u32>()? as u32 % (u32::MAX - 1);
+        let universe_size = u.arbitrary_len::<u32>()? as u32;
         let ones = arbitrary_ones(u, universe_size)?;
         dbg!(universe_size, &ones);
         // generate a random count for each 1-bit, limiting the maximum count

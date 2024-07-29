@@ -79,9 +79,6 @@ pub trait MultiBitVec: Clone {
         self.universe_size() - self.num_unique_ones()
     }
     fn num_unique_ones(&self) -> u32;
-    fn num_unique_zeros(&self) -> u32 {
-        self.universe_size() - self.num_unique_ones()
-    }
 }
 
 pub trait BitVecBuilder {
