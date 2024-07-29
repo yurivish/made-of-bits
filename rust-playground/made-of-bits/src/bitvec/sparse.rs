@@ -3,8 +3,8 @@ use crate::bitvec::MultiBitVecBuilder;
 use crate::{
     bitbuf::BitBuf,
     bits::{one_mask, partition_point},
-    bitvec::BitVec,
     bitvec::dense::DenseBitVec,
+    bitvec::BitVec,
     intbuf::IntBuf,
 };
 
@@ -163,7 +163,7 @@ impl MultiBitVec for SparseBitVec {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct SparseBitVecOptions {
     /// How many bits to use for the low bits in the Elias-Fano encoding.
     /// If this is None, then the number will be computed from the universe
@@ -171,6 +171,7 @@ pub struct SparseBitVecOptions {
     low_bit_width: Option<u32>,
 }
 
+#[derive(Clone)]
 pub struct SparseBitVecBuilder {
     universe_size: u32,
     ones: Vec<u32>,

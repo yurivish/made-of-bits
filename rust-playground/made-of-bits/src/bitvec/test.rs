@@ -1,7 +1,7 @@
 use crate::{
     bits::BASIC_BLOCK_SIZE,
-    bitvec::{BitVec, BitVecBuilder, BitVecBuilderOf, MultiBitVec, MultiBitVecBuilder},
     bitvec::{array::ArrayBitVecBuilder, rle::RLEBitVecBuilder},
+    bitvec::{BitVec, BitVecBuilder, BitVecBuilderOf, MultiBitVec, MultiBitVecBuilder},
     panics,
 };
 use arbtest::{arbitrary, arbtest, ArbTest};

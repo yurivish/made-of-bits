@@ -85,9 +85,9 @@ pub trait MultiBitVec: Clone {
     fn num_unique_ones(&self) -> u32;
 }
 
-pub trait BitVecBuilder {
+pub trait BitVecBuilder: Clone {
     type Target: BitVec;
-    type Options: Default;
+    type Options: Default + Clone;
 
     /// Universe size must be strictly less than u32::MAX for most BitVec types.
     /// The exception is RLEBitVec, for which the maximum universe size is 2^32-2.
@@ -116,9 +116,9 @@ pub trait BitVecBuilder {
     }
 }
 
-pub trait MultiBitVecBuilder {
+pub trait MultiBitVecBuilder: Clone {
     type Target: MultiBitVec;
-    type Options: Default;
+    type Options: Default + Clone;
 
     /// Universe size must be strictly less than u32::MAX.
     fn new(universe_size: u32) -> Self;
@@ -204,6 +204,7 @@ impl<T: MultiBitVec> BitVecOf<T> {
 /// enforcing idempotency of `BitVecBuilder::one`.
 /// (The idempotency requirement is why we can't just use
 /// MultiBitVecBuilder directly).
+#[derive(Clone)]
 pub struct BitVecBuilderOf<B: MultiBitVecBuilder> {
     builder: B,
     ones: BitBuf,

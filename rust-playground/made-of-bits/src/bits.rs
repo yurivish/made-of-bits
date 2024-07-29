@@ -48,8 +48,8 @@ pub(crate) fn select1(x: u32, k: u32) -> Option<u32> {
 }
 
 /// Reverse the first `num_bits` bits of `x`.
-pub(crate) const fn reverse_low_bits(x: u32, num_bits: u32) -> u32 {
-    x.reverse_bits() >> (u32::BITS - num_bits)
+pub(crate) const fn reverse_low_bits(x: usize, num_bits: usize) -> usize {
+    x.reverse_bits() >> (usize::BITS as usize - num_bits)
 }
 
 pub(crate) const fn one_mask(n: u32) -> u32 {

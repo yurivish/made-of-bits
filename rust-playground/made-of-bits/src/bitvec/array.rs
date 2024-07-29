@@ -56,6 +56,7 @@ impl MultiBitVec for ArrayBitVec {
     }
 }
 
+#[derive(Clone)]
 pub struct ArrayBitVecBuilder {
     universe_size: u32,
     ones: Vec<u32>,

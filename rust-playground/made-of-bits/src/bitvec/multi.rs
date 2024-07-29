@@ -69,11 +69,12 @@ impl<T: BitVec> MultiBitVec for Multi<T> {
     }
 }
 
-#[derive(Default)]
-pub struct MultiOptions<T> {
+#[derive(Default, Clone)]
+pub struct MultiOptions<T: Default + Clone> {
     occupancy: Option<T>,
 }
 
+#[derive(Clone)]
 pub struct MultiBuilder<B: BitVecBuilder> {
     /// BitBuf marking the positions of nonzero bits
     occupancy: B,
@@ -134,9 +135,9 @@ impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bitvec::BitVecBuilderOf;
     use crate::bitvec::array::ArrayBitVecBuilder;
-    use crate::{bitvec::test::*, bitvec::dense::DenseBitVecBuilder};
+    use crate::bitvec::BitVecBuilderOf;
+    use crate::{bitvec::dense::DenseBitVecBuilder, bitvec::test::*};
 
     #[test]
     fn multibitvec_interface() {

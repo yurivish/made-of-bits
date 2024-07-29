@@ -6,6 +6,7 @@ mod bitvec;
 mod intbuf;
 mod js;
 mod zorder;
+mod waveletmatrix;
 
 use to_js::js;
 

@@ -332,12 +332,13 @@ impl BitVec for DenseBitVec {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct DenseBitVecOptions {
     rank1_samples_pow2: Option<u32>,
     select_samples_pow2: Option<u32>,
 }
 
+#[derive(Clone)]
 pub struct DenseBitVecBuilder {
     buf: BitBuf,
     options: DenseBitVecOptions,

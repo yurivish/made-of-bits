@@ -1,7 +1,7 @@
 use crate::{
     bits::partition_point,
-    bitvec::{BitVec, BitVecBuilder, BitVecOf},
     bitvec::sparse::SparseBitVec,
+    bitvec::{BitVec, BitVecBuilder, BitVecOf},
 };
 use std::collections::HashSet;
 
@@ -134,6 +134,7 @@ impl BitVec for RLEBitVec {
     }
 }
 
+#[derive(Clone)]
 pub struct RLEBitVecBuilder {
     universe_size: u32,
     ones: HashSet<u32>,
