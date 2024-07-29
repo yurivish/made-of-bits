@@ -368,7 +368,7 @@ mod tests {
     use crate::bitvec_test::*;
 
     #[test]
-    fn test_interface() {
+    fn bitvec_interface() {
         test_bitvec_builder::<DenseBitVecBuilder>();
     }
 }

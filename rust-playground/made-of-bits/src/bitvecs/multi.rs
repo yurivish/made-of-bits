@@ -121,7 +121,7 @@ mod tests {
     use crate::{bitvec_test::*, bitvecs::dense::DenseBitVecBuilder};
 
     #[test]
-    fn test_interface() {
+    fn multibitvec_interface() {
         test_multibitvec_builder::<MultiBuilder<DenseBitVecBuilder>>();
         test_multibitvec_builder::<MultiBuilder<BitVecBuilderOf<ArrayBitVecBuilder>>>();
     }
