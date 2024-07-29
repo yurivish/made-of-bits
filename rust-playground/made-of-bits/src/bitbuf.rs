@@ -225,7 +225,7 @@ impl PaddedBitBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::catch_unwind;
+    use crate::panics;
 
     /// Run a number of checks on `buf` and a PaddedBuf
     /// constructed from it after each modification.
@@ -309,21 +309,24 @@ mod tests {
 
         // should panic if manipulating out-of-bounds
         let mut buf_clone = buf.clone();
-        catch_unwind(move || buf_clone.set_one(buf_clone.universe_size)).unwrap_err();
+        assert!(panics(|| buf_clone.set_one(buf_clone.universe_size)));
         let mut buf_clone = buf.clone();
-        catch_unwind(move || buf_clone.set_zero(buf_clone.universe_size)).unwrap_err();
+        assert!(panics(|| buf_clone.set_zero(buf_clone.universe_size)));
         let buf_clone = buf.clone();
-        catch_unwind(move || buf_clone.get(buf_clone.universe_size)).unwrap_err();
+        assert!(panics(|| buf_clone.get(buf_clone.universe_size)));
         let mut buf_clone = buf.clone();
-        catch_unwind(move || buf_clone.set_one(buf_clone.universe_size)).unwrap_err();
+        assert!(panics(|| buf_clone.set_one(buf_clone.universe_size)));
     }
 
     #[test]
     fn test_bitbuf() {
         // should handle zero-width bufs
-        catch_unwind(move || BitBuf::new(0).set_one(0)).unwrap_err();
-        catch_unwind(move || BitBuf::new(0).set_zero(0)).unwrap_err();
-        catch_unwind(move || BitBuf::new(0).get(0)).unwrap_err();
+        assert!(panics(|| BitBuf::new(0).set_one(0)));
+        assert!(panics(|| BitBuf::new(0).set_zero(0)));
+        assert!(panics(|| BitBuf::new(0).get(0)));
+
+        // should handle max-size bufs
+        BitBuf::new(u32::MAX);
 
         check(BitBuf::new(3), 0);
         check(BitBuf::new(5), 2);
@@ -334,8 +337,16 @@ mod tests {
     #[test]
     fn test_padded_bitbuf() {
         // should handle zero-width bufs
-        catch_unwind(move || BitBuf::new(0).get(0)).unwrap_err();
-        catch_unwind(move || BitBuf::new(0).get_block(0)).unwrap_err();
+        assert!(panics(|| BitBuf::new(0).get(0)));
+        assert!(panics(|| BitBuf::new(0).get_block(0)));
+
+        // should handle max-size bufs
+        {
+            let mut b = BitBuf::new(u32::MAX);
+            b.set_one(0);
+            b.set_one(u32::MAX - 1);
+            b.into_padded();
+        }
 
         // empty BitBufs should turn into blockless padded arrays
         assert_eq!(BitBuf::new(3).into_padded().blocks.len(), 0);
