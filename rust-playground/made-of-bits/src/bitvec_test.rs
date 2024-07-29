@@ -242,12 +242,12 @@ pub(crate) fn test_multi_bitvec<T: MultiBitVecBuilder>(
     assert_eq!(a.num_ones(), b.num_ones());
     assert_eq!(a.universe_size(), b.universe_size());
 
-    // test with some extra values on the top of the array to ensure that out-of-bounds
-    // queries are treated identically between the two options
     for i in 0..universe_size {
         assert_eq!(a.get(i), b.get(i));
     }
 
+    // test with some extra values on the top of the array to ensure that out-of-bounds
+    // queries are treated identically between the two options
     for i in 0..a.num_ones().saturating_add(10) {
         assert_eq!(a.rank1(i), b.rank1(i));
         assert_eq!(a.select1(i), b.select1(i));
