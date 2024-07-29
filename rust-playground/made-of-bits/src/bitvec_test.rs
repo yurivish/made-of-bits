@@ -16,6 +16,9 @@ use std::any::type_name;
 // Currently un- or under-tested corners
 // - test adding bits with count=0 to a multibitvec using builder.ones
 // - test an all-1-bits bitvec
+// - some individual bitvec types should have type-specific tests that stress specific bitvec
+//   shapes and assert the appropriate size guarantees, eg. sparse (large universe), rle (runs),
+//   and multi (large multiplicities)
 
 /// Top-level function for testing the BitVec interface
 /// Runs
