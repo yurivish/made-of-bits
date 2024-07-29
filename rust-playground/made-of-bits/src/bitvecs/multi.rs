@@ -69,22 +69,34 @@ impl<T: BitVec> MultiBitVec for Multi<T> {
     }
 }
 
-pub struct MultiBuilder<B> {
+#[derive(Default)]
+pub struct MultiOptions<T> {
+    occupancy: Option<T>,
+}
+
+pub struct MultiBuilder<B: BitVecBuilder> {
     /// BitBuf marking the positions of nonzero bits
     occupancy: B,
     /// Map from 1-bit index to its multiplicity (count).
     multiplicity: HashMap<u32, u32>,
+    options: MultiOptions<B::Options>,
 }
 
 impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
     type Target = Multi<B::Target>;
-    type Options = ();
+    type Options = MultiOptions<B::Options>;
 
     fn new(universe_size: u32) -> Self {
         Self {
             occupancy: B::new(universe_size),
             multiplicity: HashMap::new(),
+            options: Default::default(),
         }
+    }
+
+    fn options(mut self, options: Self::Options) -> Self {
+        self.options = options;
+        self
     }
 
     fn ones(&mut self, bit_index: u32, count: u32) {
@@ -94,7 +106,7 @@ impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
         }
     }
 
-    fn build(self) -> Multi<B::Target> {
+    fn build(mut self) -> Multi<B::Target> {
         // Sort the map keys and values in ascending order of 1-bit index
         let mut kv: Vec<_> = self.multiplicity.into_iter().collect();
         kv.sort_by_key(|(k, _v)| *k);
@@ -107,7 +119,12 @@ impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
             *x = acc;
         }
 
+        // apply any provided options to the occupancy BitVec
+        if let Some(options) = self.options.occupancy {
+            self.occupancy = self.occupancy.options(options)
+        }
         let occupancy = self.occupancy.build();
+
         let universe_size = if acc > 0 { acc + 1 } else { 0 };
         let multiplicity = SparseBitVec::new(cumulative_counts.into(), universe_size, None);
         Multi::new(occupancy, BitVecOf::new(multiplicity))
