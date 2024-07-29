@@ -4,6 +4,7 @@ use crate::{
     bits::reverse_low_bits,
     bitvec::dense::{DenseBitVec, DenseBitVecBuilder},
 };
+use std::ops::Range;
 
 #[derive(Debug)]
 pub struct WaveletMatrix<V: BitVec> {
@@ -22,6 +23,32 @@ struct Level<V: BitVec> {
     // e.g.  levels[0].bit == 1 << levels.len() - 1
     bit: u32,
 }
+
+impl<V: BitVec> Level<V> {
+    // Returns (rank0(index), rank1(index))
+    // This means that if x = ranks(index), x.0 is rank0 and x.1 is rank1.
+    pub fn ranks(&self, index: u32) -> Ranks<u32> {
+        if index == 0 {
+            return Ranks(0, 0);
+        }
+        let num_ones = self.bv.rank1(index);
+        let num_zeros = index - num_ones;
+        Ranks(num_zeros, num_ones)
+    }
+
+    // Given the start index of a left node on this level, return the split points
+    // that cover the range:
+    // - left is the start of the left node
+    // - mid is the start of the right node
+    // - right is one past the end of the right node
+    pub fn splits(&self, left: u32) -> (u32, u32, u32) {
+        (left, left + self.bit, left + self.bit + self.bit)
+    }
+}
+
+// Stores (rank0, rank1) as resulting from the Level::ranks function
+#[derive(Copy, Clone)]
+struct Ranks<T>(T, T);
 
 impl<V: BitVec> WaveletMatrix<V> {
     pub fn new(data: Vec<u32>, max_symbol: u32) -> WaveletMatrix<DenseBitVec> {
@@ -68,6 +95,189 @@ impl<V: BitVec> WaveletMatrix<V> {
             max_symbol,
             len,
         }
+    }
+
+    // Locate a symbol on the virtual bottom level of the wavelet tree.
+    // Returns two things, both restricted to the query range:
+    // - the number of symbols preceding this one in sorted order (less than)
+    // - the range of this symbol on the virtual bottom level
+    // This function is designed for internal use, where knowing the precise
+    // range on the virtual level can be useful, e.g. for select queries.
+    // Since the range also tells us the count of this symbol in the range, we
+    // can combine the two pieces of data together for a count-less-than-or-equal query.
+    // We compute both of these in one function since it's pretty cheap to do so.
+    fn locate(&self, symbol: u32, range: Range<u32>, ignore_bits: usize) -> (u32, Range<u32>) {
+        assert!(
+            symbol <= self.max_symbol,
+            "symbol must not exceed max_symbol"
+        );
+        let mut preceding_count = 0;
+        let mut range = range;
+        for level in self.levels(ignore_bits) {
+            let start = level.ranks(range.start);
+            let end = level.ranks(range.end);
+            // check if the symbol's level bit is set to determine whether it should be mapped
+            // to the left or right child node
+            if symbol & level.bit == 0 {
+                // go left
+                range = start.0..end.0;
+            } else {
+                // count the symbols in the left child before going right
+                preceding_count += end.0 - start.0;
+                range = level.nz + start.1..level.nz + end.1;
+            }
+        }
+        (preceding_count, range)
+    }
+
+    /// Number of symbols less than this one, restricted to the query range
+    pub fn preceding_count(&self, symbol: u32, range: Range<u32>) -> u32 {
+        self.locate(symbol, range, 0).0
+    }
+
+    /// Number of times the symbol appears in the query range
+    pub fn count(&self, range: Range<u32>, symbol: u32) -> u32 {
+        let range = self.locate(symbol, range, 0).1;
+        range.end - range.start
+    }
+
+    pub fn quantile(&self, k: u32, range: Range<u32>) -> (u32, u32) {
+        assert!(k < range.end - range.start);
+        let mut k = k;
+        let mut range = range;
+        let mut symbol = 0;
+        for level in self.levels(0) {
+            let start = level.ranks(range.start);
+            let end = level.ranks(range.end);
+            let left_count = end.0 - start.0;
+            if k < left_count {
+                // go left
+                range = start.0..end.0;
+            } else {
+                // go right
+                k -= left_count;
+                symbol += level.bit;
+                range = level.nz + start.1..level.nz + end.1;
+            }
+        }
+        let count = range.end - range.start;
+        (symbol, count)
+    }
+
+    /// Return the index of the k-th occurrence of `symbol`
+    pub fn select(
+        &self,
+        symbol: u32,
+        k: u32,
+        range: Range<u32>,
+        ignore_bits: usize,
+    ) -> Option<u32> {
+        if symbol > self.max_symbol {
+            return None;
+        }
+
+        // track the symbol down to a range on the bottom-most level we're interested in
+        let range = self.locate(symbol, range, ignore_bits).1;
+        let count = range.end - range.start;
+
+        // If there are fewer than `k+1` copies of `symbol` in the range, return early.
+        // `k` is zero-indexed, so our check includes equality.
+        if count <= k {
+            return None;
+        }
+
+        // track the k-th occurrence of the symbol up from the bottom-most virtual level
+        // or higher, if ignore_bits is non-zero.
+        let index = range.start + k;
+        self.select_upwards(index, ignore_bits)
+    }
+
+    // Return the index of the k-th occurrence of `symbol` from the back of the wavelet matrix
+    pub fn select_last(
+        &self,
+        symbol: u32,
+        k: u32,
+        range: Range<u32>,
+        ignore_bits: usize,
+    ) -> Option<u32> {
+        if symbol > self.max_symbol {
+            return None;
+        }
+        let range = self.locate(symbol, range, ignore_bits).1;
+        let count = range.end - range.start;
+        if count <= k {
+            return None;
+        }
+        let index = range.end - k - 1; // - 1 because end is exclusive
+        self.select_upwards(index, ignore_bits)
+    }
+
+    // This function abstracts the common second half of the select algorithm, once you've
+    // identified an index on the "bottom" level and want to bubble it back up to translate
+    // the "sorted" index from the bottom level to the index of that element in sequence order.
+    // We make this a pub fn since it could allow eg. external users of `locate` to efficiently
+    // select their chosen element. For example, perhaps we should remove `select_last`...
+    pub fn select_upwards(&self, index: u32, ignore_bits: usize) -> Option<u32> {
+        let mut index = index;
+        for level in self.levels(ignore_bits).rev() {
+            // `index` represents an index on the level below this one, which may be
+            // the bottom-most 'virtual' layer that contains all symbols in sorted order.
+            //
+            // We want to determine the position of the element represented by `index` on
+            // this level, which we can do by "mapping" the index up to its parent node.
+            //
+            // `level.nz` tells us how many bits on the level below come from left children of
+            // the wavelet tree (represented by this wavelet matrix). If the index < nz, that
+            // means that the index on the level below came from a left child on this level,
+            // which means that it must be represented by a 0-bit on this level; specifically,
+            // the `index`-th 0-bit, since the WT always represents a stable sort of its elements.
+            //
+            // On the other hand, if `index` came from a right child on this level, then it
+            // is represented by a 1-bit on this level; specifically, the `index - nz`-th 1-bit.
+            //
+            // In either case, we can use bitvector select to compute the index on this level.
+            if index < level.nz {
+                // `index` represents a left child on this level, represented by the `index`-th 0-bit.
+                index = level.bv.select0(index).unwrap();
+            } else {
+                // `index` represents a right child on this level, represented by the `index-nz`-th 1-bit.
+                index = level.bv.select1(index - level.nz).unwrap();
+            }
+        }
+        Some(index)
+    }
+
+    /// Return the majority element, if one exists.
+    /// The majority element is one whose frequency is larger than 50% of the range.
+    pub fn simple_majority(&self, range: Range<u32>) -> Option<u32> {
+        let len = range.end - range.start;
+        let half_len = len >> 1;
+        let (symbol, count) = self.quantile(half_len, range);
+        if count > half_len {
+            Some(symbol)
+        } else {
+            None
+        }
+    }
+
+    // todo: fn k_majority(&self, k, range) { ... }
+
+    // Returns an iterator over levels from the high bit downwards, ignoring the
+    // bottom `ignore_bits` levels.
+    fn levels(&self, ignore_bits: usize) -> std::slice::Iter<Level<V>> {
+        self.levels[..self.levels.len() - ignore_bits].iter()
+    }
+
+    pub fn len(&self) -> u32 {
+        self.len
+    }
+
+    pub fn max_symbol(&self) -> u32 {
+        self.max_symbol
+    }
+
+    pub fn num_levels(&self) -> usize {
+        self.levels.len()
     }
 }
 
@@ -190,4 +400,15 @@ fn build_bitvecs_large_alphabet(mut data: Vec<u32>, num_levels: usize) -> Vec<De
     }
 
     levels
+}
+
+// Return true if `a` overlaps `b`
+fn range_overlaps(a: &Range<u32>, b: &Range<u32>) -> bool {
+    a.start < b.end && b.start < a.end
+}
+
+// Return true if `a` fully contains `b`
+fn range_fully_contains(a: &Range<u32>, b: &Range<u32>) -> bool {
+    // if a starts before b, and a ends after b.
+    a.start <= b.start && a.end >= b.end
 }

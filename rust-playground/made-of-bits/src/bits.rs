@@ -48,6 +48,12 @@ pub(crate) fn select1(x: u32, k: u32) -> Option<u32> {
 }
 
 /// Reverse the first `num_bits` bits of `x`.
+///
+/// ```
+/// assert_eq!(reverse_low_bits(0b0000100100, 6) == 0b0000001001)
+/// //                                ^^^^^^              ^^^^^^
+/// ```
+///
 pub(crate) const fn reverse_low_bits(x: usize, num_bits: usize) -> usize {
     x.reverse_bits() >> (usize::BITS as usize - num_bits)
 }
