@@ -3,11 +3,9 @@
 mod bitbuf;
 mod bits;
 mod bitvec;
-#[cfg(test)]
-mod bitvec_test;
-mod bitvecs;
 mod intbuf;
 mod js;
+mod zorder;
 
 use to_js::js;
 

@@ -2,19 +2,19 @@ use crate::bitvec::BitVecBuilderOf;
 use crate::bitvec::BitVecOf;
 use crate::bitvec::MultiBitVec;
 use crate::bitvec::MultiBitVecBuilder;
-use crate::bitvecs::multi::Multi;
-use crate::bitvecs::multi::MultiBuilder;
-use crate::bitvecs::rle::RLEBitVec;
-use crate::bitvecs::rle::RLEBitVecBuilder;
-use crate::bitvecs::sparse::SparseBitVec;
-use crate::bitvecs::sparse::SparseBitVecBuilder;
+use crate::bitvec::multi::Multi;
+use crate::bitvec::multi::MultiBuilder;
+use crate::bitvec::rle::RLEBitVec;
+use crate::bitvec::rle::RLEBitVecBuilder;
+use crate::bitvec::sparse::SparseBitVec;
+use crate::bitvec::sparse::SparseBitVecBuilder;
 use crate::{
     bitvec::{BitVec, BitVecBuilder},
-    bitvecs::array::{ArrayBitVec, ArrayBitVecBuilder},
+    bitvec::array::{ArrayBitVec, ArrayBitVecBuilder},
 };
 use to_js::{allocate, js, to_owned};
 
-use crate::bitvecs::dense::{DenseBitVec, DenseBitVecBuilder};
+use crate::bitvec::dense::{DenseBitVec, DenseBitVecBuilder};
 
 /// This macro takes as arguments a function name prefix (eg. "dense_"),
 /// a BitVecBuilder type name (eg. DenseBitVecBuilder), and a BitVec

@@ -1,9 +1,9 @@
+use crate::bitvec::sparse::SparseBitVec;
 use crate::bitvec::BitVec;
 use crate::bitvec::BitVecBuilder;
 use crate::bitvec::BitVecOf;
 use crate::bitvec::MultiBitVec;
 use crate::bitvec::MultiBitVecBuilder;
-use crate::bitvecs::sparse::SparseBitVec;
 use std::collections::HashMap;
 
 #[derive(Clone)]
@@ -135,8 +135,8 @@ impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
 mod tests {
     use super::*;
     use crate::bitvec::BitVecBuilderOf;
-    use crate::bitvecs::array::ArrayBitVecBuilder;
-    use crate::{bitvec_test::*, bitvecs::dense::DenseBitVecBuilder};
+    use crate::bitvec::array::ArrayBitVecBuilder;
+    use crate::{bitvec::test::*, bitvec::dense::DenseBitVecBuilder};
 
     #[test]
     fn multibitvec_interface() {

@@ -4,7 +4,7 @@ use crate::{
     bitbuf::BitBuf,
     bits::{one_mask, partition_point},
     bitvec::BitVec,
-    bitvecs::dense::DenseBitVec,
+    bitvec::dense::DenseBitVec,
     intbuf::IntBuf,
 };
 
@@ -214,7 +214,7 @@ impl MultiBitVecBuilder for SparseBitVecBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bitvec_test::*;
+    use crate::bitvec::test::*;
 
     #[test]
     fn multibitvec_interface() {

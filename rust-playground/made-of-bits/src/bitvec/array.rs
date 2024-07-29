@@ -95,7 +95,7 @@ impl MultiBitVecBuilder for ArrayBitVecBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bitvec_test::*;
+    use crate::bitvec::test::*;
 
     #[test]
     fn multibitvec_interface() {

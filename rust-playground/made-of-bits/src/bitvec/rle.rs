@@ -1,7 +1,7 @@
 use crate::{
     bits::partition_point,
     bitvec::{BitVec, BitVecBuilder, BitVecOf},
-    bitvecs::sparse::SparseBitVec,
+    bitvec::sparse::SparseBitVec,
 };
 use std::collections::HashSet;
 
@@ -257,7 +257,7 @@ impl RLEBitVecRunBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bitvec_test::*;
+    use crate::bitvec::test::*;
 
     #[test]
     fn bitvec_interface() {

@@ -1,8 +1,12 @@
-use crate::{bitbuf::BitBuf, bits::partition_point};
+pub mod array;
+pub mod dense;
+pub mod multi;
+pub mod rle;
+pub mod sparse;
+#[cfg(test)]
+mod test;
 
-// Design decisions
-// - Universe size must be strictly less than u32::MAX since there would
-//   otherwise be no way to select the last element.
+use crate::{bitbuf::BitBuf, bits::partition_point};
 
 pub trait BitVec: Clone {
     /// Return the number of 1-bits below `bit_index`

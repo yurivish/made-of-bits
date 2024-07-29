@@ -378,7 +378,7 @@ impl BitVecBuilder for DenseBitVecBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bitvec_test::*;
+    use crate::bitvec::test::*;
 
     #[test]
     fn bitvec_interface() {
