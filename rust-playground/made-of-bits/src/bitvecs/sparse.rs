@@ -165,6 +165,9 @@ impl MultiBitVec for SparseBitVec {
 
 #[derive(Default)]
 pub struct SparseBitVecOptions {
+    /// How many bits to use for the low bits in the Elias-Fano encoding.
+    /// If this is None, then the number will be computed from the universe
+    /// size to minimize the total size of the data representation.
     low_bit_width: Option<u32>,
 }
 
