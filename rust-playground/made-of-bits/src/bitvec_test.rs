@@ -258,3 +258,9 @@ pub(crate) fn test_multi_bitvec<T: MultiBitVecBuilder>(
         assert_eq!(a.select1(i), b.select1(i));
     }
 }
+
+/*
+Currently un- or under-tested corners
+- test adding bits with count=0 to a multibitvec using builder.ones
+- test an all-1-bits bitvec
+*/
