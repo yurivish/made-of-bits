@@ -4,7 +4,7 @@ use crate::bitvec::BitVecOf;
 use crate::bitvec::MultiBitVec;
 use crate::bitvec::MultiBitVecBuilder;
 use crate::bitvecs::sparse::SparseBitVec;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct Multi<T> {
@@ -73,7 +73,7 @@ pub struct MultiBuilder<B> {
     /// BitBuf marking the positions of nonzero bits
     occupancy: B,
     /// Map from 1-bit index to its multiplicity (count).
-    multiplicity: BTreeMap<u32, u32>,
+    multiplicity: HashMap<u32, u32>,
 }
 
 impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
@@ -82,7 +82,7 @@ impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
     fn new(universe_size: u32) -> Self {
         Self {
             occupancy: B::new(universe_size),
-            multiplicity: BTreeMap::new(),
+            multiplicity: HashMap::new(),
         }
     }
 

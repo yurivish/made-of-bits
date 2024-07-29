@@ -159,7 +159,7 @@ impl BitVecBuilder for RLEBitVecBuilder {
             self.universe_size < u32::MAX,
             "univere size cannot exceed 2^32 - 1"
         );
-        let mut ones = self.ones.into_iter().collect::<Vec<_>>();
+        let mut ones: Vec<u32> = self.ones.into_iter().collect();
         ones.sort();
         let mut b = RLEBitVecRunBuilder::new();
         let mut prev = u32::MAX;
