@@ -22,12 +22,13 @@ fn add(a: u32, b: u32) -> u32 {
 /// for use inside the closure, so there is no danger of observing corrupted internal state after
 /// a panic occurs.
 pub fn catch_unwind<F: FnOnce() -> R, R>(f: F) -> std::thread::Result<R> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(f))
     // Register a do-nothing panic hook to prevent intended panics from printing stack traces.
-    let prev_hook = std::panic::take_hook();
-    std::panic::set_hook(Box::new(|_| {}));
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
-    std::panic::set_hook(prev_hook);
-    result
+    // let prev_hook = std::panic::take_hook();
+    // std::panic::set_hook(Box::new(|_| {}));
+    // let result = ...
+    // std::panic::set_hook(prev_hook);
+    // result
 }
 
 pub fn panics<F: FnOnce() -> R, R>(f: F) -> bool {

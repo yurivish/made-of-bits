@@ -31,7 +31,7 @@ impl DenseBitVec {
     pub fn new(buf: BitBuf, rank1_samples_pow2: u32, select_samples_pow2: u32) -> Self {
         assert!(
             buf.universe_size() < u32::MAX,
-            "maximum allowed universe size is 2^32-1"
+            "maximum allowed universe size is 2^32-1",
         );
 
         assert!((BASIC_BLOCK_BITS..32).contains(&rank1_samples_pow2));
@@ -137,7 +137,7 @@ impl DenseBitVec {
             }
 
             cumulative_ones += block_ones;
-            cumulative_bits += BASIC_BLOCK_SIZE;
+            cumulative_bits = cumulative_bits.saturating_add(BASIC_BLOCK_SIZE);
         }
 
         Self {

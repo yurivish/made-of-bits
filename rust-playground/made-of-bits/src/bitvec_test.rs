@@ -1,14 +1,17 @@
-// #![allow(unused)]
-
+// #![warn(unused)]
 use crate::{
     bits::BASIC_BLOCK_SIZE,
-    bitvec::{BitVec, BitVecBuilder, BitVecBuilderOf, BitVecOf, MultiBitVecBuilder},
-    bitvecs::array::{ArrayBitVec, ArrayBitVecBuilder},
+    bitvec::{BitVec, BitVecBuilder, BitVecBuilderOf, MultiBitVec, MultiBitVecBuilder},
+    bitvecs::{array::ArrayBitVecBuilder, rle::RLEBitVecBuilder},
     panics,
 };
+use arbtest::arbitrary;
+use arbtest::ArbTest;
 use exhaustigen::Gen;
-use std::{collections::BTreeMap, panic::AssertUnwindSafe};
-use testresult::TestResult;
+use std::any::type_name;
+
+// Notes
+// - We use the number 70 as the size for a small bit vector since it's
 
 // todo: test zero counts for one_count in MultiBitVecBuilder
 
@@ -23,31 +26,98 @@ to build a baseline and other bitvec
 */
 
 // todo: use that iterator-generating method to generate an iterator of bitvecs?
-// let mut gen = Gen::new();
-// let universe_size = 5 * BASIC_BLOCK_SIZE;
-// while !gen.done() {
-//     let ones: Vec<u32> = gen
-//         .gen_elts(2, universe_size as usize)
-//         .map(|x| x as u32)
-//         .collect();
-//     let bv = T::from_ones(universe_size, &ones);
-// }
 
+/// Top-level function for testing the BitVec interface
+/// Runs
+/// - Spot tests (manually-written individual test cases for basic checking)
+/// - Sweep tests (exhaustive sweeps of tractable parameter spaces, checking against ArrayBitVec)
+/// - Property tests (randomized tests of larger parameter spaces, checking against ArrayBitVec)
 pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
     spot_test_bitvec_builder::<T>();
+    sweep_test_bitvec_builder::<T>();
+    prop_test_bitvec_builder::<T>();
+}
 
-    //
-    assert!(panics(|| T::new(u32::MAX).build()));
+/// Top-level function for testing the MultiBitVec interface.
+/// Doesn't currently run sweep tests, relying on randomized testing plus the passing BitVec sweep tests
+/// to find bugs.
+pub(crate) fn test_multi_bitvec_builder<T: MultiBitVecBuilder>() {
+    // run bitvec tests
+    test_bitvec_builder::<BitVecBuilderOf<T>>();
 
-    // panic!()
+    // run multibitvec tests
+    spot_test_multi_bitvec_builder::<T>();
+    prop_test_multi_bitvec_builder::<T>();
+}
 
-    // let mut g = Gen::new();
-    // while !g.done() {
-    //     g.
-    // }
-    // todo: test these once we have correctness checks so we can ensure that the fixes maintain correctness
-    // assert!(!panics(|| T::new(u32::MAX - 1).build()));
-    // T::new(u32::MAX - 1).build();
+pub(crate) fn spot_test_multi_bitvec_builder<T: MultiBitVecBuilder>() {
+    {
+        // empty bitvec
+        let bv = T::new(0).build();
+        assert_eq!(bv.num_unique_zeros(), 0);
+        assert_eq!(bv.num_unique_ones(), 0);
+    }
+}
+
+/// Generate a vector of random 1-bit positions in 0..universe_size for property testing
+fn arbitrary_ones(
+    u: &mut arbitrary::Unstructured<'_>,
+    universe_size: u32,
+) -> arbitrary::Result<Vec<u32>> {
+    if universe_size == 0 {
+        Ok(vec![])
+    } else {
+        u.arbitrary::<Vec<u32>>()
+            .map(|v| v.into_iter().map(|x| x % universe_size).collect())
+    }
+}
+
+pub(crate) fn prop_test_bitvec_builder<T: BitVecBuilder>(
+) -> ArbTest<impl FnMut(&mut arbitrary::Unstructured<'_>) -> arbitrary::Result<()>> {
+    use arbtest::arbtest;
+    arbtest(|u| {
+        let universe_size = u.arbitrary_len::<u32>()? as u32 % (u32::MAX - 1);
+        let ones = arbitrary_ones(u, universe_size)?;
+        test_bitvec::<T>(universe_size, ones);
+        Ok(())
+    })
+}
+
+pub(crate) fn sweep_test_bitvec_builder<T: BitVecBuilder>() {
+    let mut gen = Gen::new();
+    // Exhaustively generate all 1-length and 2-length ones arrays
+    // and individually test bitvectors built from them.
+    let universe_size = 5 * BASIC_BLOCK_SIZE;
+    while !gen.done() {
+        let ones: Vec<u32> = gen
+            .gen_elts(2, universe_size as usize - 1) // note the inclusive upper bound
+            .map(|x| x as u32)
+            .collect();
+        test_bitvec::<T>(universe_size, ones);
+    }
+}
+
+pub(crate) fn test_bitvec<T: BitVecBuilder>(universe_size: u32, ones: Vec<u32>) {
+    // a is baseline, b is the candidate bitvector under test
+    let a = BitVecBuilderOf::<ArrayBitVecBuilder>::from_ones(universe_size, &ones);
+    let b = T::from_ones(universe_size, &ones);
+
+    assert_eq!(a.num_zeros(), b.num_zeros());
+    assert_eq!(a.num_ones(), b.num_ones());
+    assert_eq!(a.universe_size(), b.universe_size());
+
+    for i in 0..universe_size {
+        assert_eq!(a.get(i), b.get(i));
+    }
+
+    // test with some extra values on the top of the array to ensure that out-of-bounds
+    // queries are treated identically between the two options
+    for i in 0..universe_size.saturating_add(10) {
+        assert_eq!(a.rank1(i), b.rank1(i));
+        assert_eq!(a.rank0(i), b.rank0(i));
+        assert_eq!(a.select1(i), b.select1(i));
+        assert_eq!(a.select0(i), b.select0(i));
+    }
 }
 
 pub(crate) fn spot_test_bitvec_builder<T: BitVecBuilder>() {
@@ -109,6 +179,20 @@ pub(crate) fn spot_test_bitvec_builder<T: BitVecBuilder>() {
         assert_eq!(bv.select1(2), Some(32));
         assert_eq!(bv.select1(3), Some(68));
 
+        // test that `get` is 1 at precisely the positions of the added 1-bits
+        for i in 0..70 {
+            assert_eq!(
+                bv.get(i),
+                match i {
+                    0 => 1,
+                    31 => 1,
+                    32 => 1,
+                    68 => 1,
+                    _ => 0,
+                }
+            );
+        }
+
         assert_eq!(bv.rank0(5), 4);
         assert_eq!(bv.rank0(31), 30);
         assert_eq!(bv.rank0(32), 30);
@@ -124,293 +208,65 @@ pub(crate) fn spot_test_bitvec_builder<T: BitVecBuilder>() {
         assert_eq!(bv.select0(3), Some(4));
         assert_eq!(bv.select0(31), Some(34));
     }
+
+    {
+        // No BitVecs accept a universe size of u32::MAX.
+        // The RLEBitVec additionally rejects a universe size of u32::MAX-2
+        // due to the fact that it needs to place a 1 into one of its internal
+        // bit vectors at index `universe_size`.
+        // Test that construction at these limits panics, and construction
+        // at just under the limit does not panic.
+        assert!(panics(|| T::new(u32::MAX).build()));
+        if type_name::<T>() == type_name::<RLEBitVecBuilder>() {
+            assert!(panics(|| T::new(u32::MAX - 1).build()));
+            T::new(u32::MAX - 2).build();
+        } else {
+            T::new(u32::MAX - 1).build();
+        }
+    }
 }
 
-pub(crate) fn test_multi_bitvec_builder<T: MultiBitVecBuilder>() {
-    test_bitvec_builder::<BitVecBuilderOf<T>>()
-    // todo
-    // - test zero bitvec (unique zeros = ones = 0)
+pub(crate) fn prop_test_multi_bitvec_builder<T: MultiBitVecBuilder>(
+) -> ArbTest<impl FnMut(&mut arbitrary::Unstructured<'_>) -> arbitrary::Result<()>> {
+    use arbtest::arbtest;
+    arbtest(|u| {
+        let universe_size = u.arbitrary_len::<u32>()? as u32 % (u32::MAX - 1);
+        let ones = arbitrary_ones(u, universe_size)?;
+        dbg!(universe_size, &ones);
+        // generate a random count for each 1-bit, limiting the maximum count
+        // for each so that the total count doesn't risk overflowing u32.
+        let counts: Vec<u32> = ones
+            .iter()
+            .map(|_| u.arbitrary::<u32>().map(|x| x % 100))
+            .collect::<arbitrary::Result<Vec<_>>>()?;
+        test_multi_bitvec::<T>(universe_size, ones, counts);
+        Ok(())
+    })
 }
 
-// pub(crate) fn property_test_bitvec_builder<T: BitVecBuilder>(
-//     seed: Option<u64>,
-//     budget_ms: Option<u64>,
-//     minimize: bool,
-// ) {
-// }
+pub(crate) fn test_multi_bitvec<T: MultiBitVecBuilder>(
+    universe_size: u32,
+    ones: Vec<u32>,
+    counts: Vec<u32>,
+) {
+    // a is baseline, b is the candidate bitvector under test
+    let a = ArrayBitVecBuilder::from_ones_counts(universe_size, &ones, &counts);
+    let b = T::from_ones_counts(universe_size, &ones, &counts);
 
-// pub(crate) fn test_bitvec<T: BitVec>() {}
+    assert_eq!(a.num_zeros(), b.num_zeros());
+    assert_eq!(a.num_ones(), b.num_ones());
+    assert_eq!(a.universe_size(), b.universe_size());
 
-// pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
-//     // test the empty bitvec
-//     test_bitvec(T::new(0).build());
+    // test with some extra values on the top of the array to ensure that out-of-bounds
+    // queries are treated identically between the two options
+    for i in 0..universe_size {
+        assert_eq!(a.get(i), b.get(i));
+    }
 
-//     // test simple case
-//     {
-//         let mut b = T::new(100);
-//         b.one(90);
-//         b.one(95);
-//         b.one(95);
-//         let bv = b.build();
-//         assert_eq!(bv.rank1(80), 0);
-//         assert_eq!(bv.rank1(93), 1);
-//         assert_eq!(bv.rank1(100), 2);
-//     }
-
-//     // large enough to span many blocks
-//     let universe_size = BASIC_BLOCK_SIZE * 10;
-//     {
-//         // save time by only testing with every `step`-th bit set
-//         let step = (BASIC_BLOCK_SIZE >> 1) - 1;
-
-//         // test with one bit set
-//         for bit_index in (0..universe_size).step_by(step as usize) {
-//             let mut b = T::new(universe_size);
-//             b.one(bit_index);
-//             let bv = b.build();
-//             test_bitvec(bv.clone());
-
-//             {
-//                 // test against the same data in a sorted array bitvec
-//                 let mut baseline_builder =
-//                     BitVecBuilderOf::<ArrayBitVecBuilder>::new(universe_size);
-//                 baseline_builder.one(bit_index);
-//                 let baseline = baseline_builder.build();
-//                 test_bitvec_equal(baseline, bv.clone());
-//             }
-
-//             assert_eq!(bv.rank1(bit_index), 0);
-//             assert_eq!(bv.rank1(bit_index + 1), 1);
-//             assert_eq!(bv.rank1(1_000_000), 1);
-
-//             assert_eq!(bv.rank0(bit_index), bit_index);
-//             assert_eq!(bv.rank0(bit_index + 1), bit_index);
-//             assert_eq!(bv.rank0(1_000_000), bv.universe_size() - 1);
-
-//             // select0
-//             // if bv.has_select0() {
-//             if bit_index == 0 {
-//                 assert_eq!(bv.select0(0), Some(1));
-//             } else {
-//                 assert_eq!(bv.select0(0), Some(0));
-//                 assert_eq!(bv.select0(bit_index - 1), Some(bit_index - 1));
-//             }
-//             // }
-
-//             if bit_index == bv.universe_size() - 1 {
-//                 // if we're at the final index, there is no corresponding 0- or 1-bit
-//                 // if bv.has_select0() {
-//                 assert_eq!(bv.select0(bit_index), None);
-//                 // }
-//                 assert_eq!(bv.select1(bit_index), None);
-//             } else {
-//                 // if bv.has_select0() {
-//                 assert_eq!(bv.select0(bit_index), Some(bit_index + 1));
-//                 // }
-//             }
-
-//             // select1
-//             assert_eq!(bv.select1(0), Some(bit_index));
-//             assert_eq!(bv.select1(1), None);
-//         }
-
-//         for bit_index_1 in (0..universe_size).step_by(step as usize) {
-//             for bit_index_2 in (bit_index_1 + step..universe_size).step_by(step as usize) {
-//                 let mut b = T::new(universe_size);
-//                 b.one(bit_index_1);
-//                 b.one(bit_index_2);
-//                 let bv = b.build();
-//                 test_bitvec(bv.clone());
-
-//                 {
-//                     // test against the same data in a sorted array bitvec
-//                     let mut baseline_builder =
-//                         BitVecBuilderOf::<ArrayBitVecBuilder>::new(universe_size);
-//                     baseline_builder.one(bit_index_1);
-//                     baseline_builder.one(bit_index_2);
-//                     let baseline = baseline_builder.build();
-//                     test_bitvec_equal(baseline, bv.clone());
-//                 }
-
-//                 assert_eq!(bv.rank1(bit_index_1), 0);
-//                 assert_eq!(bv.rank1(bit_index_1 + 1), 1);
-//                 assert_eq!(bv.rank1(bit_index_2), 1);
-//                 assert_eq!(bv.rank1(bit_index_2 + 1), 2);
-//                 assert_eq!(bv.rank1(1_000_000), 2);
-
-//                 assert_eq!(bv.rank0(bit_index_1), bit_index_1);
-//                 assert_eq!(bv.rank0(bit_index_1 + 1), bit_index_1);
-//                 assert_eq!(bv.rank0(bit_index_2), bit_index_2 - 1);
-//                 assert_eq!(bv.rank0(bit_index_2 + 1), bit_index_2 - 1);
-//                 assert_eq!(bv.rank0(1_000_000), bv.universe_size() - 2);
-
-//                 // select0
-//                 // if bv.has_select0() {
-//                 // with 2 bits the edge cases are complex to express, so just test the first element
-//                 assert_eq!(
-//                     bv.select0(0),
-//                     Some((bit_index_1 == 0) as u32 + (bit_index_1 == 0 && bit_index_2 == 1) as u32)
-//                 );
-//                 // }
-
-//                 // select1
-//                 assert_eq!(bv.select1(0), Some(bit_index_1));
-//                 assert_eq!(bv.select1(1), Some(bit_index_2));
-//                 assert_eq!(bv.select1(2), None);
-//             }
-//         }
-//     }
-// }
-
-// pub(crate) fn test_bitvec_equal(a: BitVecOf<ArrayBitVec>, b: impl BitVec) {
-//     // hack around the weird support for multiplicity for now
-//     assert_eq!(a.num_zeros(), b.num_zeros());
-//     assert_eq!(a.num_ones(), b.num_ones());
-//     // assert_eq!(a.num_unique_zeros(), b.num_unique_zeros());
-//     // assert_eq!(a.num_unique_ones(), b.num_unique_ones());
-//     assert_eq!(a.universe_size(), b.universe_size());
-//     // assert_eq!(a.has_multiplicity(), b.has_multiplicity());
-
-//     for i in 0..a.universe_size() {
-//         assert_eq!(a.rank1(i), b.rank1(i));
-//     }
-
-//     // if a.has_rank0() && b.has_rank0() {
-//     for i in 0..a.universe_size() {
-//         assert_eq!(a.rank0(i), b.rank0(i));
-//     }
-//     // };
-
-//     for n in 0..a.num_ones() {
-//         assert_eq!(a.select1(n), b.select1(n));
-//     }
-
-//     // if a.has_select0() && b.has_select0() {
-//     for n in 0..a.num_zeros() {
-//         assert_eq!(a.select0(n), b.select0(n));
-//     }
-//     // };
-// }
-
-// pub(crate) fn test_bitvec<T: BitVec>(bv: T) {
-//     // assert!(bv.num_unique_zeros() + bv.num_unique_ones() == bv.universe_size());
-//     assert!(bv.num_zeros() + bv.num_ones() >= bv.universe_size());
-
-//     // Rank before any element should be zero
-//     assert_eq!(bv.rank1(0), 0);
-//     assert_eq!(bv.rank1(bv.num_zeros() + bv.num_ones() + 1), bv.num_ones());
-
-//     // if bv.has_rank0() {
-//     assert_eq!(bv.rank0(0), 0);
-//     assert_eq!(bv.rank0(bv.num_zeros() + bv.num_ones() + 1), bv.num_zeros());
-//     // }
-
-//     // select1
-//     for n in 0..bv.num_ones() {
-//         // Verify that rank1(select1(n)) === n
-//         let select1 = bv.select1(n).unwrap();
-//         // if !bv.has_multiplicity() {
-//         assert!(bv.rank1(select1) == n);
-//         assert!(bv.rank1(select1 + 1) == n + 1);
-//         // } else {
-//         //     assert!(bv.rank1(select1) <= n);
-//         //     assert!(bv.rank1(select1 + 1) <= n + bv.get(select1));
-//         // }
-
-//         // the rank at a next position is the rank at the current position,
-//         // plus the number of ones at the current position (given by `get`).
-//         assert!(bv.rank1(select1 + 1) == bv.rank1(select1) + bv.get(select1));
-//     }
-
-//     // if bv.has_rank0() && bv.has_select0() {
-//     // select0
-//     for n in 0..bv.num_zeros() {
-//         // Verify that rank0(select0(n)) === n
-//         let select0 = bv.select0(n).unwrap();
-//         assert!(bv.rank0(select0) == n);
-//         assert!(bv.rank0(select0 + 1) == n + 1);
-//     }
-//     // }
-
-//     // if !bv.has_multiplicity() {
-//     // Perform some exact checks when we know that multiplicity is not in play
-//     assert!(bv.num_zeros() + bv.num_ones() == bv.universe_size());
-//     // assert!(bv.num_unique_zeros() + bv.num_unique_ones() == bv.universe_size());
-//     // if bv.has_select0() {
-//     assert_eq!(bv.select0(bv.num_zeros()), None);
-//     // }
-//     assert_eq!(bv.select1(bv.num_ones()), None);
-//     // }
-
-//     {
-//         // Check `get` behavior for all valid indices using a map from index -> count
-//         let mut counts = BTreeMap::new();
-//         for n in 0..bv.num_ones() {
-//             let i = bv.select1(n).unwrap();
-//             let count = counts.entry(i).or_insert(0);
-//             *count += 1;
-//         }
-//         for i in 0..bv.universe_size() {
-//             assert_eq!(bv.get(i), counts.get(&i).copied().unwrap_or(0));
-//         }
-
-//         let bv = bv.clone();
-//         catch_unwind(move || bv.get(bv.num_zeros() + bv.num_ones())).unwrap_err();
-//     }
-// }
-
-// /// Generate bitvectors with arbitrary densities of 1-bits and run them through our basic test_bitvec test function.
-// pub(crate) fn property_test_bitvec_builder<T: BitVecBuilder>(
-//     seed: Option<u64>,
-//     budget_ms: Option<u64>,
-//     minimize: bool,
-// ) {
-//     use arbtest::{arbitrary, arbtest};
-
-//     fn property<T: BitVecBuilder>(u: &mut arbitrary::Unstructured) -> arbitrary::Result<()> {
-//         let ones_percent = u.int_in_range(0..=100)?; // density
-//         let universe_size = u.arbitrary_len::<u32>()? as u32;
-//         let mut b = T::new(universe_size);
-//         // test against the same data in a sorted array bitvec
-//         let mut baseline_builder = BitVecBuilderOf::<ArrayBitVecBuilder>::new(universe_size);
-//         // construct with multiplicity some of the time
-//         let with_multiplicity = false;
-//         // let with_multiplicity = if T::Target::supports_multiplicity() {
-//         // false // TODO  u.ratio(1, 3)?
-//         // } else {
-//         // false
-//         // };
-//         for i in 0..universe_size {
-//             if u.int_in_range(0..=100)? < ones_percent {
-//                 if with_multiplicity {
-//                     let count = u.int_in_range(0..=10)?;
-//                     // todo
-//                     // b.one_count(i, count);
-//                     // baseline_builder.one_count(i, count);
-//                 } else {
-//                     b.one(i);
-//                     baseline_builder.one(i);
-//                 };
-//             }
-//         }
-//         let bv = b.build();
-//         let baseline = baseline_builder.build();
-//         test_bitvec_equal(baseline, bv.clone());
-//         test_bitvec(bv);
-//         return Ok(());
-//     }
-
-//     let mut test = arbtest(property::<T>);
-
-//     if let Some(seed) = seed {
-//         test = test.seed(seed)
-//     }
-
-//     if let Some(budget_ms) = budget_ms {
-//         test = test.budget_ms(budget_ms)
-//     }
-
-//     if minimize {
-//         test = test.minimize()
-//     }
-// }
+    for i in 0..a.num_ones().saturating_add(10) {
+        assert_eq!(a.rank1(i), b.rank1(i));
+        assert_eq!(a.select1(i), b.select1(i));
+        assert_eq!(a.rank1(i), b.rank1(i));
+        assert_eq!(a.select1(i), b.select1(i));
+    }
+}

@@ -53,10 +53,6 @@ impl MultiBitVec for ArrayBitVec {
         self.ones.get(n as usize).copied()
     }
 
-    fn get(&self, bit_index: u32) -> u32 {
-        self.ones[bit_index as usize]
-    }
-
     fn num_ones(&self) -> u32 {
         self.num_ones
     }
