@@ -86,11 +86,12 @@ impl SparseBitVec {
         }
     }
 
-    // todo: document this and remainder
+    /// Returns the high bits of `x`
     fn quotient(&self, x: u32) -> u32 {
         return x >> self.low_bit_width;
     }
 
+    /// Returns the low bits of `x`
     fn remainder(&self, x: u32) -> u32 {
         return x & self.low_mask;
     }
