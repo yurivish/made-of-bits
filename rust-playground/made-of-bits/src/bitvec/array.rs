@@ -85,8 +85,6 @@ impl MultiBitVecBuilder for ArrayBitVecBuilder {
     }
 }
 
-/// Since this type is used as a baseline for testing, add some
-/// snapshot tests for some basic scenarios to ensure sanity.
 #[cfg(test)]
 mod tests {
     use super::*;
