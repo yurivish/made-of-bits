@@ -435,76 +435,139 @@ mod tests {
 
     #[test]
     fn spot_test() {
-        let data = vec![1, 3, 3, 2, 400];
+        //    values:   1  3  3  2  7
+        //              -------------
+        //    bits
+        //    level 0:  0  0  0  0  1  bit 2^2 = 4
+        //    level 1:  0  1  1  1  1  bit 2^1 = 2
+        //    level 2:  1  1  1  0  1  bit 2^0 = 1
+        let data = vec![1, 3, 3, 2, 7];
         let len = data.len() as u32;
         let max_symbol = data.iter().max().copied().unwrap();
         let wm = WaveletMatrix::<DenseBitVec>::new(data.clone(), max_symbol);
 
-        // get
-        assert_eq!(
-            data.iter()
-                .enumerate()
-                .map(|(i, _)| wm.get(i as u32))
-                .collect::<Vec<_>>(),
-            data
-        );
+        {
+            // num_levels
+            assert_eq!(wm.num_levels(), 3);
+        }
 
-        // get: out of bounds
-        assert!(panics(|| wm.get(6)));
+        {
+            // get
+            assert_eq!(
+                data.iter()
+                    .enumerate()
+                    .map(|(i, _)| wm.get(i as u32))
+                    .collect::<Vec<_>>(),
+                data
+            );
 
-        // select
-        assert_eq!(wm.select(0, 0, 0..len, 0), None);
-        assert_eq!(wm.select(1, 0, 0..len, 0), Some(0));
-        assert_eq!(wm.select(2, 0, 0..len, 0), Some(3));
-        assert_eq!(wm.select(3, 0, 0..len, 0), Some(1));
-        assert_eq!(wm.select(3, 1, 0..len, 0), Some(2));
-        assert_eq!(wm.select(400, 0, 0..len, 0), Some(4));
-        assert_eq!(wm.select(5, 0, 0..len, 0), None);
+            // get: out of bounds
+            assert!(panics(|| wm.get(6)));
+        }
 
-        // select_last
-        assert_eq!(wm.select_last(0, 0, 0..len, 0), None);
-        assert_eq!(wm.select_last(1, 0, 0..len, 0), Some(0));
-        assert_eq!(wm.select_last(2, 0, 0..len, 0), Some(3));
-        assert_eq!(wm.select_last(3, 0, 0..len, 0), Some(2));
-        assert_eq!(wm.select_last(3, 1, 0..len, 0), Some(1));
-        assert_eq!(wm.select_last(400, 0, 0..len, 0), Some(4));
-        assert_eq!(wm.select_last(5, 0, 0..len, 0), None);
+        {
+            // select
+            assert_eq!(wm.select(0, 0, 0..len, 0), None);
+            assert_eq!(wm.select(1, 0, 0..len, 0), Some(0));
+            assert_eq!(wm.select(2, 0, 0..len, 0), Some(3));
+            assert_eq!(wm.select(3, 0, 0..len, 0), Some(1));
+            assert_eq!(wm.select(3, 1, 0..len, 0), Some(2));
+            assert_eq!(wm.select(7, 0, 0..len, 0), Some(4));
+            assert_eq!(wm.select(5, 0, 0..len, 0), None);
 
-        // simple_majority
-        assert_eq!(wm.simple_majority(0..len), None);
-        assert_eq!(wm.simple_majority(0..3), Some(3));
-        assert_eq!(wm.simple_majority(0..1), Some(1));
-        assert_eq!(wm.simple_majority(1..len - 1), Some(3));
-        assert_eq!(wm.simple_majority(1..len), None);
+            // select with 2 ignore_bits
+            assert_eq!(wm.select(0, 0, 0..len, 2), Some(0));
+            assert_eq!(wm.select(1, 0, 0..len, 2), Some(0));
+            assert_eq!(wm.select(2, 0, 0..len, 2), Some(0));
+            assert_eq!(wm.select(3, 0, 0..len, 2), Some(0));
+            assert_eq!(wm.select(3, 1, 0..len, 2), Some(1));
+            assert_eq!(wm.select(7, 0, 0..len, 2), Some(4));
+            assert_eq!(wm.select(5, 0, 0..len, 2), Some(4));
+            assert_eq!(wm.select(100, 0, 0..len, 2), None);
 
-        // quantile
-        assert_eq!(wm.quantile(0, 0..len), (1, 1));
-        assert_eq!(wm.quantile(1, 0..len), (2, 1));
-        assert_eq!(wm.quantile(2, 0..len), (3, 2));
-        assert_eq!(wm.quantile(3, 0..len), (3, 2));
-        assert_eq!(wm.quantile(4, 0..len), (400, 1));
+            // select with full ignore_bits
+            assert_eq!(wm.select(0, 0, 0..len, wm.num_levels()), Some(0));
+            assert_eq!(wm.select(1, 0, 0..len, wm.num_levels()), Some(0));
+            assert_eq!(wm.select(2, 0, 0..len, wm.num_levels()), Some(0));
+            assert_eq!(wm.select(3, 0, 0..len, wm.num_levels()), Some(0));
+            assert_eq!(wm.select(3, 1, 0..len, wm.num_levels()), Some(1));
+            assert_eq!(wm.select(7, 0, 0..len, wm.num_levels()), Some(0));
+            assert_eq!(wm.select(5, 0, 0..len, wm.num_levels()), Some(0));
+            assert_eq!(wm.select(100, 0, 0..len, wm.num_levels()), None);
+        }
 
-        // multiplicity is within the reduced range
-        assert_eq!(wm.quantile(0, 1..2), (3, 1));
+        {
+            // select_last
+            assert_eq!(wm.select_last(0, 0, 0..len, 0), None);
+            assert_eq!(wm.select_last(1, 0, 0..len, 0), Some(0));
+            assert_eq!(wm.select_last(2, 0, 0..len, 0), Some(3));
+            assert_eq!(wm.select_last(3, 0, 0..len, 0), Some(2));
+            assert_eq!(wm.select_last(3, 1, 0..len, 0), Some(1));
+            assert_eq!(wm.select_last(7, 0, 0..len, 0), Some(4));
+            assert_eq!(wm.select_last(5, 0, 0..len, 0), None);
 
-        // check all values within a tighter range
-        assert_eq!(wm.quantile(0, 1..len - 1), (2, 1));
-        assert_eq!(wm.quantile(1, 1..len - 1), (3, 2));
-        assert_eq!(wm.quantile(2, 1..len - 1), (3, 2));
+            // select_last with 2 ignore_bits (just 1 not-ignored bit)
+            assert_eq!(wm.select_last(0, 0, 0..len, 2), Some(3));
+            assert_eq!(wm.select_last(1, 0, 0..len, 2), Some(3));
+            assert_eq!(wm.select_last(2, 0, 0..len, 2), Some(3));
+            assert_eq!(wm.select_last(3, 0, 0..len, 2), Some(3));
+            assert_eq!(wm.select_last(3, 1, 0..len, 2), Some(2));
+            assert_eq!(wm.select_last(7, 0, 0..len, 2), Some(4));
+            assert_eq!(wm.select_last(5, 0, 0..len, 2), Some(4));
+            assert_eq!(wm.select_last(100, 0, 0..len, 2), None);
 
-        // quantile: out of bounds
-        assert!(panics(|| wm.quantile(3, 1..len - 1)));
+            // select_last with full ignore_bits
+            assert_eq!(wm.select_last(0, 0, 0..len, wm.num_levels()), Some(4));
+            assert_eq!(wm.select_last(1, 0, 0..len, wm.num_levels()), Some(4));
+            assert_eq!(wm.select_last(2, 0, 0..len, wm.num_levels()), Some(4));
+            assert_eq!(wm.select_last(3, 0, 0..len, wm.num_levels()), Some(4));
+            assert_eq!(wm.select_last(3, 1, 0..len, wm.num_levels()), Some(3));
+            assert_eq!(wm.select_last(7, 0, 0..len, wm.num_levels()), Some(4));
+            assert_eq!(wm.select_last(5, 0, 0..len, wm.num_levels()), Some(4));
+            assert_eq!(wm.select_last(100, 0, 0..len, wm.num_levels()), None);
+        }
 
-        // preceding_count
-        assert_eq!(wm.preceding_count(0, 0..len), 0);
-        assert_eq!(wm.preceding_count(1, 0..len), 0);
-        assert_eq!(wm.preceding_count(2, 0..len), 1);
-        assert_eq!(wm.preceding_count(3, 0..len), 2);
-        assert_eq!(wm.preceding_count(4, 0..len), 4);
-        assert_eq!(wm.preceding_count(5, 0..len), 4);
-        assert_eq!(wm.preceding_count(400, 0..len), 4);
+        {
+            // simple_majority
+            assert_eq!(wm.simple_majority(0..len), None);
+            assert_eq!(wm.simple_majority(0..3), Some(3));
+            assert_eq!(wm.simple_majority(0..1), Some(1));
+            assert_eq!(wm.simple_majority(1..len - 1), Some(3));
+            assert_eq!(wm.simple_majority(1..len), None);
+        }
 
-        // preceding_count: symbol is beyond max_symbol
-        assert!(panics(|| wm.preceding_count(max_symbol + 1, 0..len)));
+        {
+            // quantile
+            assert_eq!(wm.quantile(0, 0..len), (1, 1));
+            assert_eq!(wm.quantile(1, 0..len), (2, 1));
+            assert_eq!(wm.quantile(2, 0..len), (3, 2));
+            assert_eq!(wm.quantile(3, 0..len), (3, 2));
+            assert_eq!(wm.quantile(4, 0..len), (7, 1));
+
+            // multiplicity is within the reduced range
+            assert_eq!(wm.quantile(0, 1..2), (3, 1));
+
+            // quantile: check all values within a tighter range
+            assert_eq!(wm.quantile(0, 1..len - 1), (2, 1));
+            assert_eq!(wm.quantile(1, 1..len - 1), (3, 2));
+            assert_eq!(wm.quantile(2, 1..len - 1), (3, 2));
+
+            // quantile: out of bounds
+            assert!(panics(|| wm.quantile(3, 1..len - 1)));
+        }
+
+        {
+            // preceding_count
+            assert_eq!(wm.preceding_count(0, 0..len), 0);
+            assert_eq!(wm.preceding_count(1, 0..len), 0);
+            assert_eq!(wm.preceding_count(2, 0..len), 1);
+            assert_eq!(wm.preceding_count(3, 0..len), 2);
+            assert_eq!(wm.preceding_count(4, 0..len), 4);
+            assert_eq!(wm.preceding_count(5, 0..len), 4);
+            assert_eq!(wm.preceding_count(7, 0..len), 4);
+
+            // preceding_count: symbol is beyond max_symbol
+            assert!(panics(|| wm.preceding_count(max_symbol + 1, 0..len)));
+        }
     }
 }
