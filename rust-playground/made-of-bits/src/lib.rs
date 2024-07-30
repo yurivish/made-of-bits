@@ -7,6 +7,7 @@ mod intbuf;
 mod js;
 mod zorder;
 mod waveletmatrix;
+mod waveletmatrix_support;
 
 use to_js::js;
 
