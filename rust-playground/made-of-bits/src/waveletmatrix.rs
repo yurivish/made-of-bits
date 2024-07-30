@@ -106,7 +106,7 @@ impl<V: BitVec> WaveletMatrix<V> {
     }
 
     /// Number of symbols less than this one, restricted to the query range
-    pub fn preceding_count(&self, symbol: u32, range: Range<u32>) -> u32 {
+    pub fn preceding_count(&self, range: Range<u32>, symbol: u32) -> u32 {
         self.locate(symbol, range, 0).0
     }
 
@@ -117,7 +117,7 @@ impl<V: BitVec> WaveletMatrix<V> {
     }
 
     /// Returns (symbol, count)
-    pub fn quantile(&self, k: u32, range: Range<u32>) -> (u32, u32) {
+    pub fn quantile(&self, range: Range<u32>, k: u32) -> (u32, u32) {
         assert!(k < range.end - range.start);
         let mut k = k;
         let mut range = range;
@@ -143,9 +143,9 @@ impl<V: BitVec> WaveletMatrix<V> {
     /// Return the index of the k-th occurrence of `symbol`
     pub fn select(
         &self,
+        range: Range<u32>,
         symbol: u32,
         k: u32,
-        range: Range<u32>,
         ignore_bits: usize,
     ) -> Option<u32> {
         if symbol > self.max_symbol {
@@ -171,9 +171,9 @@ impl<V: BitVec> WaveletMatrix<V> {
     // Return the index of the k-th occurrence of `symbol` from the back of the wavelet matrix
     pub fn select_last(
         &self,
+        range: Range<u32>,
         symbol: u32,
         k: u32,
-        range: Range<u32>,
         ignore_bits: usize,
     ) -> Option<u32> {
         if symbol > self.max_symbol {
@@ -244,7 +244,7 @@ impl<V: BitVec> WaveletMatrix<V> {
     pub fn simple_majority(&self, range: Range<u32>) -> Option<u32> {
         let len = range.end - range.start;
         let half_len = len >> 1;
-        let (symbol, count) = self.quantile(half_len, range);
+        let (symbol, count) = self.quantile(range, half_len);
         if count > half_len {
             Some(symbol)
         } else {
@@ -272,14 +272,14 @@ impl<V: BitVec> WaveletMatrix<V> {
         // representing 0..1025 (11 bits) as 0..=1024 (10 bits).
         symbol_extent: RangeInclusive<u32>,
         masks: Option<&[u32]>,
-    ) -> Traversal<CountAll> {
+    ) -> Traversal<Counts> {
         let masks = masks.unwrap_or(&self.default_masks);
 
         for range in ranges {
             assert!(range.end <= self.len());
         }
 
-        let mut traversal = Traversal::new(ranges.iter().map(|range| CountAll {
+        let mut traversal = Traversal::new(ranges.iter().map(|range| Counts {
             symbol: 0, // the leftmost symbol in the current node
             start: range.start,
             end: range.end,
@@ -299,12 +299,12 @@ impl<V: BitVec> WaveletMatrix<V> {
 
                     // if there are any left children, go left
                     if start.0 != end.0 && inclusive_range_overlaps(&symbol_extent, &left) {
-                        go.left(x.val(CountAll::new(symbol, start.0, end.0)));
+                        go.left(x.val(Counts::new(symbol, start.0, end.0)));
                     }
 
                     // if there are any right children, set the level bit and go right
                     if start.1 != end.1 && inclusive_range_overlaps(&symbol_extent, &right) {
-                        go.right(x.val(CountAll::new(
+                        go.right(x.val(Counts::new(
                             symbol + level.bit,
                             level.nz + start.1,
                             level.nz + end.1,
@@ -697,13 +697,13 @@ impl CountSymbolRange {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct CountAll {
+pub struct Counts {
     pub symbol: u32, // leftmost symbol in the node
-    pub start: u32,  // index  range start
+    pub start: u32,  // index range start
     pub end: u32,    // index range end
 }
 
-impl CountAll {
+impl Counts {
     fn new(symbol: u32, start: u32, end: u32) -> Self {
         Self { symbol, start, end }
     }
@@ -748,64 +748,64 @@ mod tests {
 
         {
             // select
-            assert_eq!(wm.select(0, 0, 0..len, 0), None);
-            assert_eq!(wm.select(1, 0, 0..len, 0), Some(0));
-            assert_eq!(wm.select(2, 0, 0..len, 0), Some(3));
-            assert_eq!(wm.select(3, 0, 0..len, 0), Some(1));
-            assert_eq!(wm.select(3, 1, 0..len, 0), Some(2));
-            assert_eq!(wm.select(7, 0, 0..len, 0), Some(4));
-            assert_eq!(wm.select(5, 0, 0..len, 0), None);
+            assert_eq!(wm.select(0..len, 0, 0, 0), None);
+            assert_eq!(wm.select(0..len, 1, 0, 0), Some(0));
+            assert_eq!(wm.select(0..len, 2, 0, 0), Some(3));
+            assert_eq!(wm.select(0..len, 3, 0, 0), Some(1));
+            assert_eq!(wm.select(0..len, 3, 1, 0), Some(2));
+            assert_eq!(wm.select(0..len, 7, 0, 0), Some(4));
+            assert_eq!(wm.select(0..len, 5, 0, 0), None);
 
             // select with 2 ignore_bits
-            assert_eq!(wm.select(0, 0, 0..len, 2), Some(0));
-            assert_eq!(wm.select(1, 0, 0..len, 2), Some(0));
-            assert_eq!(wm.select(2, 0, 0..len, 2), Some(0));
-            assert_eq!(wm.select(3, 0, 0..len, 2), Some(0));
-            assert_eq!(wm.select(3, 1, 0..len, 2), Some(1));
-            assert_eq!(wm.select(7, 0, 0..len, 2), Some(4));
-            assert_eq!(wm.select(5, 0, 0..len, 2), Some(4));
-            assert_eq!(wm.select(100, 0, 0..len, 2), None);
+            assert_eq!(wm.select(0..len, 0, 0, 2), Some(0));
+            assert_eq!(wm.select(0..len, 1, 0, 2), Some(0));
+            assert_eq!(wm.select(0..len, 2, 0, 2), Some(0));
+            assert_eq!(wm.select(0..len, 3, 0, 2), Some(0));
+            assert_eq!(wm.select(0..len, 3, 1, 2), Some(1));
+            assert_eq!(wm.select(0..len, 7, 0, 2), Some(4));
+            assert_eq!(wm.select(0..len, 5, 0, 2), Some(4));
+            assert_eq!(wm.select(0..len, 100, 0, 2), None);
 
             // select with full ignore_bits
-            assert_eq!(wm.select(0, 0, 0..len, wm.num_levels()), Some(0));
-            assert_eq!(wm.select(1, 0, 0..len, wm.num_levels()), Some(0));
-            assert_eq!(wm.select(2, 0, 0..len, wm.num_levels()), Some(0));
-            assert_eq!(wm.select(3, 0, 0..len, wm.num_levels()), Some(0));
-            assert_eq!(wm.select(3, 1, 0..len, wm.num_levels()), Some(1));
-            assert_eq!(wm.select(7, 0, 0..len, wm.num_levels()), Some(0));
-            assert_eq!(wm.select(5, 0, 0..len, wm.num_levels()), Some(0));
-            assert_eq!(wm.select(100, 0, 0..len, wm.num_levels()), None);
+            assert_eq!(wm.select(0..len, 0, 0, wm.num_levels()), Some(0));
+            assert_eq!(wm.select(0..len, 1, 0, wm.num_levels()), Some(0));
+            assert_eq!(wm.select(0..len, 2, 0, wm.num_levels()), Some(0));
+            assert_eq!(wm.select(0..len, 3, 0, wm.num_levels()), Some(0));
+            assert_eq!(wm.select(0..len, 3, 1, wm.num_levels()), Some(1));
+            assert_eq!(wm.select(0..len, 7, 0, wm.num_levels()), Some(0));
+            assert_eq!(wm.select(0..len, 5, 0, wm.num_levels()), Some(0));
+            assert_eq!(wm.select(0..len, 100, 0, wm.num_levels()), None);
         }
 
         {
             // select_last
-            assert_eq!(wm.select_last(0, 0, 0..len, 0), None);
-            assert_eq!(wm.select_last(1, 0, 0..len, 0), Some(0));
-            assert_eq!(wm.select_last(2, 0, 0..len, 0), Some(3));
-            assert_eq!(wm.select_last(3, 0, 0..len, 0), Some(2));
-            assert_eq!(wm.select_last(3, 1, 0..len, 0), Some(1));
-            assert_eq!(wm.select_last(7, 0, 0..len, 0), Some(4));
-            assert_eq!(wm.select_last(5, 0, 0..len, 0), None);
+            assert_eq!(wm.select_last(0..len, 0, 0, 0), None);
+            assert_eq!(wm.select_last(0..len, 1, 0, 0), Some(0));
+            assert_eq!(wm.select_last(0..len, 2, 0, 0), Some(3));
+            assert_eq!(wm.select_last(0..len, 3, 0, 0), Some(2));
+            assert_eq!(wm.select_last(0..len, 3, 1, 0), Some(1));
+            assert_eq!(wm.select_last(0..len, 7, 0, 0), Some(4));
+            assert_eq!(wm.select_last(0..len, 5, 0, 0), None);
 
             // select_last with 2 ignore_bits (just 1 not-ignored bit)
-            assert_eq!(wm.select_last(0, 0, 0..len, 2), Some(3));
-            assert_eq!(wm.select_last(1, 0, 0..len, 2), Some(3));
-            assert_eq!(wm.select_last(2, 0, 0..len, 2), Some(3));
-            assert_eq!(wm.select_last(3, 0, 0..len, 2), Some(3));
-            assert_eq!(wm.select_last(3, 1, 0..len, 2), Some(2));
-            assert_eq!(wm.select_last(7, 0, 0..len, 2), Some(4));
-            assert_eq!(wm.select_last(5, 0, 0..len, 2), Some(4));
-            assert_eq!(wm.select_last(100, 0, 0..len, 2), None);
+            assert_eq!(wm.select_last(0..len, 0, 0, 2), Some(3));
+            assert_eq!(wm.select_last(0..len, 1, 0, 2), Some(3));
+            assert_eq!(wm.select_last(0..len, 2, 0, 2), Some(3));
+            assert_eq!(wm.select_last(0..len, 3, 0, 2), Some(3));
+            assert_eq!(wm.select_last(0..len, 3, 1, 2), Some(2));
+            assert_eq!(wm.select_last(0..len, 7, 0, 2), Some(4));
+            assert_eq!(wm.select_last(0..len, 5, 0, 2), Some(4));
+            assert_eq!(wm.select_last(0..len, 100, 0, 2), None);
 
             // select_last with full ignore_bits
-            assert_eq!(wm.select_last(0, 0, 0..len, wm.num_levels()), Some(4));
-            assert_eq!(wm.select_last(1, 0, 0..len, wm.num_levels()), Some(4));
-            assert_eq!(wm.select_last(2, 0, 0..len, wm.num_levels()), Some(4));
-            assert_eq!(wm.select_last(3, 0, 0..len, wm.num_levels()), Some(4));
-            assert_eq!(wm.select_last(3, 1, 0..len, wm.num_levels()), Some(3));
-            assert_eq!(wm.select_last(7, 0, 0..len, wm.num_levels()), Some(4));
-            assert_eq!(wm.select_last(5, 0, 0..len, wm.num_levels()), Some(4));
-            assert_eq!(wm.select_last(100, 0, 0..len, wm.num_levels()), None);
+            assert_eq!(wm.select_last(0..len, 0, 0, wm.num_levels()), Some(4));
+            assert_eq!(wm.select_last(0..len, 1, 0, wm.num_levels()), Some(4));
+            assert_eq!(wm.select_last(0..len, 2, 0, wm.num_levels()), Some(4));
+            assert_eq!(wm.select_last(0..len, 3, 0, wm.num_levels()), Some(4));
+            assert_eq!(wm.select_last(0..len, 3, 1, wm.num_levels()), Some(3));
+            assert_eq!(wm.select_last(0..len, 7, 0, wm.num_levels()), Some(4));
+            assert_eq!(wm.select_last(0..len, 5, 0, wm.num_levels()), Some(4));
+            assert_eq!(wm.select_last(0..len, 100, 0, wm.num_levels()), None);
         }
 
         {
@@ -819,36 +819,36 @@ mod tests {
 
         {
             // quantile
-            assert_eq!(wm.quantile(0, 0..len), (1, 1));
-            assert_eq!(wm.quantile(1, 0..len), (2, 1));
-            assert_eq!(wm.quantile(2, 0..len), (3, 2));
-            assert_eq!(wm.quantile(3, 0..len), (3, 2));
-            assert_eq!(wm.quantile(4, 0..len), (7, 1));
+            assert_eq!(wm.quantile(0..len, 0), (1, 1));
+            assert_eq!(wm.quantile(0..len, 1), (2, 1));
+            assert_eq!(wm.quantile(0..len, 2), (3, 2));
+            assert_eq!(wm.quantile(0..len, 3), (3, 2));
+            assert_eq!(wm.quantile(0..len, 4), (7, 1));
 
             // multiplicity is within the reduced range
-            assert_eq!(wm.quantile(0, 1..2), (3, 1));
+            assert_eq!(wm.quantile(1..2, 0), (3, 1));
 
             // quantile: check all values within a tighter range
-            assert_eq!(wm.quantile(0, 1..len - 1), (2, 1));
-            assert_eq!(wm.quantile(1, 1..len - 1), (3, 2));
-            assert_eq!(wm.quantile(2, 1..len - 1), (3, 2));
+            assert_eq!(wm.quantile(1..len - 1, 0), (2, 1));
+            assert_eq!(wm.quantile(1..len - 1, 1), (3, 2));
+            assert_eq!(wm.quantile(1..len - 1, 2), (3, 2));
 
             // quantile: out of bounds
-            assert!(panics(|| wm.quantile(3, 1..len - 1)));
+            assert!(panics(|| wm.quantile(1..len - 1, 3,)));
         }
 
         {
             // preceding_count
-            assert_eq!(wm.preceding_count(0, 0..len), 0);
-            assert_eq!(wm.preceding_count(1, 0..len), 0);
-            assert_eq!(wm.preceding_count(2, 0..len), 1);
-            assert_eq!(wm.preceding_count(3, 0..len), 2);
-            assert_eq!(wm.preceding_count(4, 0..len), 4);
-            assert_eq!(wm.preceding_count(5, 0..len), 4);
-            assert_eq!(wm.preceding_count(7, 0..len), 4);
+            assert_eq!(wm.preceding_count(0..len, 0), 0);
+            assert_eq!(wm.preceding_count(0..len, 1), 0);
+            assert_eq!(wm.preceding_count(0..len, 2), 1);
+            assert_eq!(wm.preceding_count(0..len, 3), 2);
+            assert_eq!(wm.preceding_count(0..len, 4), 4);
+            assert_eq!(wm.preceding_count(0..len, 5), 4);
+            assert_eq!(wm.preceding_count(0..len, 7), 4);
 
             // preceding_count: symbol is beyond max_symbol
-            assert!(panics(|| wm.preceding_count(max_symbol + 1, 0..len)));
+            assert!(panics(|| wm.preceding_count(0..len, max_symbol + 1)));
         }
     }
 }

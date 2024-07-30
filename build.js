@@ -14,7 +14,6 @@ let examplePlugin = {
 const ctx = await esbuild.context({
   entryPoints: ['./src/index.js'],
   bundle: true,
-  minify: false,
   format: 'esm',
   define: { 
     // This should be defined to true or false, depending on whether we want to turn
@@ -32,7 +31,12 @@ const ctx = await esbuild.context({
   },
   plugins: [examplePlugin],
   outfile: 'dist/made-of-bits.js', 
-  sourcemap: 'inline'
+
+  minify: true,
+  // sourcemap: 'inline'
+
+  // minify: false,
+  // sourcemap: 'inline'
 });
 
 await ctx.watch();
