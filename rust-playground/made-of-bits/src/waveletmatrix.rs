@@ -52,9 +52,7 @@ struct Ranks<T>(T, T);
 
 impl<V: BitVec> WaveletMatrix<V> {
     pub fn new(data: Vec<u32>, max_symbol: u32) -> WaveletMatrix<DenseBitVec> {
-        // Equivalent to max(1, ceil(log2(alphabet_size))), which ensures
-        // that we always have at least one level even if all symbols are 0.
-        let num_levels = (max_symbol + 1).ilog2().max(1) as u32;
+        let num_levels = (u32::BITS - max_symbol.leading_zeros()).max(1);
 
         // We implement two different wavelet matrix construction algorithms. One of them is more
         // efficient, but that algorithm does not scale well to large alphabets and also cannot
@@ -74,7 +72,7 @@ impl<V: BitVec> WaveletMatrix<V> {
         WaveletMatrix::from_bitvecs(levels, max_symbol)
     }
 
-    pub fn from_bitvecs(levels: Vec<V>, max_symbol: u32) -> WaveletMatrix<V> {
+    fn from_bitvecs(levels: Vec<V>, max_symbol: u32) -> WaveletMatrix<V> {
         let max_level = levels.len() - 1;
         let len = levels
             .first()
@@ -141,6 +139,7 @@ impl<V: BitVec> WaveletMatrix<V> {
         range.end - range.start
     }
 
+    /// Returns (symbol, count)
     pub fn quantile(&self, k: u32, range: Range<u32>) -> (u32, u32) {
         assert!(k < range.end - range.start);
         let mut k = k;
@@ -245,6 +244,22 @@ impl<V: BitVec> WaveletMatrix<V> {
             }
         }
         Some(index)
+    }
+
+    pub fn get(&self, index: u32) -> u32 {
+        let mut index = index;
+        let mut symbol = 0;
+        for level in self.levels(0) {
+            if level.bv.get(index) == 0 {
+                // go left
+                index = level.bv.rank0(index);
+            } else {
+                // go right
+                symbol += level.bit;
+                index = level.nz + level.bv.rank1(index);
+            }
+        }
+        symbol
     }
 
     /// Return the majority element, if one exists.
@@ -411,4 +426,85 @@ fn range_overlaps(a: &Range<u32>, b: &Range<u32>) -> bool {
 fn range_fully_contains(a: &Range<u32>, b: &Range<u32>) -> bool {
     // if a starts before b, and a ends after b.
     a.start <= b.start && a.end >= b.end
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::panics;
+
+    #[test]
+    fn spot_test() {
+        let data = vec![1, 3, 3, 2, 400];
+        let len = data.len() as u32;
+        let max_symbol = data.iter().max().copied().unwrap();
+        let wm = WaveletMatrix::<DenseBitVec>::new(data.clone(), max_symbol);
+
+        // get
+        assert_eq!(
+            data.iter()
+                .enumerate()
+                .map(|(i, _)| wm.get(i as u32))
+                .collect::<Vec<_>>(),
+            data
+        );
+
+        // get: out of bounds
+        assert!(panics(|| wm.get(6)));
+
+        // select
+        assert_eq!(wm.select(0, 0, 0..len, 0), None);
+        assert_eq!(wm.select(1, 0, 0..len, 0), Some(0));
+        assert_eq!(wm.select(2, 0, 0..len, 0), Some(3));
+        assert_eq!(wm.select(3, 0, 0..len, 0), Some(1));
+        assert_eq!(wm.select(3, 1, 0..len, 0), Some(2));
+        assert_eq!(wm.select(400, 0, 0..len, 0), Some(4));
+        assert_eq!(wm.select(5, 0, 0..len, 0), None);
+
+        // select_last
+        assert_eq!(wm.select_last(0, 0, 0..len, 0), None);
+        assert_eq!(wm.select_last(1, 0, 0..len, 0), Some(0));
+        assert_eq!(wm.select_last(2, 0, 0..len, 0), Some(3));
+        assert_eq!(wm.select_last(3, 0, 0..len, 0), Some(2));
+        assert_eq!(wm.select_last(3, 1, 0..len, 0), Some(1));
+        assert_eq!(wm.select_last(400, 0, 0..len, 0), Some(4));
+        assert_eq!(wm.select_last(5, 0, 0..len, 0), None);
+
+        // simple_majority
+        assert_eq!(wm.simple_majority(0..len), None);
+        assert_eq!(wm.simple_majority(0..3), Some(3));
+        assert_eq!(wm.simple_majority(0..1), Some(1));
+        assert_eq!(wm.simple_majority(1..len - 1), Some(3));
+        assert_eq!(wm.simple_majority(1..len), None);
+
+        // quantile
+        assert_eq!(wm.quantile(0, 0..len), (1, 1));
+        assert_eq!(wm.quantile(1, 0..len), (2, 1));
+        assert_eq!(wm.quantile(2, 0..len), (3, 2));
+        assert_eq!(wm.quantile(3, 0..len), (3, 2));
+        assert_eq!(wm.quantile(4, 0..len), (400, 1));
+
+        // multiplicity is within the reduced range
+        assert_eq!(wm.quantile(0, 1..2), (3, 1));
+
+        // check all values within a tighter range
+        assert_eq!(wm.quantile(0, 1..len - 1), (2, 1));
+        assert_eq!(wm.quantile(1, 1..len - 1), (3, 2));
+        assert_eq!(wm.quantile(2, 1..len - 1), (3, 2));
+
+        // quantile: out of bounds
+        assert!(panics(|| wm.quantile(3, 1..len - 1)));
+
+        // preceding_count
+        assert_eq!(wm.preceding_count(0, 0..len), 0);
+        assert_eq!(wm.preceding_count(1, 0..len), 0);
+        assert_eq!(wm.preceding_count(2, 0..len), 1);
+        assert_eq!(wm.preceding_count(3, 0..len), 2);
+        assert_eq!(wm.preceding_count(4, 0..len), 4);
+        assert_eq!(wm.preceding_count(5, 0..len), 4);
+        assert_eq!(wm.preceding_count(400, 0..len), 4);
+
+        // preceding_count: symbol is beyond max_symbol
+        assert!(panics(|| wm.preceding_count(max_symbol + 1, 0..len)));
+    }
 }
