@@ -22,7 +22,7 @@ pub struct WaveletMatrix<V: BitVec> {
     levels: Vec<Level<V>>, // wm levels (bit planes)
     max_symbol: u32,       // maximum symbol value
     len: u32,              // number of symbols
-    default_masks: Vec<u32>,
+    default_masks: Box<[u32]>,
 }
 
 impl<V: BitVec> WaveletMatrix<V> {
@@ -68,7 +68,7 @@ impl<V: BitVec> WaveletMatrix<V> {
             levels,
             max_symbol,
             len,
-            default_masks: vec![u32::MAX; num_levels],
+            default_masks: vec![u32::MAX; num_levels].into(),
         }
     }
 
@@ -315,6 +315,35 @@ impl<V: BitVec> WaveletMatrix<V> {
             });
         }
         traversal
+    }
+
+    pub fn default_masks(&self) -> &Box<[u32]> {
+        &self.default_masks
+    }
+
+    pub fn morton_masks_for_dims(&self, dims: u32) -> Vec<u32> {
+        const S1: [u32; 1] = [u32::MAX];
+        const S2: [u32; 2] = [
+            crate::zorder::encode2(0, u32::MAX),
+            crate::zorder::encode2(u32::MAX, 0),
+        ];
+        const S3: [u32; 3] = [
+            crate::zorder::encode3(0, 0, u32::MAX),
+            crate::zorder::encode3(0, u32::MAX, 0),
+            crate::zorder::encode3(u32::MAX, 0, 0),
+        ];
+        let masks = match dims {
+            1 => &S1[..],
+            2 => &S2[..],
+            3 => &S3[..],
+            _ => panic!("only 1-3 dimensions currently supported"),
+        };
+        masks
+            .iter()
+            .copied()
+            .cycle()
+            .take(self.num_levels())
+            .collect()
     }
 
     // Count the number of occurences of symbols in each of the symbol ranges,

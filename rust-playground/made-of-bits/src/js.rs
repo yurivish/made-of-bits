@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use to_js::Stash;
 
 use crate::bitvec::multi::Multi;
 use crate::bitvec::multi::MultiBuilder;
@@ -218,7 +219,7 @@ fn wavelet_matrix_quantile(wm: &WM, range_lo: u32, range_hi: u32, k: u32) -> to_
 
 #[js]
 fn wavelet_matrix_select(
-    wm: Box<WM>,
+    wm: &WM,
     range_lo: u32,
     range_hi: u32,
     symbol: u32,
@@ -230,7 +231,7 @@ fn wavelet_matrix_select(
 
 #[js]
 fn wavelet_matrix_select_last(
-    wm: Box<WM>,
+    wm: &WM,
     range_lo: u32,
     range_hi: u32,
     symbol: u32,
@@ -242,21 +243,41 @@ fn wavelet_matrix_select_last(
 }
 
 #[js]
-fn wavelet_matrix_get(wm: Box<WM>, index: u32) -> u32 {
+fn wavelet_matrix_get(wm: &WM, index: u32) -> u32 {
     wm.get(index)
 }
 
 #[js]
-fn wavelet_matrix_simple_majority(wm: Box<WM>, range_lo: u32, range_hi: u32) -> Option<u32> {
+fn wavelet_matrix_max_symbol(wm: &WM) -> u32 {
+    wm.max_symbol()
+}
+
+#[js]
+fn wavelet_matrix_simple_majority(wm: &WM, range_lo: u32, range_hi: u32) -> Option<u32> {
     wm.simple_majority(range_lo..range_hi)
 }
 
 #[js]
-fn wavelet_matrix_counts(wm: &WM, range_lo: u32, range_hi: u32) -> Dynamic {
-    let mut counts = wm.counts(&[range_lo..range_hi], 0..=wm.max_symbol(), None);
+fn wavelet_matrix_morton_masks_for_dims(wm: &WM, dims: u32) -> *mut Box<[u32]> {
+    allocate(wm.morton_masks_for_dims(dims).into_boxed_slice())
+}
+
+#[js]
+fn wavelet_matrix_counts(
+    wm: &WM,
+    range_lo: u32,
+    range_hi: u32,
+    symbol_extent_lo: u32,
+    symbol_extent_hi: u32, // inclusive
+    masks: &Box<[u32]>,
+) -> Dynamic {
+    let mut counts = wm.counts(
+        &[range_lo..range_hi],
+        symbol_extent_lo..=symbol_extent_hi,
+        Some(masks),
+    );
     let results = counts.results();
-    // each Counts is a struct with
-    //   symbol, start, end
+    // each Counts is a struct with fields `symbol`, `start`, and `end`
     let mut symbols = vec![];
     let mut starts = vec![];
     let mut ends = vec![];

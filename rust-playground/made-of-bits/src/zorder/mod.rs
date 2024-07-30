@@ -110,44 +110,41 @@ pub fn split_bbox_2d(tl: u32, br: u32) -> CStringResult<Box<[u32]>> {
     Ok(ret.into())
 }
 
-// note: passing a value >= 2^32 will still succeed since the truncation happens before the Rust code sees it
-pub fn encode2(x: u32, y: u32) -> CStringResult<u32> {
-    if (x >= 1 << 16) || (y >= 1 << 16) {
-        Err(c"x and y must each be less than 2^16 for the encoded value to fit into 32 bits")
-    } else {
-        Ok((part_1_by_1(y) << 1) + part_1_by_1(x))
-    }
+pub const fn encode2(x: u32, y: u32) -> u32 {
+    (part_1_by_1(y) << 1) + part_1_by_1(x)
+    // if (x >= 1 << 16) || (y >= 1 << 16) {
+    //     Err(c"x and y must each be less than 2^16 for the encoded value to fit into 32 bits")
+    // } else {
+    //     Ok((part_1_by_1(y) << 1) + part_1_by_1(x))
+    // }
 }
 
-pub fn foo() -> i32 {
-    panic!("wah")
+pub const fn encode3(x: u32, y: u32, z: u32) -> u32 {
+    (part_1_by_2(z) << 2) + (part_1_by_2(y) << 1) + part_1_by_2(x)
+    // if (x > 1 << 11) || (y > 1 << 11) || (z > 1 << 10) {
+    //     Err(c"x and y must each be less than 2^11 and z must be less than 2^10 for the encoded value to fit into 32 bits")
+    // } else {
+    //     Ok((part_1_by_2(z) << 2) + (part_1_by_2(y) << 1) + part_1_by_2(x))
+    // }
 }
 
-pub fn encode3(x: u32, y: u32, z: u32) -> CStringResult<u32> {
-    if (x > 1 << 11) || (y > 1 << 11) || (z > 1 << 10) {
-        Err(c"x and y must each be less than 2^11 and z must be less than 2^10 for the encoded value to fit into 32 bits")
-    } else {
-        Ok((part_1_by_2(z) << 2) + (part_1_by_2(y) << 1) + part_1_by_2(x))
-    }
-}
-
-pub fn decode2x(code: u32) -> u32 {
+pub const fn decode2x(code: u32) -> u32 {
     compact_1_by_1(code)
 }
 
-pub fn decode2y(code: u32) -> u32 {
+pub const fn decode2y(code: u32) -> u32 {
     compact_1_by_1(code >> 1)
 }
 
-pub fn decode3x(code: u32) -> u32 {
+pub const fn decode3x(code: u32) -> u32 {
     compact_1_by_2(code)
 }
 
-pub fn decode3y(code: u32) -> u32 {
+pub const fn decode3y(code: u32) -> u32 {
     compact_1_by_2(code >> 1)
 }
 
-pub fn decode3z(code: u32) -> u32 {
+pub const fn decode3z(code: u32) -> u32 {
     compact_1_by_2(code >> 2)
 }
 
