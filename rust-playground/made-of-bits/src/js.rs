@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::bitvec::multi::Multi;
 use crate::bitvec::multi::MultiBuilder;
 use crate::bitvec::rle::RLEBitVec;
@@ -13,7 +15,7 @@ use crate::{
     bitvec::array::{ArrayBitVec, ArrayBitVecBuilder},
     bitvec::{BitVec, BitVecBuilder},
 };
-use to_js::{allocate, js, to_owned};
+use to_js::{allocate, js, to_owned, Dynamic};
 
 use crate::bitvec::dense::{DenseBitVec, DenseBitVecBuilder};
 
@@ -178,32 +180,38 @@ export_multibitvec!(
 export_multibitvec!("sparse_", ArrayBitVecBuilder, ArrayBitVec);
 export_multibitvec!("array_", SparseBitVecBuilder, SparseBitVec);
 
+// how can we return this so it's an array on the other side?
 #[js]
-fn u32_array(len: u32) -> *mut Box<[u32]> {
-    allocate(vec![0, len].into_boxed_slice())
+fn u32_slice(len: usize) -> *mut Box<[u32]> {
+    allocate(vec![0; len].into_boxed_slice())
+}
+
+#[js]
+fn as_array(x: &Box<[u32]>) -> &[u32] {
+    &x
 }
 
 type WM = WaveletMatrix<DenseBitVec>;
 
 #[js]
 fn wavelet_matrix_new(data: *mut Box<[u32]>) -> *mut WM {
-    let data = *to_owned(data);
+    let data = *to_owned(data); // consume the data argument
     let max_symbol = data.iter().max().copied().unwrap_or(0);
     allocate(WaveletMatrix::<DenseBitVec>::new(data.into(), max_symbol))
 }
 
 #[js]
-fn wavelet_matrix_preceding_count(wm: Box<WM>, range_lo: u32, range_hi: u32, symbol: u32) -> u32 {
+fn wavelet_matrix_preceding_count(wm: &WM, range_lo: u32, range_hi: u32, symbol: u32) -> u32 {
     wm.preceding_count(range_lo..range_hi, symbol)
 }
 
 #[js]
-fn wavelet_matrix_count(wm: Box<WM>, range_lo: u32, range_hi: u32, symbol: u32) -> u32 {
+fn wavelet_matrix_count(wm: &WM, range_lo: u32, range_hi: u32, symbol: u32) -> u32 {
     wm.count(range_lo..range_hi, symbol)
 }
 
 #[js]
-fn wavelet_matrix_quantile(wm: Box<WM>, range_lo: u32, range_hi: u32, k: u32) -> to_js::U32Pair {
+fn wavelet_matrix_quantile(wm: &WM, range_lo: u32, range_hi: u32, k: u32) -> to_js::U32Pair {
     // Returns (symbol, count)
     to_js::U32Pair(wm.quantile(range_lo..range_hi, k).into())
 }
@@ -244,11 +252,24 @@ fn wavelet_matrix_simple_majority(wm: Box<WM>, range_lo: u32, range_hi: u32) -> 
 }
 
 #[js]
-fn wavelet_matrix_counts(wm: Box<WM>, range_lo: u32, range_hi: u32) -> Option<u32> {
-    let results = wm.counts(&[range_lo..range_hi], 0..=2, None).results();
+fn wavelet_matrix_counts(wm: &WM, range_lo: u32, range_hi: u32) -> Dynamic {
+    let mut counts = wm.counts(&[range_lo..range_hi], 0..=wm.max_symbol(), None);
+    let results = counts.results();
     // each Counts is a struct with
     //   symbol, start, end
-    todo!()
+    let mut symbols = vec![];
+    let mut starts = vec![];
+    let mut ends = vec![];
+    for x in results {
+        symbols.push(x.val.symbol);
+        starts.push(x.val.start);
+        ends.push(x.val.end);
+    }
+    let mut map = BTreeMap::new();
+    map.insert("symbols", Dynamic::new(symbols));
+    map.insert("starts", Dynamic::new(starts));
+    map.insert("ends", Dynamic::new(ends));
+    map.into()
 }
 
 // let mut y = ;
