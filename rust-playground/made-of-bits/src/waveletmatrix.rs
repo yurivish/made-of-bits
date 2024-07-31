@@ -1,12 +1,10 @@
 use crate::bitvec::BitVec;
 use crate::bitvec::BitVecBuilder;
 use crate::waveletmatrix_support::accumulate_mask;
-use crate::waveletmatrix_support::inclusive_range_fully_contains;
-use crate::waveletmatrix_support::inclusive_range_overlaps;
 use crate::waveletmatrix_support::mask_extent;
 use crate::waveletmatrix_support::mask_range;
-use crate::waveletmatrix_support::range_overlaps;
 use crate::waveletmatrix_support::union_masks;
+use crate::waveletmatrix_support::RangeOverlaps;
 use crate::waveletmatrix_support::{KeyVal, Level, RangedRankCache, Traversal};
 use crate::{
     bits::reverse_low_bits,
@@ -254,7 +252,7 @@ impl<V: BitVec> WaveletMatrix<V> {
 
     // todo: fn k_majority(&self, k, range) { ... }
 
-    // Count the number of occurrences of each symbol in the given index range.
+    // Count the number of occurrences of each symbol in the given index ranges.
     // Returns a vec of (input_index, symbol, start, end) tuples.
     // Returning (start, end) rather than a count `end - start` is helpful for
     // use cases that associate per-symbol data with each entry.
@@ -298,12 +296,12 @@ impl<V: BitVec> WaveletMatrix<V> {
                     let (start, end) = rank_cache.get(x.val.start, x.val.end, level);
 
                     // if there are any left children, go left
-                    if start.0 != end.0 && inclusive_range_overlaps(&symbol_extent, &left) {
+                    if start.0 != end.0 && symbol_extent.overlaps_range(&left) {
                         go.left(x.val(Counts::new(symbol, start.0, end.0)));
                     }
 
                     // if there are any right children, set the level bit and go right
-                    if start.1 != end.1 && inclusive_range_overlaps(&symbol_extent, &right) {
+                    if start.1 != end.1 && symbol_extent.overlaps_range(&right) {
                         go.right(x.val(Counts::new(
                             symbol + level.bit,
                             level.nz + start.1,
@@ -409,7 +407,7 @@ impl<V: BitVec> WaveletMatrix<V> {
                         let acc = accumulate_mask(left..mid, mask, &symbol_range, x.val.acc);
                         if acc == all_masks {
                             counts[x.key] += end.0 - start.0;
-                        } else if range_overlaps(&symbol_range, &mask_range(left..mid, mask)) {
+                        } else if symbol_range.overlaps_range(&mask_range(left..mid, mask)) {
                             // We need to recurse into the left child. Do so with the new acc value.
                             go.left(x.val(CountSymbolRange::new(acc, left, start.0, end.0)));
                         }
@@ -421,7 +419,7 @@ impl<V: BitVec> WaveletMatrix<V> {
                         let acc = accumulate_mask(mid..right, mask, &symbol_range, x.val.acc);
                         if acc == all_masks {
                             counts[x.key] += end.1 - start.1;
-                        } else if range_overlaps(&symbol_range, &mask_range(mid..right, mask)) {
+                        } else if symbol_range.overlaps_range(&mask_range(mid..right, mask)) {
                             go.right(x.val(CountSymbolRange::new(
                                 acc,
                                 mid,
@@ -490,7 +488,7 @@ impl<V: BitVec> WaveletMatrix<V> {
             let (left, mid, right) = level.splits(symbol); // value split points of left/right children
 
             // if this wavelet tree node is fully contained in the target range, update best and return.
-            if inclusive_range_fully_contains(&target, &(left..right)) {
+            if target.contains_range(left..right) {
                 let candidate = self.select_upwards(range.start, ignore_bits).unwrap();
                 return Some(best.min(candidate));
             }
@@ -501,7 +499,7 @@ impl<V: BitVec> WaveletMatrix<V> {
             // otherwise, we know that there are two possibilities:
             // 1. the left node is partly contained and the right node does not overlap the target
             // 2. the left node is fully contained and the right node may overlap the target
-            if !inclusive_range_fully_contains(&target, &(left..mid)) {
+            if !target.contains_range(left..mid) {
                 // we're in case 1, so refine our search range by going left
                 range = start.0..end.0;
             } else {
@@ -746,8 +744,7 @@ mod tests {
     #[test]
     fn spot_test() {
         //    values:   1  3  3  2  7
-        //              -------------
-        //    bits
+        //    bits      -------------  high to low:
         //    level 0:  0  0  0  0  1  bit 2^2 = 4
         //    level 1:  0  1  1  1  1  bit 2^1 = 2
         //    level 2:  1  1  1  0  1  bit 2^0 = 1

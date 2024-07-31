@@ -170,139 +170,138 @@ macro_rules! export_multibitvec {
     };
 }
 
-export_bitvec!("dense_", DenseBitVecBuilder, DenseBitVec);
-export_bitvec!("rle_", RLEBitVecBuilder, RLEBitVec);
+// export_bitvec!("dense_", DenseBitVecBuilder, DenseBitVec);
+// export_bitvec!("rle_", RLEBitVecBuilder, RLEBitVec);
 
-export_multibitvec!(
-    "multi_",
-    MultiBuilder<DenseBitVecBuilder>,
-    Multi<DenseBitVec>
-);
-export_multibitvec!("sparse_", ArrayBitVecBuilder, ArrayBitVec);
+// export_multibitvec!(
+//     "multi_",
+//     MultiBuilder<DenseBitVecBuilder>,
+//     Multi<DenseBitVec>
+// );
+// export_multibitvec!("sparse_", ArrayBitVecBuilder, ArrayBitVec);
 export_multibitvec!("array_", SparseBitVecBuilder, SparseBitVec);
 
-// how can we return this so it's an array on the other side?
-#[js]
-fn u32_slice(len: usize) -> *mut Box<[u32]> {
-    allocate(vec![0; len].into_boxed_slice())
-}
+// // how can we return this so it's an array on the other side?
+// #[js]
+// fn u32_slice(len: usize) -> *mut Box<[u32]> {
+//     allocate(vec![0; len].into_boxed_slice())
+// }
 
-#[js]
-fn as_array(x: &Box<[u32]>) -> &[u32] {
-    &x
-}
+// #[js]
+// fn as_array(x: &Box<[u32]>) -> &[u32] {
+//     &x
+// }
 
-type WM = WaveletMatrix<DenseBitVec>;
+// type WM = WaveletMatrix<DenseBitVec>;
 
-#[js]
-fn wavelet_matrix_new(data: *mut Box<[u32]>) -> *mut WM {
-    let data = *to_owned(data); // consume the data argument
-    let max_symbol = data.iter().max().copied().unwrap_or(0);
-    allocate(WaveletMatrix::<DenseBitVec>::new(data.into(), max_symbol))
-}
+// #[js]
+// fn wavelet_matrix_new(data: *mut Box<[u32]>) -> *mut WM {
+//     let data = *to_owned(data); // consume the data argument
+//     let max_symbol = data.iter().max().copied().unwrap_or(0);
+//     allocate(WaveletMatrix::<DenseBitVec>::new(data.into(), max_symbol))
+// }
 
-#[js]
-fn wavelet_matrix_preceding_count(wm: &WM, range_lo: u32, range_hi: u32, symbol: u32) -> u32 {
-    wm.preceding_count(range_lo..range_hi, symbol)
-}
+// #[js]
+// fn wavelet_matrix_preceding_count(wm: &WM, range_lo: u32, range_hi: u32, symbol: u32) -> u32 {
+//     wm.preceding_count(range_lo..range_hi, symbol)
+// }
 
-#[js]
-fn wavelet_matrix_count(wm: &WM, range_lo: u32, range_hi: u32, symbol: u32) -> u32 {
-    wm.count(range_lo..range_hi, symbol)
-}
+// #[js]
+// fn wavelet_matrix_count(wm: &WM, range_lo: u32, range_hi: u32, symbol: u32) -> u32 {
+//     wm.count(range_lo..range_hi, symbol)
+// }
 
-#[js]
-fn wavelet_matrix_quantile(wm: &WM, range_lo: u32, range_hi: u32, k: u32) -> to_js::U32Pair {
-    // Returns (symbol, count)
-    to_js::U32Pair(wm.quantile(range_lo..range_hi, k).into())
-}
+// #[js]
+// fn wavelet_matrix_quantile(wm: &WM, range_lo: u32, range_hi: u32, k: u32) -> to_js::U32Pair {
+//     // Returns (symbol, count)
+//     to_js::U32Pair(wm.quantile(range_lo..range_hi, k).into())
+// }
 
-#[js]
-fn wavelet_matrix_select(
-    wm: &WM,
-    range_lo: u32,
-    range_hi: u32,
-    symbol: u32,
-    k: u32,
-    ignore_bits: usize,
-) -> Option<u32> {
-    wm.select(range_lo..range_hi, symbol, k, ignore_bits).into()
-}
+// #[js]
+// fn wavelet_matrix_select(
+//     wm: &WM,
+//     range_lo: u32,
+//     range_hi: u32,
+//     symbol: u32,
+//     k: u32,
+//     ignore_bits: usize,
+// ) -> Option<u32> {
+//     wm.select(range_lo..range_hi, symbol, k, ignore_bits).into()
+// }
 
-#[js]
-fn wavelet_matrix_select_last(
-    wm: &WM,
-    range_lo: u32,
-    range_hi: u32,
-    symbol: u32,
-    k: u32,
-    ignore_bits: usize,
-) -> Option<u32> {
-    wm.select_last(range_lo..range_hi, symbol, k, ignore_bits)
-        .into()
-}
+// #[js]
+// fn wavelet_matrix_select_last(
+//     wm: &WM,
+//     range_lo: u32,
+//     range_hi: u32,
+//     symbol: u32,
+//     k: u32,
+//     ignore_bits: usize,
+// ) -> Option<u32> {
+//     wm.select_last(range_lo..range_hi, symbol, k, ignore_bits)
+//         .into()
+// }
 
-#[js]
-fn wavelet_matrix_get(wm: &WM, index: u32) -> u32 {
-    wm.get(index)
-}
+// #[js]
+// fn wavelet_matrix_get(wm: &WM, index: u32) -> u32 {
+//     wm.get(index)
+// }
 
-#[js]
-fn wavelet_matrix_max_symbol(wm: &WM) -> u32 {
-    wm.max_symbol()
-}
+// #[js]
+// fn wavelet_matrix_max_symbol(wm: &WM) -> u32 {
+//     wm.max_symbol()
+// }
 
-#[js]
-fn wavelet_matrix_simple_majority(wm: &WM, range_lo: u32, range_hi: u32) -> Option<u32> {
-    wm.simple_majority(range_lo..range_hi)
-}
+// #[js]
+// fn wavelet_matrix_simple_majority(wm: &WM, range_lo: u32, range_hi: u32) -> Option<u32> {
+//     wm.simple_majority(range_lo..range_hi)
+// }
 
-#[js]
-fn wavelet_matrix_morton_masks_for_dims(wm: &WM, dims: u32) -> *mut Box<[u32]> {
-    allocate(wm.morton_masks_for_dims(dims).into_boxed_slice())
-}
+// #[js]
+// fn wavelet_matrix_morton_masks_for_dims(wm: &WM, dims: u32) -> *mut Box<[u32]> {
+//     allocate(wm.morton_masks_for_dims(dims).into_boxed_slice())
+// }
 
-#[js]
-fn wavelet_matrix_counts(
-    wm: &WM,
-    range_lo: u32,
-    range_hi: u32,
-    symbol_extent_lo: u32,
-    symbol_extent_hi: u32, // inclusive
-    masks: &Box<[u32]>,
-) -> Dynamic {
-    let mut counts = wm.counts(
-        &[range_lo..range_hi],
-        symbol_extent_lo..=symbol_extent_hi,
-        Some(masks),
-    );
-    let results = counts.results();
-    // each Counts is a struct with fields `symbol`, `start`, and `end`
-    let mut symbols = vec![];
-    let mut starts = vec![];
-    let mut ends = vec![];
-    for x in results {
-        symbols.push(x.val.symbol);
-        starts.push(x.val.start);
-        ends.push(x.val.end);
-    }
-    let mut map = BTreeMap::new();
-    map.insert("symbols", Dynamic::new(symbols));
-    map.insert("starts", Dynamic::new(starts));
-    map.insert("ends", Dynamic::new(ends));
-    map.into()
-}
+// #[js]
+// fn wavelet_matrix_counts(
+//     wm: &WM,
+//     range_lo: u32,
+//     range_hi: u32,
+//     symbol_extent_lo: u32,
+//     symbol_extent_hi: u32, // inclusive
+//     masks: &Box<[u32]>,
+// ) -> Dynamic {
+//     let mut counts = wm.counts(
+//         &[range_lo..range_hi],
+//         symbol_extent_lo..=symbol_extent_hi,
+//         Some(masks),
+//     );
+//     let results = counts.results();
+//     // each Counts is a struct with fields `symbol`, `start`, and `end`
+//     let mut symbols = vec![];
+//     let mut starts = vec![];
+//     let mut ends = vec![];
+//     for x in results {
+//         symbols.push(x.val.symbol);
+//         starts.push(x.val.start);
+//         ends.push(x.val.end);
+//     }
+//     let mut map = BTreeMap::new();
+//     map.insert("symbols", Dynamic::new(symbols));
+//     map.insert("starts", Dynamic::new(starts));
+//     map.insert("ends", Dynamic::new(ends));
+//     map.into()
+// }
 
-// let mut y = ;
-
-// pub fn counts(
-//     &self,
-//     ranges: &[Range<u32>],
-//     // note: this is inclusive because the requirement comes up in practice, eg.
-//     // a 32-bit integer can represent 3 10-bit integers, and you may want to query
-//     // for the 10-bit subcomponents separately, eg. 0..1025. But to represent 1025
-//     // in each dimension would require 33 bits. instead, inclusive extents allow
-//     // representing 0..1025 (11 bits) as 0..=1024 (10 bits).
-//     symbol_extent: RangeInclusive<u32>,
-//     masks: Option<&[u32]>,
-// ) -> Traversal<CountAll> {
+// // #[js]
+// // pub fn counts(
+// //     &self,
+// //     ranges: &[Range<u32>],
+// //     // note: this is inclusive because the requirement comes up in practice, eg.
+// //     // a 32-bit integer can represent 3 10-bit integers, and you may want to query
+// //     // for the 10-bit subcomponents separately, eg. 0..1025. But to represent 1025
+// //     // in each dimension would require 33 bits. instead, inclusive extents allow
+// //     // representing 0..1025 (11 bits) as 0..=1024 (10 bits).
+// //     symbol_extent: RangeInclusive<u32>,
+// //     masks: Option<&[u32]>,
+// // ) -> Traversal<CountAll> {

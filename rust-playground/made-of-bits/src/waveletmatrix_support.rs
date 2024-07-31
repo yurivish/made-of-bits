@@ -286,7 +286,7 @@ pub(crate) fn accumulate_mask(
     toggle_bits(
         accumulator,
         mask,
-        range_fully_contains(symbol_range, &mask_range(node_range, mask)),
+        symbol_range.contains_range(mask_range(node_range, mask)),
     )
 }
 
@@ -308,23 +308,31 @@ pub(crate) fn toggle_bits(accumulator: u32, mask: u32, cond: bool) -> u32 {
     }
 }
 
-/// Return true if `a` overlaps `b`
-pub(crate) fn range_overlaps(a: &Range<u32>, b: &Range<u32>) -> bool {
-    a.start < b.end && b.start < a.end
+pub(crate) trait RangeOverlaps {
+    fn overlaps_range(self, other: Self) -> bool;
+    fn contains_range(self, other: Range<u32>) -> bool;
 }
 
-/// Return true if inclusive range `a` fully contains range `b`
-pub(crate) fn inclusive_range_fully_contains(a: &RangeInclusive<u32>, b: &Range<u32>) -> bool {
-    // if a starts before b, and a ends after b.
-    *a.start() <= b.start && *a.end() > b.end
+impl RangeOverlaps for &Range<u32> {
+    /// Return true if `self` overlaps `other`
+    fn overlaps_range(self, other: Self) -> bool {
+        self.start < other.end && other.start < self.end
+    }
+
+    /// Return true if `self` fully contains `other`
+    fn contains_range(self, other: Range<u32>) -> bool {
+        self.start <= other.start && self.end >= other.end
+    }
 }
 
-/// Return true if `a` fully contains `b`
-pub(crate) fn range_fully_contains(a: &Range<u32>, b: &Range<u32>) -> bool {
-    // if a starts before b, and a ends after b.
-    a.start <= b.start && a.end >= b.end
-}
+impl RangeOverlaps for &RangeInclusive<u32> {
+    /// Return true if `self` overlaps `other`
+    fn overlaps_range(self, other: Self) -> bool {
+        self.start() <= other.end() && other.start() <= self.end()
+    }
 
-pub(crate) fn inclusive_range_overlaps(a: &RangeInclusive<u32>, b: &RangeInclusive<u32>) -> bool {
-    a.start() <= b.end() && b.start() <= a.end()
+    /// Return true if `self` fully contains `other`
+    fn contains_range(self, other: Range<u32>) -> bool {
+        *self.start() <= other.start && *self.end() > other.end
+    }
 }
