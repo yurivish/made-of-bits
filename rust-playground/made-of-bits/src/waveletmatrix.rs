@@ -15,6 +15,8 @@ use std::marker::PhantomData;
 use std::ops::Range;
 use std::ops::RangeInclusive;
 
+// todo: explore whether we can use a default value for V = DenseBitVec
+
 #[derive(Debug)]
 pub struct WaveletMatrix<V: BitVec> {
     levels: Vec<Level<V>>, // wm levels (bit planes)

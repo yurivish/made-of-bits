@@ -1,3 +1,6 @@
+use crate::thingy::Thingy;
+use crate::zorder;
+use crate::zorder::decode2x;
 use std::collections::BTreeMap;
 use to_js::Stash;
 
@@ -181,16 +184,61 @@ macro_rules! export_multibitvec {
 // export_multibitvec!("sparse_", ArrayBitVecBuilder, ArrayBitVec);
 export_multibitvec!("array_", SparseBitVecBuilder, SparseBitVec);
 
-// // how can we return this so it's an array on the other side?
-// #[js]
-// fn u32_slice(len: usize) -> *mut Box<[u32]> {
-//     allocate(vec![0; len].into_boxed_slice())
-// }
+#[js]
+fn u32_slice(len: usize) -> *mut Box<[u32]> {
+    allocate(vec![0; len].into_boxed_slice())
+}
 
-// #[js]
-// fn as_array(x: &Box<[u32]>) -> &[u32] {
-//     &x
-// }
+#[js]
+fn as_array(x: &Box<[u32]>) -> &[u32] {
+    &x
+}
+
+#[js]
+fn thingy_new(xs: *mut Box<[u32]>, ys: *mut Box<[u32]>, ids: *mut Box<[u32]>) -> *mut Thingy {
+    // consume the data arguments
+    let xs = *to_owned(xs);
+    let ys = *to_owned(ys);
+    let ids = *to_owned(ids);
+    allocate(Thingy::new(&xs, &ys, &ids))
+}
+
+#[js]
+fn thingy_counts(t: &Thingy) -> Dynamic {
+    let mut xs = vec![];
+    let mut ys = vec![];
+    let mut counts = vec![];
+    for (&k, &v) in t.counts().iter() {
+        xs.push(zorder::decode2x(k));
+        ys.push(zorder::decode2y(k));
+        counts.push(v);
+    }
+    [Dynamic::new(xs), Dynamic::new(ys), Dynamic::new(counts)].into()
+}
+
+#[js]
+fn thingy_counts_for_ids(t: &Thingy, ids: &Box<[u32]>) -> Dynamic {
+    let mut xs = vec![];
+    let mut ys = vec![];
+    let mut counts = vec![];
+    for (&k, &v) in t.counts_for_ids(ids).iter() {
+        xs.push(zorder::decode2x(k));
+        ys.push(zorder::decode2y(k));
+        counts.push(v);
+    }
+    [Dynamic::new(xs), Dynamic::new(ys), Dynamic::new(counts)].into()
+}
+
+#[js]
+fn thingy_ids_for_bbox(t: &Thingy, x_lo: u32, x_hi: u32, y_lo: u32, y_hi: u32) -> Stash<Vec<u32>> {
+    let mut ids = vec![];
+    let mut _counts = vec![];
+    for (&k, &v) in t.ids_for_bbox(x_lo..=x_hi, y_lo..=y_hi).iter() {
+        ids.push(k);
+        _counts.push(v);
+    }
+    Stash::new(ids)
+}
 
 // type WM = WaveletMatrix<DenseBitVec>;
 
