@@ -227,15 +227,15 @@ impl<V: BitVec> RangedRankCache<V> {
         (start_ranks, self.end_ranks)
     }
 
-    pub(crate) fn log_stats(&self) {
-        println!(
-            "cached {:.1}%: {:?} / {:?}",
-            // note: can be nan
-            100.0 * self.num_hits as f64 / (self.num_hits + self.num_misses) as f64,
-            self.num_hits,
-            self.num_hits + self.num_misses,
-        );
-    }
+    // pub(crate) fn log_stats(&self) {
+    //     println!(
+    //         "cached {:.1}%: {:?} / {:?}",
+    //         // note: can be nan
+    //         100.0 * self.num_hits as f64 / (self.num_hits + self.num_misses) as f64,
+    //         self.num_hits,
+    //         self.num_hits + self.num_misses,
+    //     );
+    // }
 }
 
 // Stores (rank0, rank1) as resulting from the Level::ranks function

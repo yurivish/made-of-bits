@@ -6,6 +6,9 @@ use crate::bitvec::MultiBitVec;
 use crate::bitvec::MultiBitVecBuilder;
 use std::collections::HashMap;
 
+// random idea: could we store `count - 1` in `multiplicity`, so we only explicitly
+// represent counts above zero (elements with count 1 appear only in `occupancy`)?
+
 #[derive(Clone)]
 pub struct Multi<T> {
     occupancy: T,

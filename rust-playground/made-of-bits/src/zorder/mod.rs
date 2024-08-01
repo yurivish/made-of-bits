@@ -9,7 +9,7 @@
 // tl tr
 // bl br
 
-use std::ffi::CStr;
+use std::{ffi::CStr, ops::RangeInclusive};
 
 const X_MASK_2D: u32 = 0b01010101010101010101010101010101;
 const Y_MASK_2D: u32 = !X_MASK_2D;
@@ -26,7 +26,7 @@ fn well_formed_bbox(tl: u32, br: u32) -> CStringResult<()> {
 }
 
 // note: assumes the bounding box is valid
-pub fn bbox(tl: u32, br: u32) -> CStringResult<(u32, u32)> {
+fn bbox(tl: u32, br: u32) -> CStringResult<(u32, u32)> {
     // consider moving this check elsewhere; this function is called many times per split_bbox_2d_impl invocation
     // but we really only need to check the initial range.
     well_formed_bbox(tl, br)?;
@@ -109,6 +109,36 @@ pub fn split_bbox_2d(tl: u32, br: u32) -> CStringResult<Box<[u32]>> {
     }
     Ok(ret.into())
 }
+
+// pub fn split_bbox_2d(tl: u32, br: u32) -> CStringResult<Vec<RangeInclusive<u32>>> {
+//     // stack of intervals to process, which will be recursively split if they are not contained in their bbox
+//     let mut stack = vec![(tl, br)];
+//     let mut ret = vec![];
+//     while let Some((lo, hi)) = stack.pop() {
+//         // if the range under consideration is contained within its bounding box, emit it.
+//         // note: since we always keep one endpoint from previously (see the other branch),
+//         // this range check will wastefully decode the same morton codes again and again.
+//         // we can probably do better...
+//         if range_contained_in_bbox_2d(lo, hi)? {
+//             // if we can extend the most recently emitted range, do so in-place.
+//             if let Some(last_hi) = ret.last_mut() {
+//                 if *last_hi + 1 == lo {
+//                     *last_hi = hi;
+//                     continue;
+//                 }
+//             }
+//             // otherwise, emit the range.
+//             ret.push(lo);
+//             ret.push(hi);
+//         } else {
+//             // otherwise, split the range, taking care to order the stack elements such that we emit ranges in ascending order.
+//             let (litmax, bigmin) = litmax_bigmin_2d(lo, hi);
+//             stack.push((bigmin, hi));
+//             stack.push((lo, litmax));
+//         }
+//     }
+//     Ok(ret.chunks_exact(2).map(|x| x[0]..=x[1]).collect())
+// }
 
 pub const fn encode2(x: u32, y: u32) -> u32 {
     (part_1_by_1(y) << 1) + part_1_by_1(x)

@@ -79,7 +79,7 @@ impl<V: BitVec> WaveletMatrix<V> {
     // Since the range also tells us the count of this symbol in the range, we
     // can combine the two pieces of data together for a count-less-than-or-equal query.
     // We compute both of these in one function since it's pretty cheap to do so.
-    fn locate(&self, symbol: u32, range: Range<u32>, ignore_bits: usize) -> (u32, Range<u32>) {
+    pub fn locate(&self, range: Range<u32>, symbol: u32, ignore_bits: usize) -> (u32, Range<u32>) {
         assert!(
             symbol <= self.max_symbol,
             "symbol must not exceed max_symbol"
@@ -105,12 +105,12 @@ impl<V: BitVec> WaveletMatrix<V> {
 
     /// Number of symbols less than this one, restricted to the query range
     pub fn preceding_count(&self, range: Range<u32>, symbol: u32) -> u32 {
-        self.locate(symbol, range, 0).0
+        self.locate(range, symbol, 0).0
     }
 
     /// Number of times the symbol appears in the query range
     pub fn count(&self, range: Range<u32>, symbol: u32) -> u32 {
-        let range = self.locate(symbol, range, 0).1;
+        let range = self.locate(range, symbol, 0).1;
         range.end - range.start
     }
 
@@ -151,7 +151,7 @@ impl<V: BitVec> WaveletMatrix<V> {
         }
 
         // track the symbol down to a range on the bottom-most level we're interested in
-        let range = self.locate(symbol, range, ignore_bits).1;
+        let range = self.locate(range, symbol, ignore_bits).1;
         let count = range.end - range.start;
 
         // If there are fewer than `k+1` copies of `symbol` in the range, return early.
@@ -177,7 +177,7 @@ impl<V: BitVec> WaveletMatrix<V> {
         if symbol > self.max_symbol {
             return None;
         }
-        let range = self.locate(symbol, range, ignore_bits).1;
+        let range = self.locate(range, symbol, ignore_bits).1;
         let count = range.end - range.start;
         if count <= k {
             return None;
@@ -309,7 +309,7 @@ impl<V: BitVec> WaveletMatrix<V> {
                         )));
                     }
                 }
-                rank_cache.log_stats();
+                // rank_cache.log_stats();
             });
         }
         traversal
@@ -523,11 +523,7 @@ impl<V: BitVec> WaveletMatrix<V> {
         }
     }
 
-    pub fn locate_batch(
-        &self,
-        ranges: &[Range<u32>],
-        symbols: &[u32],
-    ) -> Traversal<(u32, u32, u32, u32)> {
+    pub fn locate_batch(&self, ranges: &[Range<u32>], symbols: &[u32]) -> Traversal<LocateBatch> {
         let iter = symbols
             .iter()
             // todo: make a struct for this function: (symbol, preceding_count, start, end)
@@ -540,21 +536,26 @@ impl<V: BitVec> WaveletMatrix<V> {
                     .iter()
                     .map(|range| (*symbol, 0, range.start, range.end))
             });
-        let mut traversal = Traversal::new(iter);
+        let mut traversal = Traversal::new(iter.map(LocateBatch::new_tuple));
         for level in self.levels.iter() {
             traversal.traverse(|xs, go| {
                 for x in xs {
-                    let (symbol, preceding_count) = (x.val.0, x.val.1);
-                    let (start, end) = (level.ranks(x.val.2), level.ranks(x.val.3));
+                    let (symbol, preceding_count) = (x.val.symbol, x.val.preceding_count);
+                    let (start, end) = (level.ranks(x.val.start), level.ranks(x.val.end));
                     if symbol & level.bit == 0 {
-                        go.left(x.val((symbol, preceding_count, start.0, end.0)));
-                    } else {
-                        go.right(x.val((
+                        go.left(x.val(LocateBatch {
                             symbol,
-                            preceding_count + end.0 - start.0,
-                            level.nz + start.1,
-                            level.nz + end.1,
-                        )));
+                            preceding_count,
+                            start: start.0,
+                            end: end.0,
+                        }));
+                    } else {
+                        go.right(x.val(LocateBatch {
+                            symbol,
+                            preceding_count: preceding_count + end.0 - start.0,
+                            start: level.nz + start.1,
+                            end: level.nz + end.1,
+                        }));
                     }
                 }
             });
@@ -717,6 +718,25 @@ impl CountSymbolRange {
         CountSymbolRange {
             acc,
             left,
+            start,
+            end,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct LocateBatch {
+    pub symbol: u32,          // leftmost symbol in the node
+    pub preceding_count: u32, // number of symbols strictly less than this one
+    pub start: u32,           // index range start
+    pub end: u32,             // index range end
+}
+
+impl LocateBatch {
+    fn new_tuple((symbol, preceding_count, start, end): (u32, u32, u32, u32)) -> Self {
+        Self {
+            symbol,
+            preceding_count,
             start,
             end,
         }
