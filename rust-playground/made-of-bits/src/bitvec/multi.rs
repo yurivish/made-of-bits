@@ -30,8 +30,13 @@ impl<T: BitVec> Multi<T> {
 
     // While `MultiBitVec`s do not usually support rank0 and select0,
     // this one does since the zeros of the occupancy bitvec are the
-    // zeros of the `Multi`.
-    pub fn rank0(&self, bit_index: u32) -> u32 {
+    // (unique) zeros of the `Multi`.
+    pub fn unique_rank0(&self, bit_index: u32) -> u32 {
+        self.occupancy.rank0(bit_index)
+    }
+
+    /// Rank of unique 1-bits less than `bit_index`.
+    pub fn unique_rank1(&self, bit_index: u32) -> u32 {
         self.occupancy.rank0(bit_index)
     }
 
