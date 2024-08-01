@@ -38,6 +38,10 @@ impl Thingy {
         let sorted_ids: Vec<_> = index_ids.into_iter().map(|(i, id)| id).collect();
         let max_id = sorted_ids.last().copied().unwrap_or(0);
 
+        // todo: encode breaks in ids using a dense bit vector
+        // (it can be dense since each id must appear at least once; otherwise
+        //  we could use a sparse or multi<dense> bitvector)
+
         Thingy {
             codes: WaveletMatrix::<DenseBitVec>::new(sorted_codes, max_code),
             ids: WaveletMatrix::<DenseBitVec>::new(sorted_ids, max_id),
@@ -50,7 +54,7 @@ impl Thingy {
 
     fn counts_for_ids(&self, ids: Option<&[u32]>) {
         if let Some(ids) = ids {
-            //
+            // use a masked morton query per contiguous id range
         } else {
             // search over the entire symbol range
         }
