@@ -7,6 +7,7 @@ use crate::{
     waveletmatrix::WaveletMatrix,
     zorder,
 };
+use std::ops::Range;
 use std::{
     collections::{BTreeMap, HashSet},
     ops::RangeInclusive,
@@ -49,7 +50,7 @@ impl Thingy {
 
         let sorted_ids: Vec<_> = index_ids.into_iter().map(|(i, id)| id).collect();
         let max_id = sorted_ids.iter().copied().max().unwrap_or(0);
-        dbg!(&sorted_ids);
+        // dbg!(&sorted_ids);
 
         Thingy {
             codes: WaveletMatrix::<DenseBitVec>::new(sorted_codes, max_code),
@@ -112,48 +113,86 @@ impl Thingy {
         ids
     }
 
-    fn _counts_for_ids(&self, ids: Option<&[u32]>) -> BTreeMap<u32, u32> {
-        let mut counts = BTreeMap::new();
+    // todo: maybe abstract out the traversal+accumulation, accepting just an array of index ranges
 
-        if let Some(ids) = ids {
-            // use a morton query per contiguous id range
-            // we could do masked queries if we want to support zooming.
-            for id in ids.iter().copied() {
-                let range = self.ids.locate(0..self.len, id, 0).1;
-                let mut traversal = self
-                    .codes
-                    .counts(&[range], 0..=self.codes.max_symbol(), None);
-                for x in traversal.results() {
-                    let count = x.val.end - x.val.start;
-                    *counts.entry(x.val.symbol).or_insert(0) += count;
+    pub fn counts_for_ids(&self, ids: &[u32]) -> BTreeMap<u32, u32> {
+        let mut ids: Vec<_> = ids.iter().copied().collect();
+        ids.sort();
+
+        let mut counts = BTreeMap::new();
+        let mut query = self.ids.locate_batch(&[0..self.len], &ids);
+        let mut ranges: Vec<Range<u32>> = vec![];
+        for result in query.results() {
+            if let Some(last) = ranges.last_mut() {
+                if last.end == result.val.start {
+                    last.end = result.val.end;
+                    continue;
                 }
             }
-        } else {
-            // search over the entire symbol range
-            let mut traversal =
-                self.codes
-                    .counts(&[0..self.len], 0..=self.codes.max_symbol(), None);
-            for x in traversal.results() {
-                let count = x.val.end - x.val.start;
-                *counts.entry(x.val.symbol).or_insert(0) += count;
-            }
+            ranges.push(result.val.start..result.val.end);
         }
 
+        let mut traversal = self
+            .codes
+            .counts(&ranges, 0..=self.codes.max_symbol(), None);
+        for x in traversal.results() {
+            // dbg!(x.val.start,x.val.end);
+            let count = x.val.end - x.val.start;
+            *counts.entry(x.val.symbol).or_insert(0) += count;
+        }
         counts
     }
 
-    pub fn counts_for_ids(&self, ids: &[u32]) -> BTreeMap<u32, u32> {
-        self._counts_for_ids(Some(ids))
-    }
-
     pub fn counts(&self) -> BTreeMap<u32, u32> {
-        self._counts_for_ids(None)
+        let mut counts = BTreeMap::new();
+        // search over the entire symbol range
+        let mut traversal = self
+            .codes
+            .counts(&[0..self.len], 0..=self.codes.max_symbol(), None);
+        for x in traversal.results() {
+            let count = x.val.end - x.val.start;
+            *counts.entry(x.val.symbol).or_insert(0) += count;
+        }
+        counts
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::File;
+    use std::io::BufReader;
+
+    #[derive(Serialize, Deserialize)]
+    struct Datum {
+        x: u32,
+        y: u32,
+        id: u32,
+    }
+
+    use serde::{Deserialize, Serialize};
+    use serde_json::Result;
+
+    #[test]
+    fn test_json() {
+        let file = File::open("/Users/yurivish/Downloads/data (3).json").unwrap();
+        let reader = BufReader::new(file);
+
+        let data: Vec<Datum> = serde_json::from_reader(reader).unwrap();
+        // dbg!(my_data.len());
+        let mut xs = vec![];
+        let mut ys = vec![];
+        let mut ids = vec![];
+        for Datum { x, y, id } in data {
+            xs.push(x);
+            ys.push(y);
+            ids.push(id);
+        }
+        let t = Thingy::new(&xs, &ys, &ids);
+        t.counts_for_ids(&[0]);
+        // panic!("wat")
+        // serde_json::from_str(&serialized).unwrap();
+    }
 
     // #[test]
     // fn test() {

@@ -24,11 +24,7 @@ impl<V: BitVec> Level<V> {
     // Returns (rank0(index), rank1(index))
     // This means that if x = ranks(index), x.0 is rank0 and x.1 is rank1.
     pub(crate) fn ranks(&self, index: u32) -> Ranks<u32> {
-        if index == 0 {
-            return Ranks(0, 0);
-        }
-        let num_ones = self.bv.rank1(index);
-        let num_zeros = index - num_ones;
+        let (num_zeros, num_ones) = self.bv.ranks(index);
         Ranks(num_zeros, num_ones)
     }
 
@@ -215,6 +211,9 @@ impl<V: BitVec> RangedRankCache<V> {
         end_index: u32,
         level: &Level<V>,
     ) -> (Ranks<u32>, Ranks<u32>) {
+        // TODO: remove this! debugging...
+        return (level.ranks(start_index), level.ranks(end_index));
+
         let start_ranks = if Some(start_index) == self.end_index {
             self.num_hits += 1;
             self.end_ranks
@@ -239,7 +238,7 @@ impl<V: BitVec> RangedRankCache<V> {
 }
 
 // Stores (rank0, rank1) as resulting from the Level::ranks function
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub(crate) struct Ranks<T>(pub(crate) T, pub(crate) T);
 
 // Mask stuff

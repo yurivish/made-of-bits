@@ -23,6 +23,16 @@ pub trait BitVec: Clone {
         }
     }
 
+    /// Return `(rank0(bit_index), rank1(bit_index))`
+    fn ranks(&self, bit_index: u32) -> (u32, u32) {
+        if bit_index >= self.universe_size() {
+            return (self.num_zeros(), self.num_ones());
+        }
+        let num_ones = self.rank1(bit_index);
+        let num_zeros = bit_index - num_ones;
+        return (num_zeros, num_ones);
+    }
+
     // Return the bit index of the k-th occurrence of a 1-bit
     fn select1(&self, n: u32) -> Option<u32> {
         if n >= self.num_ones() {

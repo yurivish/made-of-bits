@@ -296,7 +296,8 @@ impl<V: BitVec> WaveletMatrix<V> {
                     let symbol = x.val.symbol;
                     let (left, right) = level.child_symbol_extents(symbol, mask);
                     let (start, end) = rank_cache.get(x.val.start, x.val.end, level);
-
+                    // dbg!(&(left.clone(), right.clone()));
+                    // dbg!(&(start.clone(), end.clone()));
                     // if there are any left children, go left
                     if start.0 != end.0 && symbol_extent.overlaps_range(&left) {
                         go.left(x.val(Counts::new(symbol, start.0, end.0)));

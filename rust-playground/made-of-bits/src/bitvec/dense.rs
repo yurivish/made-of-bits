@@ -197,23 +197,27 @@ impl BitVec for DenseBitVec {
         //
         // Synthesize a fictitious initial select sample located squarely at the position
         // designated by the rank sample.
-        let select_sample_rate = 1 << self.select1_samples_pow2;
-        let select_basic_block_index = rank_basic_block_index;
-        let select_preceding_count = count;
-        let mut select_count = select_preceding_count + select_sample_rate;
-        while select_count < self.num_ones() && select_basic_block_index < last_basic_block_index {
-            let (select_preceding_count, select_basic_block_index) = DenseBitVec::select_sample(
-                select_count,
-                &self.select1_samples,
-                self.select1_samples_pow2,
-            );
-            if select_basic_block_index >= last_basic_block_index {
-                break;
-            }
-            count = select_preceding_count;
-            rank_basic_block_index = select_basic_block_index;
-            select_count += select_sample_rate;
-        }
+        // NOTE: There's a bug here which I identified when running tests on the wavelet matrix using
+        // the data file "/Users/yurivish/Downloads/data (3).json" and running thingy.counts_for_ids(&[0]);
+        // The failure was near the end of the array, so perhaps there's some kind of last-block edge condition.
+        //
+        // let select_sample_rate = 1 << self.select1_samples_pow2;
+        // let select_basic_block_index = rank_basic_block_index;
+        // let select_preceding_count = count;
+        // let mut select_count = select_preceding_count + select_sample_rate;
+        // while select_count < self.num_ones() && select_basic_block_index < last_basic_block_index {
+        //     let (select_preceding_count, select_basic_block_index) = DenseBitVec::select_sample(
+        //         select_count,
+        //         &self.select1_samples,
+        //         self.select1_samples_pow2,
+        //     );
+        //     if select_basic_block_index >= last_basic_block_index {
+        //         break;
+        //     }
+        //     count = select_preceding_count;
+        //     rank_basic_block_index = select_basic_block_index;
+        //     select_count += select_sample_rate;
+        // }
 
         // Increment the count by the number of ones in every subsequent block
         for i in rank_basic_block_index..last_basic_block_index {
