@@ -14,8 +14,8 @@ use std::{
 };
 
 pub struct Thingy {
-    codes: WaveletMatrix<DenseBitVec>,
-    ids: WaveletMatrix<DenseBitVec>,
+    pub codes: WaveletMatrix<DenseBitVec>,
+    pub ids: WaveletMatrix<DenseBitVec>,
     len: u32,
 }
 
@@ -55,7 +55,6 @@ impl Thingy {
         Thingy {
             codes: WaveletMatrix::<DenseBitVec>::new(sorted_codes, max_code),
             ids: WaveletMatrix::<DenseBitVec>::new(sorted_ids, max_id),
-            // bv,
             len,
         }
     }
@@ -117,6 +116,7 @@ impl Thingy {
 
     pub fn counts_for_ids(&self, ids: &[u32]) -> BTreeMap<u32, u32> {
         let mut ids: Vec<_> = ids.iter().copied().collect();
+        // ids.sort_by_key(|x| x.reverse_bits());
         ids.sort();
 
         let mut counts = BTreeMap::new();
@@ -179,7 +179,6 @@ mod tests {
         let reader = BufReader::new(file);
 
         let data: Vec<Datum> = serde_json::from_reader(reader).unwrap();
-        // dbg!(my_data.len());
         let mut xs = vec![];
         let mut ys = vec![];
         let mut ids = vec![];

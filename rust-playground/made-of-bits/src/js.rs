@@ -3,6 +3,7 @@ use crate::zorder;
 use crate::zorder::decode2x;
 use std::collections::BTreeMap;
 use to_js::Stash;
+use to_js::U32Pair;
 
 use crate::bitvec::multi::Multi;
 use crate::bitvec::multi::MultiBuilder;
@@ -238,6 +239,11 @@ fn thingy_ids_for_bbox(t: &Thingy, x_lo: u32, x_hi: u32, y_lo: u32, y_hi: u32) -
         _counts.push(v);
     }
     Stash::new(ids)
+}
+
+#[js]
+fn thingy_num_levels(t: &Thingy) -> U32Pair {
+    U32Pair([t.codes.num_levels() as u32, t.ids.num_levels() as u32])
 }
 
 // type WM = WaveletMatrix<DenseBitVec>;

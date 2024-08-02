@@ -29,8 +29,8 @@ impl DenseBitVec {
     /// `rank1_samples_pow2`: power of 2 of the rank1 sample rate
     /// `select_samples_pow2`: power of 2 of the select sample rate for both select0 and select1
     pub fn new(buf: BitBuf, rank1_samples_pow2: u32, select_samples_pow2: u32) -> Self {
-        assert!((BASIC_BLOCK_BITS..32).contains(&rank1_samples_pow2));
-        assert!((BASIC_BLOCK_BITS..32).contains(&select_samples_pow2));
+        assert!(BASIC_BLOCK_BITS <= rank1_samples_pow2 && rank1_samples_pow2 < 32);
+        assert!(BASIC_BLOCK_BITS <= select_samples_pow2 && select_samples_pow2 < 32);
 
         // Sample rank1 samples every `rank1_sampling_rate` bits
         let rank1_sample_rate = 1 << rank1_samples_pow2;
@@ -154,8 +154,7 @@ impl DenseBitVec {
     fn select_sample(n: u32, samples: &Box<[u32]>, sample_rate: u32) -> (u32, u32) {
         let sample_index = n >> sample_rate;
         let sample = samples[sample_index as usize];
-        // bitmask with the BASIC_BLOCK_BITS bottom bits set.
-        let mask = BASIC_BLOCK_SIZE - 1;
+        let mask = const { one_mask(BASIC_BLOCK_BITS) };
         // The cumulative number of bits preceding the identified basic block,
         // ie. the left-shifted block index of that block.
         let cumulative_bits = sample & !mask; // high bits
@@ -172,7 +171,7 @@ impl DenseBitVec {
         // The second term allows us to identify how may 1-bits precede the basic block containing
         // the bit identified by this select sample.
         let preceding_count = (sample_index << sample_rate) - correction;
-        return (basic_block_index(cumulative_bits) as u32, preceding_count);
+        return (preceding_count, basic_block_index(cumulative_bits) as u32);
     }
 }
 
@@ -197,27 +196,23 @@ impl BitVec for DenseBitVec {
         //
         // Synthesize a fictitious initial select sample located squarely at the position
         // designated by the rank sample.
-        // NOTE: There's a bug here which I identified when running tests on the wavelet matrix using
-        // the data file "/Users/yurivish/Downloads/data (3).json" and running thingy.counts_for_ids(&[0]);
-        // The failure was near the end of the array, so perhaps there's some kind of last-block edge condition.
-        //
-        // let select_sample_rate = 1 << self.select1_samples_pow2;
-        // let select_basic_block_index = rank_basic_block_index;
-        // let select_preceding_count = count;
-        // let mut select_count = select_preceding_count + select_sample_rate;
-        // while select_count < self.num_ones() && select_basic_block_index < last_basic_block_index {
-        //     let (select_preceding_count, select_basic_block_index) = DenseBitVec::select_sample(
-        //         select_count,
-        //         &self.select1_samples,
-        //         self.select1_samples_pow2,
-        //     );
-        //     if select_basic_block_index >= last_basic_block_index {
-        //         break;
-        //     }
-        //     count = select_preceding_count;
-        //     rank_basic_block_index = select_basic_block_index;
-        //     select_count += select_sample_rate;
-        // }
+        let select_sample_rate = 1 << self.select1_samples_pow2;
+        let select_basic_block_index = rank_basic_block_index;
+        let select_preceding_count = count;
+        let mut select_count = select_preceding_count + select_sample_rate;
+        while select_count < self.num_ones() && select_basic_block_index < last_basic_block_index {
+            let (select_preceding_count, select_basic_block_index) = DenseBitVec::select_sample(
+                select_count,
+                &self.select1_samples,
+                self.select1_samples_pow2,
+            );
+            if select_basic_block_index >= last_basic_block_index {
+                break;
+            }
+            count = select_preceding_count;
+            rank_basic_block_index = select_basic_block_index;
+            select_count += select_sample_rate;
+        }
 
         // Increment the count by the number of ones in every subsequent block
         for i in rank_basic_block_index..last_basic_block_index {
