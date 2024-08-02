@@ -8,7 +8,7 @@ use crate::{
     zorder,
 };
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashSet},
     ops::RangeInclusive,
 };
 
@@ -63,7 +63,7 @@ impl Thingy {
         &self,
         x: RangeInclusive<u32>,
         y: RangeInclusive<u32>,
-    ) -> HashMap<u32, u32> {
+    ) -> BTreeMap<u32, u32> {
         let masks = self.codes.morton_masks_for_dims(2);
         let tl = zorder::encode2(*x.start(), *y.start());
         let br = zorder::encode2(*x.end(), *y.end());
@@ -78,7 +78,7 @@ impl Thingy {
         let range_symbols = zorder::split_bbox_2d(tl, br).unwrap();
         println!("result {:?}", &range_symbols);
 
-        let mut ids = HashMap::new();
+        let mut ids = BTreeMap::new();
 
         // for each inclusive morton range
         for r in range_symbols.chunks_exact(2) {
@@ -112,8 +112,8 @@ impl Thingy {
         ids
     }
 
-    fn _counts_for_ids(&self, ids: Option<&[u32]>) -> HashMap<u32, u32> {
-        let mut counts = HashMap::new();
+    fn _counts_for_ids(&self, ids: Option<&[u32]>) -> BTreeMap<u32, u32> {
+        let mut counts = BTreeMap::new();
 
         if let Some(ids) = ids {
             // use a morton query per contiguous id range
@@ -142,11 +142,11 @@ impl Thingy {
         counts
     }
 
-    pub fn counts_for_ids(&self, ids: &[u32]) -> HashMap<u32, u32> {
+    pub fn counts_for_ids(&self, ids: &[u32]) -> BTreeMap<u32, u32> {
         self._counts_for_ids(Some(ids))
     }
 
-    pub fn counts(&self) -> HashMap<u32, u32> {
+    pub fn counts(&self) -> BTreeMap<u32, u32> {
         self._counts_for_ids(None)
     }
 }
