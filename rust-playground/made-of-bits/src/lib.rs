@@ -1,5 +1,15 @@
 #![allow(unused)]
 
+macro_rules! time {
+    ($name:literal, $x:expr) => {{
+        let start = std::time::Instant::now();
+        let result = $x;
+        let duration = start.elapsed();
+        println!("Time taken for {:?}: {:?}", $name, duration);
+        result
+    }};
+}
+
 mod bitbuf;
 mod bits;
 mod bitvec;

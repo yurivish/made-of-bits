@@ -318,6 +318,59 @@ impl<V: BitVec> WaveletMatrix<V> {
         traversal
     }
 
+    pub fn counts_faster_maybe(&self, ranges: &[Range<u32>]) -> Traversal<Counts> {
+        for range in ranges {
+            assert!(range.end <= self.len());
+        }
+
+        let mut traversal = Traversal::new(ranges.iter().map(|range| Counts {
+            symbol: 0, // the leftmost symbol in the current node
+            start: range.start,
+            end: range.end,
+        }));
+
+        for level in self.levels.iter() {
+            // merge traversal
+            traversal.traverse(|xs, go| {
+                // println!("pre-merge: {}", xs.len());
+                if let Some(first) = xs.first() {
+                    let mut prev: KeyVal<Counts> = *first;
+                    for x in &xs[1..] {
+                        let cur = x;
+                        if prev.val.symbol == cur.val.symbol && prev.val.end == cur.val.start {
+                            prev.val.end = cur.val.end;
+                        } else {
+                            go.right(prev);
+                            prev = *cur;
+                        }
+                    }
+                    go.right(prev);
+                }
+            });
+
+            traversal.traverse(|xs, go| {
+                // println!("post-merge: {}", xs.len());
+                for x in xs {
+                    let (start, end) = (level.ranks(x.val.start), level.ranks(x.val.end));
+                    // if there are any left children, go right
+                    if start.0 != end.0 {
+                        go.left(x.val(Counts::new(x.val.symbol, start.0, end.0)));
+                    }
+                    // if there are any right children, set the level bit and go right
+                    if start.1 != end.1 {
+                        go.right(x.val(Counts::new(
+                            x.val.symbol + level.bit,
+                            level.nz + start.1,
+                            level.nz + end.1,
+                        )));
+                    }
+                }
+            });
+        }
+
+        traversal
+    }
+
     pub fn default_masks(&self) -> &Box<[u32]> {
         &self.default_masks
     }

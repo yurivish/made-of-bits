@@ -56,6 +56,12 @@ impl BitBuf {
         self.blocks[block_index as usize]
     }
 
+    // Though... This is a more performant interface for this specific sort of buf,
+    // eg. for rank blocks.
+    pub(crate) fn blocks(&self) -> &[u32] {
+        &self.blocks
+    }
+
     pub(crate) fn num_blocks(&self) -> u32 {
         // The number of blocks fits in a u32 by construction
         // since it is no greater than the universe_size.

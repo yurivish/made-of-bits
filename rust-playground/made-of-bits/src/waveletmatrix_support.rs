@@ -211,9 +211,6 @@ impl<V: BitVec> RangedRankCache<V> {
         end_index: u32,
         level: &Level<V>,
     ) -> (Ranks<u32>, Ranks<u32>) {
-        // TODO: remove this! debugging...
-        return (level.ranks(start_index), level.ranks(end_index));
-
         let start_ranks = if Some(start_index) == self.end_index {
             self.num_hits += 1;
             self.end_ranks
@@ -226,15 +223,15 @@ impl<V: BitVec> RangedRankCache<V> {
         (start_ranks, self.end_ranks)
     }
 
-    // pub(crate) fn log_stats(&self) {
-    //     println!(
-    //         "cached {:.1}%: {:?} / {:?}",
-    //         // note: can be nan
-    //         100.0 * self.num_hits as f64 / (self.num_hits + self.num_misses) as f64,
-    //         self.num_hits,
-    //         self.num_hits + self.num_misses,
-    //     );
-    // }
+    pub(crate) fn log_stats(&self) {
+        println!(
+            "cached {:.1}%: {:?} / {:?}",
+            // note: can be nan
+            100.0 * self.num_hits as f64 / (self.num_hits + self.num_misses) as f64,
+            self.num_hits,
+            self.num_hits + self.num_misses,
+        );
+    }
 }
 
 // Stores (rank0, rank1) as resulting from the Level::ranks function

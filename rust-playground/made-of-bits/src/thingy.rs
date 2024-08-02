@@ -120,26 +120,40 @@ impl Thingy {
         ids.sort();
 
         let mut counts = BTreeMap::new();
-        let mut query = self.ids.locate_batch(&[0..self.len], &ids);
+        let mut query = time!("locate_batch", self.ids.locate_batch(&[0..self.len], &ids));
         let mut ranges: Vec<Range<u32>> = vec![];
+        // dbg!(query.results().len());
+
         for result in query.results() {
-            if let Some(last) = ranges.last_mut() {
-                if last.end == result.val.start {
-                    last.end = result.val.end;
-                    continue;
-                }
-            }
+            // if let Some(last) = ranges.last_mut() {
+            //     if last.end == result.val.start {
+            //         last.end = result.val.end;
+            //         continue;
+            //     }
+            // }
             ranges.push(result.val.start..result.val.end);
         }
 
-        let mut traversal = self
-            .codes
-            .counts(&ranges, 0..=self.codes.max_symbol(), None);
+        // dbg!(ranges.len());
+
+        let mut traversal = time!(
+            "counts_faster_maybe",
+            self.codes.counts_faster_maybe(&ranges)
+        );
+
+        // let mut traversal = time!(
+        //     "counts",
+        //     self.codes
+        //         .counts(&ranges, 0..=self.codes.max_symbol(), None)
+        // );
+
         for x in traversal.results() {
-            // dbg!(x.val.start,x.val.end);
             let count = x.val.end - x.val.start;
             *counts.entry(x.val.symbol).or_insert(0) += count;
         }
+
+        // dbg!(counts.len());
+
         counts
     }
 
@@ -170,12 +184,14 @@ mod tests {
         id: u32,
     }
 
+    use std::time::Instant;
+
     use serde::{Deserialize, Serialize};
     use serde_json::Result;
 
     #[test]
     fn test_json() {
-        let file = File::open("/Users/yurivish/Downloads/data (3).json").unwrap();
+        let file = File::open("/Users/yurivish/Downloads/data (4).json").unwrap();
         let reader = BufReader::new(file);
 
         let data: Vec<Datum> = serde_json::from_reader(reader).unwrap();
@@ -187,9 +203,15 @@ mod tests {
             ys.push(y);
             ids.push(id);
         }
-        let t = Thingy::new(&xs, &ys, &ids);
-        t.counts_for_ids(&[0]);
-        // panic!("wat")
+
+        let t = time!("construct", Thingy::new(&xs, &ys, &ids));
+
+        let max_id = ids.iter().copied().max().unwrap();
+        let query_ids: Vec<_> = (0..=max_id).step_by(3).collect();
+
+        time!("counts_for_ids", t.counts_for_ids(&query_ids));
+
+        panic!("wat")
         // serde_json::from_str(&serialized).unwrap();
     }
 
