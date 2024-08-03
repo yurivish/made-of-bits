@@ -46,6 +46,8 @@ impl RLEBitVec {
 }
 
 impl BitVec for RLEBitVec {
+    type Builder = RLEBitVecBuilder;
+
     fn rank1(&self, bit_index: u32) -> u32 {
         if bit_index >= self.universe_size() {
             return self.num_ones;

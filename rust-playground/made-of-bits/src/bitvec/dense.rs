@@ -176,6 +176,8 @@ impl DenseBitVec {
 }
 
 impl BitVec for DenseBitVec {
+    type Builder = DenseBitVecBuilder;
+
     fn rank1(&self, bit_index: u32) -> u32 {
         if bit_index >= self.universe_size() {
             return self.num_ones();

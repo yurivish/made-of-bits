@@ -35,6 +35,8 @@ impl ArrayBitVec {
 }
 
 impl MultiBitVec for ArrayBitVec {
+    type Builder = ArrayBitVecBuilder;
+
     fn rank1(&self, bit_index: u32) -> u32 {
         self.ones.partition_point(|x| *x < bit_index) as u32
     }

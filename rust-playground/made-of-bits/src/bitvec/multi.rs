@@ -49,6 +49,8 @@ impl<T: BitVec> Multi<T> {
 }
 
 impl<T: BitVec> MultiBitVec for Multi<T> {
+    type Builder = MultiBuilder<T::Builder>;
+
     fn rank1(&self, bit_index: u32) -> u32 {
         match self.occupancy.rank1(bit_index) {
             0 => 0,

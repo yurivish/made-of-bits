@@ -8,7 +8,11 @@ mod test;
 
 use crate::{bitbuf::BitBuf, bits::partition_point};
 
+use self::multi::MultiBuilder;
+
 pub trait BitVec: Clone {
+    type Builder: BitVecBuilder<Target = Self>;
+
     /// Return the number of 1-bits below `bit_index`
     fn rank1(&self, bit_index: u32) -> u32;
 
@@ -79,6 +83,8 @@ pub trait BitVec: Clone {
 
 /// Represents a multiset. 1-bits may have multiplicity, but 0-bits may not.
 pub trait MultiBitVec: Clone {
+    type Builder: MultiBitVecBuilder<Target = Self>;
+
     fn get(&self, bit_index: u32) -> u32 {
         assert!(bit_index < self.universe_size());
         self.rank1(bit_index + 1) - self.rank1(bit_index)
@@ -180,6 +186,8 @@ impl<T> BitVec for BitVecOf<T>
 where
     T: MultiBitVec,
 {
+    type Builder = BitVecBuilderOf<T::Builder>;
+
     fn rank1(&self, bit_index: u32) -> u32 {
         self.inner().rank1(bit_index)
     }
