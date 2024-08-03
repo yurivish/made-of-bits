@@ -230,6 +230,7 @@ fn thingy_counts_for_ids(t: &Thingy, ids: &Box<[u32]>) -> Dynamic {
     [Dynamic::new(xs), Dynamic::new(ys), Dynamic::new(counts)].into()
 }
 
+// todo: (x0, y0), (x1, y1)?
 #[js]
 fn thingy_ids_for_bbox(t: &Thingy, x_lo: u32, x_hi: u32, y_lo: u32, y_hi: u32) -> Stash<Vec<u32>> {
     let mut ids = vec![];
