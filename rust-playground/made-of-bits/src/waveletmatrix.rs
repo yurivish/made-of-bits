@@ -26,7 +26,7 @@ pub struct WaveletMatrix<V: BitVec> {
 }
 
 impl<V: BitVec> WaveletMatrix<V> {
-    pub fn new(data: Vec<u32>, max_symbol: u32) -> WaveletMatrix<DenseBitVec> {
+    pub fn new(data: Vec<u32>, max_symbol: u32) -> WaveletMatrix<V> {
         let num_levels = (u32::BITS - max_symbol.leading_zeros()).max(1);
 
         // We implement two different wavelet matrix construction algorithms. One of them is more
@@ -639,9 +639,9 @@ impl<V: BitVec> WaveletMatrix<V> {
 // dense histogram that counts the number of occurrences of each symbol. Heuristically,
 // this is roughly the case where the alphabet size does not exceed the number of data points.
 // Implements Algorithm 1 (seq.pc) from the paper "Practical Wavelet Tree Construction".
-fn build_bitvecs(data: Vec<u32>, num_levels: usize) -> Vec<DenseBitVec> {
+fn build_bitvecs<T: BitVec>(data: Vec<u32>, num_levels: usize) -> Vec<T> {
     assert!(data.len() <= u32::MAX as usize);
-    let mut levels = vec![DenseBitVecBuilder::new(data.len() as u32); num_levels];
+    let mut levels = vec![T::Builder::new(data.len() as u32); num_levels];
     let mut hist = vec![0; 1 << num_levels];
     let mut borders = vec![0; 1 << num_levels];
     let max_level = num_levels - 1;
@@ -710,7 +710,7 @@ fn build_bitvecs(data: Vec<u32>, num_levels: usize) -> Vec<DenseBitVec> {
 /// Returns an array of level bitvectors built from `data`.
 /// Handles the sparse case where the alphabet size exceeds the number of data points and
 /// building a histogram with an entry for each symbol is expensive.
-fn build_bitvecs_large_alphabet(mut data: Vec<u32>, num_levels: usize) -> Vec<DenseBitVec> {
+fn build_bitvecs_large_alphabet<T: BitVec>(mut data: Vec<u32>, num_levels: usize) -> Vec<T> {
     assert!(data.len() <= u32::MAX as usize);
     let mut levels = Vec::with_capacity(num_levels);
     let max_level = num_levels - 1;
@@ -722,7 +722,7 @@ fn build_bitvecs_large_alphabet(mut data: Vec<u32>, num_levels: usize) -> Vec<De
 
     for l in 0..max_level {
         let level_bit = 1 << (max_level - l);
-        let mut b = DenseBitVecBuilder::new(data.len() as u32);
+        let mut b = T::Builder::new(data.len() as u32);
         let mut index = 0;
         // Stably sort all elements with a zero bit at this level to the left, storing
         // the positions of all one bits at this level in `bits`.
@@ -743,7 +743,7 @@ fn build_bitvecs_large_alphabet(mut data: Vec<u32>, num_levels: usize) -> Vec<De
 
     // For the last level we don't need to do anything but build the bitvector
     {
-        let mut b = DenseBitVecBuilder::new(data.len() as u32);
+        let mut b = T::Builder::new(data.len() as u32);
         let level_bit = 1 << 0;
         for (index, d) in data.iter().enumerate() {
             if d & level_bit > 0 {
