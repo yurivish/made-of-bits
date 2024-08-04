@@ -124,6 +124,14 @@ impl Thingy {
         let mut ranges: Vec<Range<u32>> = vec![];
         // dbg!(query.results().len());
 
+        // we can tally up the number of elements in each symbol (id) to determine which
+        // ids are "fully contained" in the rectangular query region for the time series
+        // case where we can predetermine exactly how many ids there WOULD be in that region
+        // if they were all contained (since only 1 per x value). ie. target_value = x extent;
+        // then we can filter to those time series that are fully contained in the rectangle,
+        // rather than (as we do currently) selecting those where a single point in the bbox
+        // is sufficient for inclusion in the result set,
+
         for result in query.results() {
             // if let Some(last) = ranges.last_mut() {
             //     if last.end == result.val.start {
@@ -177,7 +185,7 @@ mod tests {
     use std::fs::File;
     use std::io::BufReader;
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(Serialize, Deserialize, Copy, Clone)]
     struct Datum {
         x: u32,
         y: u32,
@@ -194,7 +202,37 @@ mod tests {
         let file = File::open("/Users/yurivish/Downloads/data (4).json").unwrap();
         let reader = BufReader::new(file);
 
-        let data: Vec<Datum> = serde_json::from_reader(reader).unwrap();
+        let mut data: Vec<Datum> = serde_json::from_reader(reader).unwrap();
+
+        // let data = {
+        //     let mut next = data.clone();
+        //     next.extend_from_slice(&data);
+        //     next
+        // };
+        // let data = {
+        //     let mut next = data.clone();
+        //     next.extend_from_slice(&data);
+        //     next
+        // };
+
+        // let data = {
+        //     let mut next = data.clone();
+        //     next.extend_from_slice(&data);
+        //     next
+        // };
+        // let mut data = {
+        //     let mut next = data.clone();
+        //     next.extend_from_slice(&data);
+        //     next
+        // };
+
+        // use rand::seq::SliceRandom;
+        // use rand::thread_rng;
+        // let mut rng = thread_rng();
+        // data.shuffle(&mut rng);
+
+        println!("length: {}", data.len());
+
         let mut xs = vec![];
         let mut ys = vec![];
         let mut ids = vec![];

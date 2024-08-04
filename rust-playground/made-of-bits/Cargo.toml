@@ -17,6 +17,7 @@ expect-test = "1.5"
 testresult = "0.4.1"
 serde = { version = "1.0.204",  features = ["derive"] }
 serde_json = "1.0"
+rand = "0.8.5"
 
 [profile.dev]
 opt-level = 3 # all optimizations
