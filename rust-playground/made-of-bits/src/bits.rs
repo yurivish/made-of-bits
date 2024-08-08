@@ -4,15 +4,24 @@ use std::ops::{BitAndAssign, Shr, Sub};
 pub(crate) trait BitBlock:
     BitAndAssign + PartialOrd<Self> + Sub<Self> + Copy + Sized + Shr<u32, Output = Self>
 {
+    /// Number of bits in this bit block
     const BITS: u32;
+    /// Power of 2 of the number of bits in this bit block
     const BITS_LOG2: u32 = Self::BITS.ilog2();
+
     const ZERO: Self;
     const ONE: Self;
     const MAX: Self;
+
+    // Delegated to the underlying block type by the individual impls
     fn saturating_sub(self, rhs: Self) -> Self;
     fn trailing_zeros(self) -> u32;
+
     /// Block index of the block containing the `n`-th bit
-    fn block_index(n: u32) -> usize;
+    fn block_index(n: u32) -> usize {
+        (n >> Self::BITS_LOG2) as usize
+    }
+
     /// Bit index of the `n`-th bit within its block (masking off the high bits)
     fn block_bit_index(n: u32) -> u32;
 }
@@ -29,10 +38,6 @@ impl BitBlock for u32 {
 
     fn trailing_zeros(self) -> u32 {
         Self::trailing_zeros(self)
-    }
-
-    fn block_index(n: u32) -> usize {
-        (n >> Self::BITS.ilog2()) as usize
     }
 
     fn block_bit_index(n: u32) -> u32 {
@@ -52,10 +57,6 @@ impl BitBlock for u64 {
 
     fn trailing_zeros(self) -> u32 {
         Self::trailing_zeros(self)
-    }
-
-    fn block_index(n: u32) -> usize {
-        (n >> Self::BITS.ilog2()) as usize
     }
 
     fn block_bit_index(n: u32) -> u32 {
