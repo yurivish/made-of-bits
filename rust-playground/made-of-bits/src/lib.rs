@@ -20,7 +20,12 @@ mod waveletmatrix;
 mod waveletmatrix_support;
 mod zorder;
 
-use to_js::js;
+pub use bitvec::array::*;
+pub use bitvec::dense::*;
+pub use bitvec::multi::*;
+pub use bitvec::rle::*;
+pub use bitvec::sparse::*;
+pub use bitvec::*;
 
 /// Implements a version of `std::panic::catch_unwind` that does not require unwind safety
 /// for its closure argument. This allows us to test the panic behavior of our implementations
