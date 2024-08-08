@@ -3,10 +3,12 @@ name = "made-of-bits"
 version = "0.1.0"
 edition = "2021"
 
-# CAUTION: Including rlib in this list bloats and pessimizes the binary because it silently disables LTO.
-# But it is needed for benchmarking with `cargo bench`.
+# CAUTION: Including `rlib` in this list silently disables LTO when building with `cargo build`, causing
+# a larger (and potentially slower) binary to be built.
 #
 # Issue: https://github.com/rust-lang/rust/issues/51009
+#
+# But `rlib` is needed for benchmarking with `cargo bench`.
 #
 # Workaround: use `cargo rustc` instead of `cargo build` to override the crate type when building the .wasm:
 #   RUSTFLAGS='-C target-feature=+simd128' cargo rustc --crate-type cdylib --profile release-debug --target wasm32-unknown-unknown
