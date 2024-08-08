@@ -1,3 +1,4 @@
+use crate::bits::BitBlock;
 use crate::{
     bitbuf,
     bitbuf::BitBuf,
@@ -29,8 +30,8 @@ impl DenseBitVec {
     /// `rank1_samples_pow2`: power of 2 of the rank1 sample rate
     /// `select_samples_pow2`: power of 2 of the select sample rate for both select0 and select1
     pub(crate) fn new(buf: BitBuf, rank1_samples_pow2: u32, select_samples_pow2: u32) -> Self {
-        assert!(bitbuf::BLOCK_BITS <= rank1_samples_pow2 && rank1_samples_pow2 < 32);
-        assert!(bitbuf::BLOCK_BITS <= select_samples_pow2 && select_samples_pow2 < 32);
+        assert!(bitbuf::Block::BITS_LOG2 <= rank1_samples_pow2 && rank1_samples_pow2 < 32);
+        assert!(bitbuf::Block::BITS_LOG2 <= select_samples_pow2 && select_samples_pow2 < 32);
 
         // Sample rank1 samples every `rank1_sampling_rate` bits
         let rank1_sample_rate = 1 << rank1_samples_pow2;
@@ -78,7 +79,7 @@ impl DenseBitVec {
         let mut zeros_threshold = 0; // take a select0 sample at the (zerosThreshold+1)th 1-bit
         let mut ones_threshold = 0; // take a select1 sample at the (onesThreshold+1)th 1-bit
 
-        let buf_blocks_per_rank1_sample = rank1_sample_rate >> bitbuf::BLOCK_BITS;
+        let buf_blocks_per_rank1_sample = rank1_sample_rate >> bitbuf::Block::BITS_LOG2;
 
         let max_block_index = buf.num_blocks().saturating_sub(1);
         for block_index in 0..buf.num_blocks() {
@@ -88,11 +89,11 @@ impl DenseBitVec {
             }
 
             let mut block_ones = block.count_ones();
-            let mut block_zeros = bitbuf::BLOCK_SIZE - block_ones;
+            let mut block_zeros = bitbuf::Block::BITS - block_ones;
 
             // Don't count trailing ones or zeros in the final data block towards the 0/1 count
             if block_index == max_block_index {
-                let num_non_trailing_bits = bitbuf::BLOCK_SIZE - buf.num_trailing_bits();
+                let num_non_trailing_bits = bitbuf::Block::BITS - buf.num_trailing_bits();
                 let trailing_bits = block & !one_mask::<bitbuf::Block>(num_non_trailing_bits);
                 let trailing_bits_ones = trailing_bits.count_ones();
                 let trailing_bits_zeros = buf.num_trailing_bits() - trailing_bits_ones;
@@ -132,7 +133,7 @@ impl DenseBitVec {
             }
 
             cumulative_ones += block_ones;
-            cumulative_bits = cumulative_bits.saturating_add(bitbuf::BLOCK_SIZE);
+            cumulative_bits = cumulative_bits.saturating_add(bitbuf::Block::BITS);
         }
 
         Self {
@@ -144,7 +145,7 @@ impl DenseBitVec {
             rank1_samples: rank1_samples.into(),
             select0_samples: select0_samples.into(),
             select1_samples: select1_samples.into(),
-            buf_blocks_per_rank1_sample_pow2: rank1_samples_pow2 - bitbuf::BLOCK_BITS,
+            buf_blocks_per_rank1_sample_pow2: rank1_samples_pow2 - bitbuf::Block::BITS_LOG2,
         }
     }
 
@@ -154,7 +155,7 @@ impl DenseBitVec {
     fn select_sample(n: u32, samples: &Box<[u32]>, sample_rate: u32) -> (u32, u32) {
         let sample_index = n >> sample_rate;
         let sample = samples[sample_index as usize];
-        let mask = one_mask::<u32>(bitbuf::BLOCK_BITS);
+        let mask = one_mask::<u32>(bitbuf::Block::BITS_LOG2);
         // The cumulative number of bits preceding the identified basic block,
         // ie. the left-shifted block index of that block.
         let cumulative_bits = sample & !mask; // high bits
@@ -171,7 +172,10 @@ impl DenseBitVec {
         // The second term allows us to identify how may 1-bits precede the basic block containing
         // the bit identified by this select sample.
         let preceding_count = (sample_index << sample_rate) - correction;
-        return (preceding_count, bitbuf::block_index(cumulative_bits) as u32);
+        return (
+            preceding_count,
+            bitbuf::Block::block_index(cumulative_bits) as u32,
+        );
     }
 }
 
@@ -192,7 +196,7 @@ impl BitVec for DenseBitVec {
         let rank_index = bit_index >> self.rank1_samples_pow2; // todo: why can we inject a +1 here without tests failing?
         let mut count = self.rank1_samples[rank_index as usize];
         let mut rank_buf_block_index = rank_index << self.buf_blocks_per_rank1_sample_pow2;
-        let last_buf_block_index = bitbuf::block_index(bit_index) as u32;
+        let last_buf_block_index = bitbuf::Block::block_index(bit_index) as u32;
 
         // note: this select-block-skipper actually somewhat slows down some wavelet matrix ops.
 
@@ -224,7 +228,7 @@ impl BitVec for DenseBitVec {
         }
 
         // Count any 1-bits in the last block up to `bit_index`
-        let bit_offset = bitbuf::block_offset(bit_index);
+        let bit_offset = bitbuf::Block::block_offset(bit_index);
         let masked_block =
             self.buf.get_block(last_buf_block_index) & one_mask::<bitbuf::Block>(bit_offset);
         count += masked_block.count_ones();
@@ -273,7 +277,7 @@ impl BitVec for DenseBitVec {
         }
 
         // Compute and return its bit index
-        let buf_block_bit_index = buf_block_index << bitbuf::BLOCK_BITS;
+        let buf_block_bit_index = buf_block_index << bitbuf::Block::BITS_LOG2;
         let bit_offset = select1(buf_block, n - count).unwrap_or(0);
         Some(buf_block_bit_index + bit_offset)
     }
@@ -313,7 +317,7 @@ impl BitVec for DenseBitVec {
         assert!(buf_block_index < self.buf.num_blocks()); // the index is in-bounds for the first iteration
         while buf_block_index < self.buf.num_blocks() {
             buf_block = self.buf.get_block(buf_block_index);
-            let next_count = count + buf_block.count_zeros();
+            let next_count = count + bitbuf::Block::count_zeros(buf_block);
             if next_count > n {
                 break;
             }
@@ -322,7 +326,7 @@ impl BitVec for DenseBitVec {
         }
 
         // Compute and return its bit index
-        let buf_block_bit_index = buf_block_index << bitbuf::BLOCK_BITS;
+        let buf_block_bit_index = buf_block_index << bitbuf::Block::BITS_LOG2;
         let bit_offset = select1(!buf_block, n - count).unwrap_or(0);
         Some(buf_block_bit_index + bit_offset)
     }

@@ -5,11 +5,16 @@ pub(crate) trait BitBlock:
     BitAndAssign + PartialOrd<Self> + Sub<Self> + Copy + Sized + Shr<u32, Output = Self>
 {
     const BITS: u32;
+    const BITS_LOG2: u32 = Self::BITS.ilog2();
     const ZERO: Self;
     const ONE: Self;
     const MAX: Self;
     fn saturating_sub(self, rhs: Self) -> Self;
     fn trailing_zeros(self) -> u32;
+    /// Block index of the block containing the `n`-th bit
+    fn block_index(n: u32) -> usize;
+    /// Bit index of the `n`-th bit within its block (masking off the high bits)
+    fn block_offset(n: u32) -> u32;
 }
 
 impl BitBlock for u32 {
@@ -25,6 +30,14 @@ impl BitBlock for u32 {
     fn trailing_zeros(self) -> u32 {
         Self::trailing_zeros(self)
     }
+
+    fn block_index(n: u32) -> usize {
+        (n >> Self::BITS.ilog2()) as usize
+    }
+
+    fn block_offset(n: u32) -> u32 {
+        n & (Self::BITS - 1)
+    }
 }
 
 impl BitBlock for u64 {
@@ -39,6 +52,14 @@ impl BitBlock for u64 {
 
     fn trailing_zeros(self) -> u32 {
         Self::trailing_zeros(self)
+    }
+
+    fn block_index(n: u32) -> usize {
+        (n >> Self::BITS.ilog2()) as usize
+    }
+
+    fn block_offset(n: u32) -> u32 {
+        n & (Self::BITS - 1)
     }
 }
 
@@ -206,5 +227,42 @@ mod tests {
 
         assert_eq!(partition_point(0, |_| true), 0);
         assert_eq!(partition_point(1, |_| true), 1);
+    }
+
+    fn test_block_index<T: BitBlock>() {
+        // zero should always be zero, regardless of block size
+        assert_eq!(T::block_index(0), 0);
+        // values less than a block size should map to the 0th block.
+        assert_eq!(T::block_index(15), 0);
+        assert_eq!(T::block_index(31), 0);
+        // multiples of the block size should map to that block
+        assert_eq!(T::block_index(T::BITS), 1);
+        assert_eq!(T::block_index(T::BITS + 15), 1);
+        assert_eq!(T::block_index(T::BITS + 31), 1);
+
+        assert_eq!(T::block_index(2 * T::BITS), 2);
+        assert_eq!(T::block_index(2 * T::BITS + 15), 2);
+        assert_eq!(T::block_index(2 * T::BITS + 31), 2);
+    }
+
+    fn test_block_offset<T: BitBlock>() {
+        // zero should always be zero, regardless of block size
+        assert_eq!(T::block_offset(0), 0);
+        // values less than a block size should be returned as they are.
+        assert_eq!(T::block_offset(15), 15);
+        assert_eq!(T::block_offset(31), 31);
+        // multiples of the block size should be zero
+        assert_eq!(T::block_offset(T::BITS), 0);
+        // values above that should wrap
+        assert_eq!(T::block_offset(T::BITS + 15), 15);
+        assert_eq!(T::block_offset(T::BITS + 31), 31);
+    }
+
+    #[test]
+    fn test_block_index_and_offset() {
+        test_block_index::<u32>();
+        test_block_offset::<u32>();
+        test_block_index::<u64>();
+        test_block_offset::<u64>();
     }
 }
