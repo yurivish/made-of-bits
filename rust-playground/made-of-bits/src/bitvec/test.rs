@@ -1,5 +1,4 @@
 use crate::{
-    bits::BASIC_BLOCK_SIZE,
     bitvec::{array::ArrayBitVecBuilder, rle::RLEBitVecBuilder},
     bitvec::{BitVec, BitVecBuilder, BitVecBuilderOf, MultiBitVec, MultiBitVecBuilder},
     panics,
@@ -222,7 +221,7 @@ pub(crate) fn sweep_test_bitvec_builder<T: BitVecBuilder>() {
     let mut gen = Gen::new();
     // Exhaustively generate all 1-length and 2-length ones arrays
     // and individually test bitvectors built from them.
-    let universe_size = 5 * BASIC_BLOCK_SIZE;
+    let universe_size = 5 * 32;
     while !gen.done() {
         // NOTE: Does double the work necessary since `gen_elts` generates both [x, y] and [y, x].
         // TODO: figure out how to generate each unique combination only once (ignoring order).

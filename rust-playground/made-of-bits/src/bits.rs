@@ -1,26 +1,8 @@
-/// Size of a basic block, in bits
-pub(crate) const BASIC_BLOCK_SIZE: u32 = u32::BITS;
+use std::cmp::PartialOrd;
+use std::ops::{BitAndAssign, Shr, Sub};
 
-/// The power of 2 of the basic block size
-pub(crate) const BASIC_BLOCK_BITS: u32 = BASIC_BLOCK_SIZE.ilog2();
-
-/// Block index of the block containing the `n`-th bit
-pub(crate) fn basic_block_index(n: u32) -> usize {
-    (n >> BASIC_BLOCK_BITS) as usize
-}
-
-/// Bit index of the `n`-th bit within its block (masking off the high bits)
-pub(crate) fn basic_block_offset(n: u32) -> u32 {
-    n & (BASIC_BLOCK_SIZE - 1)
-}
-
-pub(crate) trait Blocky:
-    std::ops::BitAndAssign
-    + std::cmp::PartialOrd<Self>
-    + std::ops::Sub<Self>
-    + Copy
-    + Sized
-    + std::ops::Shr<u32, Output = Self>
+pub(crate) trait BitBlock:
+    BitAndAssign + PartialOrd<Self> + Sub<Self> + Copy + Sized + Shr<u32, Output = Self>
 {
     const BITS: u32;
     const ZERO: Self;
@@ -30,7 +12,7 @@ pub(crate) trait Blocky:
     fn trailing_zeros(self) -> u32;
 }
 
-impl Blocky for u32 {
+impl BitBlock for u32 {
     const BITS: u32 = Self::BITS;
     const ZERO: Self = 0;
     const ONE: Self = 1;
@@ -45,7 +27,7 @@ impl Blocky for u32 {
     }
 }
 
-impl Blocky for u64 {
+impl BitBlock for u64 {
     const BITS: u32 = Self::BITS;
     const ZERO: Self = 0;
     const ONE: Self = 1;
@@ -73,11 +55,11 @@ impl Blocky for u64 {
 ///
 /// An updated version of the paper is here: https://vigna.di.unimi.it/ftp/papers/Broadword.pdf
 /// If we use this, here are some items for future work:
-/// - Benchmark comparisons with the iterative select1 nelobelow
+/// - Benchmark comparisons with the iterative select1 below
 /// - Use simd128 to accelerate u_le8, le8, and u_nz8
 /// - Implement 32-bit, 16-bit, and 8-bit select1
 /// - Write my own tests (the original file had tests, but I'd like to practice writing my own)
-pub(crate) fn select1<T: Blocky>(x: T, k: u32) -> Option<u32> {
+pub(crate) fn select1<T: BitBlock>(x: T, k: u32) -> Option<u32> {
     // Unset the k-1 preceding 1-bits
     let mut x = x;
     for _ in 0..k {
@@ -106,7 +88,7 @@ pub(crate) const fn reverse_low_bits(x: usize, num_bits: usize) -> usize {
     x.reverse_bits() >> (usize::BITS as usize - num_bits)
 }
 
-pub(crate) fn one_mask<T: Blocky>(n: u32) -> T {
+pub(crate) fn one_mask<T: BitBlock>(n: u32) -> T {
     debug_assert!(n <= T::BITS);
     if n == 0 {
         T::ZERO
@@ -146,42 +128,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_bit_block_index() {
-        // zero should always be zero, regardless of block size
-        assert_eq!(basic_block_index(0), 0);
-        // values less than a block size should map to the 0th block.
-        assert_eq!(basic_block_index(15), 0);
-        assert_eq!(basic_block_index(31), 0);
-        // multiples of the block size should map to that block
-        assert_eq!(basic_block_index(32), 1);
-        assert_eq!(basic_block_index(32 + 15), 1);
-        assert_eq!(basic_block_index(32 + 31), 1);
-
-        assert_eq!(basic_block_index(2 * 32), 2);
-        assert_eq!(basic_block_index(2 * 32 + 15), 2);
-        assert_eq!(basic_block_index(2 * 32 + 31), 2);
-    }
-
-    #[test]
-    fn test_bit_block_offset() {
-        // zero should always be zero, regardless of block size
-        assert_eq!(basic_block_offset(0), 0);
-        // values less than a block size should be returned as they are.
-        assert_eq!(basic_block_offset(15), 15);
-        assert_eq!(basic_block_offset(31), 31);
-        // multiples of the block size should be zero
-        assert_eq!(basic_block_offset(32), 0);
-        // values above that should wrap
-        assert_eq!(basic_block_offset(32 + 15), 15);
-        assert_eq!(basic_block_offset(32 + 31), 31);
-    }
-
-    #[test]
     fn test_one_mask() {
-        // TODO: Test other blocks sizes
         for n in 0..32 {
             assert_eq!(one_mask::<u32>(n), 2u32.pow(n) - 1);
             assert_eq!(one_mask::<u32>(32), u32::MAX);
+        }
+
+        for n in 0..64 {
+            assert_eq!(one_mask::<u64>(n), 2u64.pow(n) - 1);
+            assert_eq!(one_mask::<u64>(64), u64::MAX);
         }
     }
 

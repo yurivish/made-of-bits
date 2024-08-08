@@ -4,19 +4,19 @@ use std::ops::Range;
 pub(crate) type Block = u64;
 
 /// Size of a basic block, in bits
-pub(crate) const BASIC_BLOCK_SIZE: u32 = Block::BITS;
+pub(crate) const BLOCK_SIZE: u32 = Block::BITS;
 
-/// The power of 2 of the basic block size
-pub(crate) const BASIC_BLOCK_BITS: u32 = BASIC_BLOCK_SIZE.ilog2();
+/// Power of 2 of the basic block size
+pub(crate) const BLOCK_BITS: u32 = BLOCK_SIZE.ilog2();
 
 /// Block index of the block containing the `n`-th bit
-pub(crate) fn basic_block_index(n: u32) -> usize {
-    (n >> BASIC_BLOCK_BITS) as usize
+pub(crate) fn block_index(n: u32) -> usize {
+    (n >> BLOCK_BITS) as usize
 }
 
 /// Bit index of the `n`-th bit within its block (masking off the high bits)
-pub(crate) fn basic_block_offset(n: u32) -> u32 {
-    n & (BASIC_BLOCK_SIZE - 1)
+pub(crate) fn block_offset(n: u32) -> u32 {
+    n & (BLOCK_SIZE - 1)
 }
 
 #[derive(Clone)]
@@ -30,12 +30,12 @@ impl BitBuf {
     /// Construct a new `BitBuf` containing all 0-bits.
     /// `universe_size` is the length of this bit buffer in bits.
     pub(crate) fn new(universe_size: u32) -> Self {
-        let num_blocks = universe_size.div_ceil(BASIC_BLOCK_SIZE);
-        let last_block_occupancy = universe_size % BASIC_BLOCK_SIZE;
+        let num_blocks = universe_size.div_ceil(BLOCK_SIZE);
+        let last_block_occupancy = universe_size % BLOCK_SIZE;
         let num_trailing_bits = if last_block_occupancy == 0 {
             0
         } else {
-            BASIC_BLOCK_SIZE - last_block_occupancy
+            BLOCK_SIZE - last_block_occupancy
         };
         Self {
             blocks: vec![0; num_blocks as usize].into(),
@@ -47,23 +47,23 @@ impl BitBuf {
     /// Set the bit at index `bit_index` to a 1-bit.
     pub(crate) fn set_one(&mut self, bit_index: u32) {
         debug_assert!(bit_index < self.universe_size);
-        let block_index = basic_block_index(bit_index);
-        let bit = 1 << basic_block_offset(bit_index);
+        let block_index = block_index(bit_index);
+        let bit = 1 << block_offset(bit_index);
         self.blocks[block_index] |= bit
     }
 
     /// Set the bit at index `bit_index` to a 0-bit.
     pub(crate) fn set_zero(&mut self, bit_index: u32) {
         debug_assert!(bit_index < self.universe_size);
-        let block_index = basic_block_index(bit_index);
-        let bit = 1 << basic_block_offset(bit_index);
+        let block_index = block_index(bit_index);
+        let bit = 1 << block_offset(bit_index);
         self.blocks[block_index] &= !bit
     }
 
     pub(crate) fn get(&self, bit_index: u32) -> bool {
         debug_assert!(bit_index < self.universe_size);
-        let block_index = basic_block_index(bit_index);
-        let bit = 1 << basic_block_offset(bit_index);
+        let block_index = block_index(bit_index);
+        let bit = 1 << block_offset(bit_index);
         self.blocks[block_index] & bit != 0
     }
 
@@ -147,7 +147,7 @@ impl PadSpec {
 
         // While counting 1-padding, temporarily set the highest `num_trailing_bits`
         // of the last block to 1, since otherwise we would wrongly not compress that block.
-        let trailing_mask = !one_mask::<Block>(BASIC_BLOCK_SIZE - buf.num_trailing_bits);
+        let trailing_mask = !one_mask::<Block>(BLOCK_SIZE - buf.num_trailing_bits);
         buf.blocks[buf.blocks.len() - 1] |= trailing_mask;
         let one_padded_range = padded_range(&buf.blocks, one_padding);
         // Reset the last block to its original state
@@ -216,8 +216,8 @@ impl PaddedBitBuf {
     }
 
     fn get(&self, bit_index: u32) -> bool {
-        let block_index = basic_block_index(bit_index);
-        let bit = 1 << basic_block_offset(bit_index);
+        let block_index = block_index(bit_index);
+        let bit = 1 << block_offset(bit_index);
         let block = if block_index < self.left_block_offset as usize
             || block_index >= self.right_block_offset as usize
         {
@@ -437,5 +437,36 @@ mod tests {
             assert!(buf.blocks.is_empty());
             assert!(buf.padding == Block::MAX);
         }
+    }
+
+    #[test]
+    fn test_block_index() {
+        // zero should always be zero, regardless of block size
+        assert_eq!(block_index(0), 0);
+        // values less than a block size should map to the 0th block.
+        assert_eq!(block_index(15), 0);
+        assert_eq!(block_index(31), 0);
+        // multiples of the block size should map to that block
+        assert_eq!(block_index(Block::BITS), 1);
+        assert_eq!(block_index(Block::BITS + 15), 1);
+        assert_eq!(block_index(Block::BITS + 31), 1);
+
+        assert_eq!(block_index(2 * Block::BITS), 2);
+        assert_eq!(block_index(2 * Block::BITS + 15), 2);
+        assert_eq!(block_index(2 * Block::BITS + 31), 2);
+    }
+
+    #[test]
+    fn test_block_offset() {
+        // zero should always be zero, regardless of block size
+        assert_eq!(block_offset(0), 0);
+        // values less than a block size should be returned as they are.
+        assert_eq!(block_offset(15), 15);
+        assert_eq!(block_offset(31), 31);
+        // multiples of the block size should be zero
+        assert_eq!(block_offset(Block::BITS), 0);
+        // values above that should wrap
+        assert_eq!(block_offset(Block::BITS + 15), 15);
+        assert_eq!(block_offset(Block::BITS + 31), 31);
     }
 }
