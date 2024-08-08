@@ -1,9 +1,13 @@
-use crate::bits::{basic_block_index, basic_block_offset, one_mask, BASIC_BLOCK_SIZE};
+use crate::bits::one_mask;
+use crate::bits::BitBlock;
 use std::ops::Range;
+
+/// Block type for BitBuf blocks
+pub(crate) type Block = u64;
 
 #[derive(Clone)]
 pub(crate) struct BitBuf {
-    blocks: Box<[u32]>,
+    blocks: Box<[Block]>,
     universe_size: u32,
     num_trailing_bits: u32,
 }
@@ -12,12 +16,12 @@ impl BitBuf {
     /// Construct a new `BitBuf` containing all 0-bits.
     /// `universe_size` is the length of this bit buffer in bits.
     pub(crate) fn new(universe_size: u32) -> Self {
-        let num_blocks = universe_size.div_ceil(BASIC_BLOCK_SIZE);
-        let last_block_occupancy = universe_size % BASIC_BLOCK_SIZE;
+        let num_blocks = universe_size.div_ceil(Block::BITS);
+        let last_block_occupancy = universe_size % Block::BITS;
         let num_trailing_bits = if last_block_occupancy == 0 {
             0
         } else {
-            BASIC_BLOCK_SIZE - last_block_occupancy
+            Block::BITS - last_block_occupancy
         };
         Self {
             blocks: vec![0; num_blocks as usize].into(),
@@ -29,36 +33,36 @@ impl BitBuf {
     /// Set the bit at index `bit_index` to a 1-bit.
     pub(crate) fn set_one(&mut self, bit_index: u32) {
         debug_assert!(bit_index < self.universe_size);
-        let block_index = basic_block_index(bit_index);
-        let bit = 1 << basic_block_offset(bit_index);
+        let block_index = Block::block_index(bit_index);
+        let bit = 1 << Block::block_bit_index(bit_index);
         self.blocks[block_index] |= bit
     }
 
     /// Set the bit at index `bit_index` to a 0-bit.
     pub(crate) fn set_zero(&mut self, bit_index: u32) {
         debug_assert!(bit_index < self.universe_size);
-        let block_index = basic_block_index(bit_index);
-        let bit = 1 << basic_block_offset(bit_index);
+        let block_index = Block::block_index(bit_index);
+        let bit = 1 << Block::block_bit_index(bit_index);
         self.blocks[block_index] &= !bit
     }
 
     pub(crate) fn get(&self, bit_index: u32) -> bool {
         debug_assert!(bit_index < self.universe_size);
-        let block_index = basic_block_index(bit_index);
-        let bit = 1 << basic_block_offset(bit_index);
+        let block_index = Block::block_index(bit_index);
+        let bit = 1 << Block::block_bit_index(bit_index);
         self.blocks[block_index] & bit != 0
     }
 
     // We give access to blocks individually since lending out the
     // blocks themselves would run into issues with the PaddedBitBuf,
     // which does not have materialized representations for all valid slices.
-    pub(crate) fn get_block(&self, block_index: u32) -> u32 {
+    pub(crate) fn get_block(&self, block_index: u32) -> Block {
         self.blocks[block_index as usize]
     }
 
     // Though... This is a more performant interface for this specific sort of buf,
     // eg. for rank blocks.
-    pub(crate) fn blocks(&self) -> &[u32] {
+    pub(crate) fn blocks(&self) -> &[Block] {
         &self.blocks
     }
 
@@ -85,7 +89,7 @@ impl BitBuf {
 /// Compute the range of `arr` that contains no padding on its left
 /// or right, analogous to a string trim operation, but returning the
 /// index range rather than a slice.
-fn padded_range(arr: &[u32], padding: u32) -> Range<usize> {
+fn padded_range(arr: &[Block], padding: Block) -> Range<usize> {
     let Some(start) = arr.iter().position(|&x| x != padding) else {
         // Return the empty range if the `arr` consists entirely of padding
         return 0..0;
@@ -101,33 +105,35 @@ fn padded_range(arr: &[u32], padding: u32) -> Range<usize> {
 /// a PaddedBitVec based on a user-defined target compression
 /// ratio, and also to do the compression. (Computing a PadSpec
 /// requires a scan over the blocks).
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct PadSpec {
-    padding: u32,
+    padding: Block,
     padded_range: Range<usize>,
 }
 
 impl PadSpec {
+    /// Try padding the blocks of `buf` with zeros and ones, and return a `PadSpec`
+    /// containing the best padding type as well as the padded range.
     /// Note: Requires a mut reference because of a temporary modification to the last block.
     fn new(buf: &mut BitBuf) -> PadSpec {
         // If buf is empty, return a non-padding padding
         let Some(last_block) = buf.blocks.last().copied() else {
             return Self {
-                padding: u32::MIN,
+                padding: Block::MIN,
                 padded_range: 0..0,
             };
         };
 
         // a block of zeros
-        let zero_padding = u32::MIN;
+        let zero_padding = Block::MIN;
         let zero_padded_range = padded_range(&buf.blocks, zero_padding);
 
         // a block of ones
-        let one_padding = u32::MAX;
+        let one_padding = Block::MAX;
 
         // While counting 1-padding, temporarily set the highest `num_trailing_bits`
         // of the last block to 1, since otherwise we would wrongly not compress that block.
-        let trailing_mask = !one_mask(BASIC_BLOCK_SIZE - buf.num_trailing_bits);
+        let trailing_mask = !one_mask::<Block>(Block::BITS - buf.num_trailing_bits);
         buf.blocks[buf.blocks.len() - 1] |= trailing_mask;
         let one_padded_range = padded_range(&buf.blocks, one_padding);
         // Reset the last block to its original state
@@ -149,8 +155,8 @@ impl PadSpec {
 }
 
 pub(crate) struct PaddedBitBuf {
-    blocks: Box<[u32]>,
-    padding: u32,
+    blocks: Box<[Block]>,
+    padding: Block,
 
     /// Index of the first non-padding block
     left_block_offset: u32,
@@ -189,18 +195,15 @@ impl PaddedBitBuf {
         }
     }
 
-    /// Try padding the blocks of `buf` with zeros and ones, and return a `PadSpec`
-    /// containing the best padding type as well as the padded range.
-
     fn should_pad(buf: &BitBuf, spec: PadSpec, compression_threshold: f64) -> bool {
-        let num_blocks = buf.num_blocks();
-        let num_compressed_blocks = spec.padded_range.len();
-        num_compressed_blocks as f64 / num_blocks as f64 <= compression_threshold
+        let num_blocks = buf.num_blocks() as f64;
+        let num_compressed_blocks = spec.padded_range.len() as f64;
+        num_compressed_blocks / num_blocks <= compression_threshold
     }
 
     fn get(&self, bit_index: u32) -> bool {
-        let block_index = basic_block_index(bit_index);
-        let bit = 1 << basic_block_offset(bit_index);
+        let block_index = Block::block_index(bit_index);
+        let bit = 1 << Block::block_bit_index(bit_index);
         let block = if block_index < self.left_block_offset as usize
             || block_index >= self.right_block_offset as usize
         {
@@ -211,7 +214,7 @@ impl PaddedBitBuf {
         block & bit != 0
     }
 
-    fn get_block(&self, block_index: u32) -> u32 {
+    fn get_block(&self, block_index: u32) -> Block {
         if block_index < self.left_block_offset || block_index >= self.right_block_offset {
             self.padding
         } else {
@@ -361,10 +364,11 @@ mod tests {
 
         {
             // should zero-pad to the leftmost and rightmost one
-            let mut buf = BitBuf::new(123456);
-            buf.set_one(0 * 32_000);
-            buf.set_one(32_000 / 2);
-            buf.set_one(1 * 32_000 - 1);
+            let sz = Block::BITS * 1000;
+            let mut buf = BitBuf::new(Block::BITS * 3000);
+            buf.set_one(0 * sz);
+            buf.set_one(sz / 2);
+            buf.set_one(1 * sz - 1);
 
             // should return the correct suggestion for whether to pad or not
             // based on the provided compression ratio
@@ -385,11 +389,12 @@ mod tests {
 
         {
             // should one-pad to the leftmost and rightmost one
-            let mut buf = BitBuf::new(123456);
-            buf.blocks.fill(u32::MAX);
-            buf.set_zero(0 * 32_000);
-            buf.set_zero(32_000 / 2);
-            buf.set_zero(1 * 32_000 - 1);
+            let sz = Block::BITS * 1000;
+            let mut buf = BitBuf::new(Block::BITS * 3000);
+            buf.blocks.fill(Block::MAX);
+            buf.set_zero(0 * sz);
+            buf.set_zero(sz / 2);
+            buf.set_zero(1 * sz - 1);
 
             // should return the correct suggestion for whether to pad or not
             // based on the provided compression ratio
@@ -416,7 +421,7 @@ mod tests {
             }
             let buf = buf.into_padded();
             assert!(buf.blocks.is_empty());
-            assert!(buf.padding == u32::MAX);
+            assert!(buf.padding == Block::MAX);
         }
     }
 }

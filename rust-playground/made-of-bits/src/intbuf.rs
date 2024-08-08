@@ -1,4 +1,8 @@
-use crate::bits::{basic_block_index, basic_block_offset, one_mask, BASIC_BLOCK_SIZE};
+use crate::bits::one_mask;
+use crate::bits::BitBlock;
+
+/// Block type for IntBuf blocks
+type Block = u32;
 
 /// Fixed-size buffer of fixed-width integers. Designed to be written once and read many times.
 /// A newly constructed IntBuf will have the specified length and all elements will be initialized to zero.
@@ -15,13 +19,13 @@ pub struct IntBuf {
 
 impl IntBuf {
     pub(crate) fn new(length: u32, bit_width: u32) -> Self {
-        // The bit width cannot exceed BASIC_BLOCK_SIZE, since then a
+        // The bit width cannot exceed Block::BITS, since then a
         // single value could span more than two contiguous blocks and
         // our algorithms assume this cannot happen.
-        assert!(bit_width <= BASIC_BLOCK_SIZE);
+        assert!(bit_width <= Block::BITS);
 
         let length_in_bits = length * bit_width;
-        let num_blocks = length_in_bits.div_ceil(BASIC_BLOCK_SIZE);
+        let num_blocks = length_in_bits.div_ceil(Block::BITS);
         Self {
             blocks: vec![0; num_blocks as usize].into(),
             length,
@@ -46,12 +50,12 @@ impl IntBuf {
 
         assert!(self.write_cursor < self.length * self.bit_width);
 
-        let index = basic_block_index(self.write_cursor);
-        let offset = basic_block_offset(self.write_cursor);
+        let index = Block::block_index(self.write_cursor);
+        let offset = Block::block_bit_index(self.write_cursor);
         self.blocks[index] |= value << offset;
 
         // Number of bits available in the current block
-        let num_available_bits = BASIC_BLOCK_SIZE - offset;
+        let num_available_bits = Block::BITS - offset;
 
         // If needed, write any remaining bits into the next block.
         if num_available_bits < self.bit_width {
@@ -69,18 +73,18 @@ impl IntBuf {
         }
 
         let bit_index = index * self.bit_width;
-        let block_index = basic_block_index(bit_index);
-        let offset = basic_block_offset(bit_index);
+        let block_index = Block::block_index(bit_index);
+        let offset = Block::block_bit_index(bit_index);
 
         let mut value = (self.blocks[block_index] & (self.low_bit_mask << offset)) >> offset;
 
         // Number of bits available in the current block
-        let num_available_bits = BASIC_BLOCK_SIZE - offset;
+        let num_available_bits = Block::BITS - offset;
 
         // If needed, extract the remaining bits from the bottom of the next block
         if num_available_bits < self.bit_width {
             let num_remaining_bits = self.bit_width - num_available_bits;
-            let high_bits = self.blocks[block_index + 1] & one_mask(num_remaining_bits);
+            let high_bits = self.blocks[block_index + 1] & one_mask::<u32>(num_remaining_bits);
             value |= high_bits << num_available_bits;
         }
 
@@ -113,13 +117,13 @@ mod tests {
             (0, [0, 0, 0, 0]),
             (1, [1, 0, 1, 0]),
             (5, [1, 0, 1, 0]),
-            (BASIC_BLOCK_SIZE, [10, 0, 31, u32::MAX]),
+            (Block::BITS, [10, 0, 31, u32::MAX]),
         ];
 
         for (bit_width, values) in tests {
             let mut xs = IntBuf::new(values.len() as u32, bit_width);
 
-            if bit_width < BASIC_BLOCK_SIZE {
+            if bit_width < Block::BITS {
                 // test pushing a too-large value
                 let mut xs = xs.clone();
                 catch_unwind(move || xs.push(1 << bit_width)).unwrap_err();
@@ -133,7 +137,7 @@ mod tests {
                 // test the value has been pushed
                 assert_eq!(xs.get(i as u32), v);
 
-                if bit_width < BASIC_BLOCK_SIZE {
+                if bit_width < Block::BITS {
                     let mut xs = xs.clone();
                     let too_large = 1 << bit_width;
                     catch_unwind(move || xs.push(too_large)).unwrap_err();

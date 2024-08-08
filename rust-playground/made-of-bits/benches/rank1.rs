@@ -15,6 +15,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let universe_size = 100_000;
     // density denominator; we will sweep x/denominator for x in 0..=denominator
+
     let denominator = 1000;
     for numerator in [1, 10, 100, 700] {
         // 0.1%, 1%, 10%, 70% fill rate
