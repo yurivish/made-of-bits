@@ -14,6 +14,52 @@ pub(crate) fn basic_block_offset(n: u32) -> u32 {
     n & (BASIC_BLOCK_SIZE - 1)
 }
 
+trait Blocky:
+    std::ops::BitAndAssign
+    + std::cmp::PartialOrd<Self>
+    + std::ops::Sub<Self>
+    + Copy
+    + Sized
+    + std::ops::Shr<u32, Output = Self>
+{
+    const BITS: u32;
+    const ZERO: Self;
+    const ONE: Self;
+    const MAX: Self;
+    fn saturating_sub(self, rhs: Self) -> Self;
+    fn trailing_zeros(self) -> u32;
+}
+
+impl Blocky for u32 {
+    const BITS: u32 = Self::BITS;
+    const ZERO: Self = 0;
+    const ONE: Self = 1;
+    const MAX: Self = Self::MAX;
+
+    fn saturating_sub(self, rhs: Self) -> Self {
+        Self::saturating_sub(self, rhs)
+    }
+
+    fn trailing_zeros(self) -> u32 {
+        Self::trailing_zeros(self)
+    }
+}
+
+impl Blocky for u64 {
+    const BITS: u32 = Self::BITS;
+    const ZERO: Self = 0;
+    const ONE: Self = 1;
+    const MAX: Self = Self::MAX;
+
+    fn saturating_sub(self, rhs: Self) -> Self {
+        Self::saturating_sub(self, rhs)
+    }
+
+    fn trailing_zeros(self) -> u32 {
+        Self::trailing_zeros(self)
+    }
+}
+
 /// Return the position of the k-th least significant set bit.
 /// Assumes that x has at least k set Bits.
 /// E.g. select1(0b1100, 0) === 2 and select1(0b1100, 1) === 3
@@ -31,15 +77,15 @@ pub(crate) fn basic_block_offset(n: u32) -> u32 {
 /// - Use simd128 to accelerate u_le8, le8, and u_nz8
 /// - Implement 32-bit, 16-bit, and 8-bit select1
 /// - Write my own tests (the original file had tests, but I'd like to practice writing my own)
-pub(crate) fn select1(x: u32, k: u32) -> Option<u32> {
+pub(crate) fn select1<T: Blocky>(x: T, k: u32) -> Option<u32> {
     // Unset the k-1 preceding 1-bits
     let mut x = x;
     for _ in 0..k {
         // prevent overflow when reaching for a bit that does not exist
-        x &= x.saturating_sub(1);
+        x &= x.saturating_sub(T::ONE);
     }
     let i = x.trailing_zeros();
-    if i == 32 {
+    if i == T::BITS {
         // x is 0; there is no k-th bit
         None
     } else {
@@ -58,12 +104,12 @@ pub(crate) const fn reverse_low_bits(x: usize, num_bits: usize) -> usize {
     x.reverse_bits() >> (usize::BITS as usize - num_bits)
 }
 
-pub(crate) const fn one_mask(n: u32) -> u32 {
-    debug_assert!(n <= u32::BITS);
+pub(crate) fn one_mask<T: Blocky>(n: u32) -> T {
+    debug_assert!(n <= T::BITS);
     if n == 0 {
-        0
+        T::ZERO
     } else {
-        u32::MAX >> (u32::BITS - n)
+        T::MAX >> (T::BITS - n)
     }
 }
 
@@ -130,32 +176,36 @@ mod tests {
 
     #[test]
     fn test_one_mask() {
+        // TODO: Test other blocks sizes
         for n in 0..32 {
-            assert_eq!(one_mask(n), 2u32.pow(n) - 1);
-            assert_eq!(one_mask(32), u32::MAX);
+            assert_eq!(one_mask::<u32>(n), 2u32.pow(n) - 1);
+            assert_eq!(one_mask::<u32>(32), u32::MAX);
         }
     }
 
     #[test]
     fn test_select1() {
+        // TODO: Test other block sizes. Can use a macro to repeat tests.
+        // TODO: Test for bits near the end (eg. bit 31, bit 63).
+
         {
             // returns None for a non-existent bit
-            assert_eq!(select1(0, 0), None);
-            assert_eq!(select1(0b11111, 5), None);
-            assert_eq!(select1(0, 0), None);
-            assert_eq!(select1(0, 0), None);
+            assert_eq!(select1::<u32>(0, 0), None);
+            assert_eq!(select1::<u32>(0b11111, 5), None);
+            assert_eq!(select1::<u32>(0, 0), None);
+            assert_eq!(select1::<u32>(0, 0), None);
         }
 
         {
             // returns the index of the k-th bit (from the LSB up)
             let n = 0b0111000110010;
-            assert_eq!(select1(n, 0), Some(1));
-            assert_eq!(select1(n, 1), Some(4));
-            assert_eq!(select1(n, 2), Some(5));
-            assert_eq!(select1(n, 3), Some(9));
-            assert_eq!(select1(n, 4), Some(10));
-            assert_eq!(select1(n, 5), Some(11));
-            assert_eq!(select1(n, 6), None);
+            assert_eq!(select1::<u32>(n, 0), Some(1));
+            assert_eq!(select1::<u32>(n, 1), Some(4));
+            assert_eq!(select1::<u32>(n, 2), Some(5));
+            assert_eq!(select1::<u32>(n, 3), Some(9));
+            assert_eq!(select1::<u32>(n, 4), Some(10));
+            assert_eq!(select1::<u32>(n, 5), Some(11));
+            assert_eq!(select1::<u32>(n, 6), None);
         }
     }
 

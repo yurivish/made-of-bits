@@ -93,7 +93,7 @@ impl DenseBitVec {
             // Don't count trailing ones or zeros in the final data block towards the 0/1 count
             if block_index == max_block_index {
                 let num_non_trailing_bits = BASIC_BLOCK_SIZE - buf.num_trailing_bits();
-                let trailing_bits = block & !one_mask(num_non_trailing_bits);
+                let trailing_bits = block & !one_mask::<u64>(num_non_trailing_bits);
                 let trailing_bits_ones = trailing_bits.count_ones();
                 let trailing_bits_zeros = buf.num_trailing_bits() - trailing_bits_ones;
 
@@ -154,7 +154,7 @@ impl DenseBitVec {
     fn select_sample(n: u32, samples: &Box<[u32]>, sample_rate: u32) -> (u32, u32) {
         let sample_index = n >> sample_rate;
         let sample = samples[sample_index as usize];
-        let mask = const { one_mask(BASIC_BLOCK_BITS) };
+        let mask = one_mask::<u32>(BASIC_BLOCK_BITS);
         // The cumulative number of bits preceding the identified basic block,
         // ie. the left-shifted block index of that block.
         let cumulative_bits = sample & !mask; // high bits
@@ -225,7 +225,7 @@ impl BitVec for DenseBitVec {
 
         // Count any 1-bits in the last block up to `bit_index`
         let bit_offset = basic_block_offset(bit_index);
-        let masked_block = self.buf.get_block(last_basic_block_index) & one_mask(bit_offset);
+        let masked_block = self.buf.get_block(last_basic_block_index) & one_mask::<u64>(bit_offset);
         count += masked_block.count_ones();
         count
     }

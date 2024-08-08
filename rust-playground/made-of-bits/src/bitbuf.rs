@@ -1,7 +1,7 @@
 use crate::bits::one_mask;
 use std::ops::Range;
 
-type Block = u32;
+type Block = u64;
 
 /// Size of a basic block, in bits
 const BASIC_BLOCK_SIZE: u32 = Block::BITS;
@@ -145,7 +145,7 @@ impl PadSpec {
 
         // While counting 1-padding, temporarily set the highest `num_trailing_bits`
         // of the last block to 1, since otherwise we would wrongly not compress that block.
-        let trailing_mask = !one_mask(BASIC_BLOCK_SIZE - buf.num_trailing_bits);
+        let trailing_mask = !one_mask::<Block>(BASIC_BLOCK_SIZE - buf.num_trailing_bits);
         buf.blocks[buf.blocks.len() - 1] |= trailing_mask;
         let one_padded_range = padded_range(&buf.blocks, one_padding);
         // Reset the last block to its original state
@@ -404,7 +404,7 @@ mod tests {
         {
             // should one-pad to the leftmost and rightmost one
             let mut buf = BitBuf::new(123456);
-            buf.blocks.fill(u32::MAX);
+            buf.blocks.fill(Block::MAX);
             buf.set_zero(0 * 32_000);
             buf.set_zero(32_000 / 2);
             buf.set_zero(1 * 32_000 - 1);
@@ -434,7 +434,7 @@ mod tests {
             }
             let buf = buf.into_padded();
             assert!(buf.blocks.is_empty());
-            assert!(buf.padding == u32::MAX);
+            assert!(buf.padding == Block::MAX);
         }
     }
 }

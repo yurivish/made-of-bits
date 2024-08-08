@@ -80,7 +80,7 @@ impl IntBuf {
         // If needed, extract the remaining bits from the bottom of the next block
         if num_available_bits < self.bit_width {
             let num_remaining_bits = self.bit_width - num_available_bits;
-            let high_bits = self.blocks[block_index + 1] & one_mask(num_remaining_bits);
+            let high_bits = self.blocks[block_index + 1] & one_mask::<u32>(num_remaining_bits);
             value |= high_bits << num_available_bits;
         }
 
