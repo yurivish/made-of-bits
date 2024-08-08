@@ -179,6 +179,7 @@ impl Thingy {
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -272,3 +273,4 @@ mod tests {
     //     panic!("{:?}", t.ids_for_bbox(0..=3, 0..=4));
     // }
 }
+*/

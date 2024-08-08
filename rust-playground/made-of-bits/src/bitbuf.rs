@@ -1,8 +1,10 @@
 use crate::bits::one_mask;
 use std::ops::Range;
 
+type Block = u32;
+
 /// Size of a basic block, in bits
-const BASIC_BLOCK_SIZE: u32 = u32::BITS;
+const BASIC_BLOCK_SIZE: u32 = Block::BITS;
 
 /// The power of 2 of the basic block size
 const BASIC_BLOCK_BITS: u32 = BASIC_BLOCK_SIZE.ilog2();
@@ -19,7 +21,7 @@ fn basic_block_offset(n: u32) -> u32 {
 
 #[derive(Clone)]
 pub(crate) struct BitBuf {
-    blocks: Box<[u32]>,
+    blocks: Box<[Block]>,
     universe_size: u32,
     num_trailing_bits: u32,
 }
@@ -68,13 +70,13 @@ impl BitBuf {
     // We give access to blocks individually since lending out the
     // blocks themselves would run into issues with the PaddedBitBuf,
     // which does not have materialized representations for all valid slices.
-    pub(crate) fn get_block(&self, block_index: u32) -> u32 {
+    pub(crate) fn get_block(&self, block_index: u32) -> Block {
         self.blocks[block_index as usize]
     }
 
     // Though... This is a more performant interface for this specific sort of buf,
     // eg. for rank blocks.
-    pub(crate) fn blocks(&self) -> &[u32] {
+    pub(crate) fn blocks(&self) -> &[Block] {
         &self.blocks
     }
 
@@ -101,7 +103,7 @@ impl BitBuf {
 /// Compute the range of `arr` that contains no padding on its left
 /// or right, analogous to a string trim operation, but returning the
 /// index range rather than a slice.
-fn padded_range(arr: &[u32], padding: u32) -> Range<usize> {
+fn padded_range(arr: &[Block], padding: Block) -> Range<usize> {
     let Some(start) = arr.iter().position(|&x| x != padding) else {
         // Return the empty range if the `arr` consists entirely of padding
         return 0..0;
@@ -119,7 +121,7 @@ fn padded_range(arr: &[u32], padding: u32) -> Range<usize> {
 /// requires a scan over the blocks).
 #[derive(Clone)]
 struct PadSpec {
-    padding: u32,
+    padding: Block,
     padded_range: Range<usize>,
 }
 
@@ -129,17 +131,17 @@ impl PadSpec {
         // If buf is empty, return a non-padding padding
         let Some(last_block) = buf.blocks.last().copied() else {
             return Self {
-                padding: u32::MIN,
+                padding: Block::MIN,
                 padded_range: 0..0,
             };
         };
 
         // a block of zeros
-        let zero_padding = u32::MIN;
+        let zero_padding = Block::MIN;
         let zero_padded_range = padded_range(&buf.blocks, zero_padding);
 
         // a block of ones
-        let one_padding = u32::MAX;
+        let one_padding = Block::MAX;
 
         // While counting 1-padding, temporarily set the highest `num_trailing_bits`
         // of the last block to 1, since otherwise we would wrongly not compress that block.
@@ -165,8 +167,8 @@ impl PadSpec {
 }
 
 pub(crate) struct PaddedBitBuf {
-    blocks: Box<[u32]>,
-    padding: u32,
+    blocks: Box<[Block]>,
+    padding: Block,
 
     /// Index of the first non-padding block
     left_block_offset: u32,
@@ -227,7 +229,7 @@ impl PaddedBitBuf {
         block & bit != 0
     }
 
-    fn get_block(&self, block_index: u32) -> u32 {
+    fn get_block(&self, block_index: u32) -> Block {
         if block_index < self.left_block_offset || block_index >= self.right_block_offset {
             self.padding
         } else {
