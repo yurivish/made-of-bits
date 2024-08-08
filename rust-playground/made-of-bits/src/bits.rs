@@ -1,8 +1,9 @@
 use std::cmp::PartialOrd;
 use std::ops::{BitAndAssign, Shr, Sub};
 
+/// Represents a block of a BitBuf or an IntBuf. Implemented by u32 and u64.
 pub(crate) trait BitBlock:
-    BitAndAssign + PartialOrd<Self> + Sub<Self> + Copy + Sized + Shr<u32, Output = Self>
+    Copy + Sized + PartialOrd<Self> + BitAndAssign + Sub<Self> + Shr<u32, Output = Self>
 {
     /// Number of bits in this bit block
     const BITS: u32;
