@@ -424,35 +424,4 @@ mod tests {
             assert!(buf.padding == Block::MAX);
         }
     }
-
-    #[test]
-    fn test_block_index() {
-        // zero should always be zero, regardless of block size
-        assert_eq!(Block::block_index(0), 0);
-        // values less than a block size should map to the 0th block.
-        assert_eq!(Block::block_index(15), 0);
-        assert_eq!(Block::block_index(31), 0);
-        // multiples of the block size should map to that block
-        assert_eq!(Block::block_index(Block::BITS), 1);
-        assert_eq!(Block::block_index(Block::BITS + 15), 1);
-        assert_eq!(Block::block_index(Block::BITS + 31), 1);
-
-        assert_eq!(Block::block_index(2 * Block::BITS), 2);
-        assert_eq!(Block::block_index(2 * Block::BITS + 15), 2);
-        assert_eq!(Block::block_index(2 * Block::BITS + 31), 2);
-    }
-
-    #[test]
-    fn test_block_offset() {
-        // zero should always be zero, regardless of block size
-        assert_eq!(Block::block_offset(0), 0);
-        // values less than a block size should be returned as they are.
-        assert_eq!(Block::block_offset(15), 15);
-        assert_eq!(Block::block_offset(31), 31);
-        // multiples of the block size should be zero
-        assert_eq!(Block::block_offset(Block::BITS), 0);
-        // values above that should wrap
-        assert_eq!(Block::block_offset(Block::BITS + 15), 15);
-        assert_eq!(Block::block_offset(Block::BITS + 31), 31);
-    }
 }

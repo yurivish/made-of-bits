@@ -49,7 +49,7 @@ impl DenseBitVec {
         // the bit width of a basic block. For example, if `rank1_sampling_rate` is 64 and the basic
         // block width is 32, then the rank samples will tell us about the 0th, 2nd, 4th, 6th, ... basic block.
         //
-        // A rank sample `rank1_samples[i]` tells us about the basic block `buf.blocks[i << (srPow2 - buf_block_BITS)]`.
+        // A rank sample `rank1_samples[i]` tells us about the basic block `buf.blocks[i << (srPow2 - bitbuf::Block::BITS)]`.
         //
         // If `rank1_samples[i] has value `v`, this means that there are `v` 1-bits preceding that basic block.
         // Rank samples represent the number of 1-bits up to but not including a basic block.
