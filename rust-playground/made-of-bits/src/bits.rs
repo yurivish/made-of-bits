@@ -14,7 +14,7 @@ pub(crate) trait BitBlock:
     /// Block index of the block containing the `n`-th bit
     fn block_index(n: u32) -> usize;
     /// Bit index of the `n`-th bit within its block (masking off the high bits)
-    fn block_offset(n: u32) -> u32;
+    fn block_bit_index(n: u32) -> u32;
 }
 
 impl BitBlock for u32 {
@@ -35,7 +35,7 @@ impl BitBlock for u32 {
         (n >> Self::BITS.ilog2()) as usize
     }
 
-    fn block_offset(n: u32) -> u32 {
+    fn block_bit_index(n: u32) -> u32 {
         n & (Self::BITS - 1)
     }
 }
@@ -58,7 +58,7 @@ impl BitBlock for u64 {
         (n >> Self::BITS.ilog2()) as usize
     }
 
-    fn block_offset(n: u32) -> u32 {
+    fn block_bit_index(n: u32) -> u32 {
         n & (Self::BITS - 1)
     }
 }
@@ -247,15 +247,15 @@ mod tests {
 
     fn test_block_offset<T: BitBlock>() {
         // zero should always be zero, regardless of block size
-        assert_eq!(T::block_offset(0), 0);
+        assert_eq!(T::block_bit_index(0), 0);
         // values less than a block size should be returned as they are.
-        assert_eq!(T::block_offset(15), 15);
-        assert_eq!(T::block_offset(31), 31);
+        assert_eq!(T::block_bit_index(15), 15);
+        assert_eq!(T::block_bit_index(31), 31);
         // multiples of the block size should be zero
-        assert_eq!(T::block_offset(T::BITS), 0);
+        assert_eq!(T::block_bit_index(T::BITS), 0);
         // values above that should wrap
-        assert_eq!(T::block_offset(T::BITS + 15), 15);
-        assert_eq!(T::block_offset(T::BITS + 31), 31);
+        assert_eq!(T::block_bit_index(T::BITS + 15), 15);
+        assert_eq!(T::block_bit_index(T::BITS + 31), 31);
     }
 
     #[test]

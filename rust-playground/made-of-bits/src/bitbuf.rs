@@ -34,7 +34,7 @@ impl BitBuf {
     pub(crate) fn set_one(&mut self, bit_index: u32) {
         debug_assert!(bit_index < self.universe_size);
         let block_index = Block::block_index(bit_index);
-        let bit = 1 << Block::block_offset(bit_index);
+        let bit = 1 << Block::block_bit_index(bit_index);
         self.blocks[block_index] |= bit
     }
 
@@ -42,14 +42,14 @@ impl BitBuf {
     pub(crate) fn set_zero(&mut self, bit_index: u32) {
         debug_assert!(bit_index < self.universe_size);
         let block_index = Block::block_index(bit_index);
-        let bit = 1 << Block::block_offset(bit_index);
+        let bit = 1 << Block::block_bit_index(bit_index);
         self.blocks[block_index] &= !bit
     }
 
     pub(crate) fn get(&self, bit_index: u32) -> bool {
         debug_assert!(bit_index < self.universe_size);
         let block_index = Block::block_index(bit_index);
-        let bit = 1 << Block::block_offset(bit_index);
+        let bit = 1 << Block::block_bit_index(bit_index);
         self.blocks[block_index] & bit != 0
     }
 
@@ -203,7 +203,7 @@ impl PaddedBitBuf {
 
     fn get(&self, bit_index: u32) -> bool {
         let block_index = Block::block_index(bit_index);
-        let bit = 1 << Block::block_offset(bit_index);
+        let bit = 1 << Block::block_bit_index(bit_index);
         let block = if block_index < self.left_block_offset as usize
             || block_index >= self.right_block_offset as usize
         {

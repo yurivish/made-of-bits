@@ -228,7 +228,7 @@ impl BitVec for DenseBitVec {
         }
 
         // Count any 1-bits in the last block up to `bit_index`
-        let bit_offset = bitbuf::Block::block_offset(bit_index);
+        let bit_offset = bitbuf::Block::block_bit_index(bit_index);
         let masked_block =
             self.buf.get_block(last_buf_block_index) & one_mask::<bitbuf::Block>(bit_offset);
         count += masked_block.count_ones();

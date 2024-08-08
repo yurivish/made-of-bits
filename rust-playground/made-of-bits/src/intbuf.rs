@@ -51,7 +51,7 @@ impl IntBuf {
         assert!(self.write_cursor < self.length * self.bit_width);
 
         let index = Block::block_index(self.write_cursor);
-        let offset = Block::block_offset(self.write_cursor);
+        let offset = Block::block_bit_index(self.write_cursor);
         self.blocks[index] |= value << offset;
 
         // Number of bits available in the current block
@@ -74,7 +74,7 @@ impl IntBuf {
 
         let bit_index = index * self.bit_width;
         let block_index = Block::block_index(bit_index);
-        let offset = Block::block_offset(bit_index);
+        let offset = Block::block_bit_index(bit_index);
 
         let mut value = (self.blocks[block_index] & (self.low_bit_mask << offset)) >> offset;
 
