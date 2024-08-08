@@ -4,11 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 # CAUTION: Including rlib in this list bloats and pessimizes the binary because it silently disables LTO.
-# But it is needed for benchmarking.
-# TODO: Figure out a way to benchmark without this unnecessary change.
-# One possibility is to use a Justfile that temporarily moves Cargo.toml, creates a stripped-down
-# version without the "rlib" option using awk, does a .wasm build, then restores Cargo.toml.
+# But it is needed for benchmarking with `cargo bench`.
+#
 # Issue: https://github.com/rust-lang/rust/issues/51009
+#
+# Workaround: use `cargo rustc` instead of `cargo build` to override the crate type when building the .wasm:
+#   RUSTFLAGS='-C target-feature=+simd128' cargo rustc --crate-type cdylib --profile release-debug --target wasm32-unknown-unknown
 [lib]
 crate-type = [
   # Build a cdylib to make a `.wasm` library.
