@@ -1,21 +1,21 @@
 use crate::bits::one_mask;
 use std::ops::Range;
 
-type Block = u64;
+pub(crate) type Block = u64;
 
 /// Size of a basic block, in bits
-const BASIC_BLOCK_SIZE: u32 = Block::BITS;
+pub(crate) const BASIC_BLOCK_SIZE: u32 = Block::BITS;
 
 /// The power of 2 of the basic block size
-const BASIC_BLOCK_BITS: u32 = BASIC_BLOCK_SIZE.ilog2();
+pub(crate) const BASIC_BLOCK_BITS: u32 = BASIC_BLOCK_SIZE.ilog2();
 
 /// Block index of the block containing the `n`-th bit
-fn basic_block_index(n: u32) -> usize {
+pub(crate) fn basic_block_index(n: u32) -> usize {
     (n >> BASIC_BLOCK_BITS) as usize
 }
 
 /// Bit index of the `n`-th bit within its block (masking off the high bits)
-fn basic_block_offset(n: u32) -> u32 {
+pub(crate) fn basic_block_offset(n: u32) -> u32 {
     n & (BASIC_BLOCK_SIZE - 1)
 }
 
@@ -119,13 +119,15 @@ fn padded_range(arr: &[Block], padding: Block) -> Range<usize> {
 /// a PaddedBitVec based on a user-defined target compression
 /// ratio, and also to do the compression. (Computing a PadSpec
 /// requires a scan over the blocks).
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct PadSpec {
     padding: Block,
     padded_range: Range<usize>,
 }
 
 impl PadSpec {
+    /// Try padding the blocks of `buf` with zeros and ones, and return a `PadSpec`
+    /// containing the best padding type as well as the padded range.
     /// Note: Requires a mut reference because of a temporary modification to the last block.
     fn new(buf: &mut BitBuf) -> PadSpec {
         // If buf is empty, return a non-padding padding
@@ -207,13 +209,10 @@ impl PaddedBitBuf {
         }
     }
 
-    /// Try padding the blocks of `buf` with zeros and ones, and return a `PadSpec`
-    /// containing the best padding type as well as the padded range.
-
     fn should_pad(buf: &BitBuf, spec: PadSpec, compression_threshold: f64) -> bool {
-        let num_blocks = buf.num_blocks();
-        let num_compressed_blocks = spec.padded_range.len();
-        num_compressed_blocks as f64 / num_blocks as f64 <= compression_threshold
+        let num_blocks = buf.num_blocks() as f64;
+        let num_compressed_blocks = spec.padded_range.len() as f64;
+        num_compressed_blocks / num_blocks <= compression_threshold
     }
 
     fn get(&self, bit_index: u32) -> bool {
@@ -379,10 +378,11 @@ mod tests {
 
         {
             // should zero-pad to the leftmost and rightmost one
-            let mut buf = BitBuf::new(123456);
-            buf.set_one(0 * 32_000);
-            buf.set_one(32_000 / 2);
-            buf.set_one(1 * 32_000 - 1);
+            let sz = Block::BITS * 1000;
+            let mut buf = BitBuf::new(Block::BITS * 3000);
+            buf.set_one(0 * sz);
+            buf.set_one(sz / 2);
+            buf.set_one(1 * sz - 1);
 
             // should return the correct suggestion for whether to pad or not
             // based on the provided compression ratio
@@ -403,11 +403,12 @@ mod tests {
 
         {
             // should one-pad to the leftmost and rightmost one
-            let mut buf = BitBuf::new(123456);
+            let sz = Block::BITS * 1000;
+            let mut buf = BitBuf::new(Block::BITS * 3000);
             buf.blocks.fill(Block::MAX);
-            buf.set_zero(0 * 32_000);
-            buf.set_zero(32_000 / 2);
-            buf.set_zero(1 * 32_000 - 1);
+            buf.set_zero(0 * sz);
+            buf.set_zero(sz / 2);
+            buf.set_zero(1 * sz - 1);
 
             // should return the correct suggestion for whether to pad or not
             // based on the provided compression ratio

@@ -14,7 +14,7 @@ pub(crate) fn basic_block_offset(n: u32) -> u32 {
     n & (BASIC_BLOCK_SIZE - 1)
 }
 
-trait Blocky:
+pub(crate) trait Blocky:
     std::ops::BitAndAssign
     + std::cmp::PartialOrd<Self>
     + std::ops::Sub<Self>
@@ -93,13 +93,15 @@ pub(crate) fn select1<T: Blocky>(x: T, k: u32) -> Option<u32> {
     }
 }
 
-/// Reverse the first `num_bits` bits of `x`.
-///
-/// ```
-/// assert_eq!(reverse_low_bits(0b0000100100, 6) == 0b0000001001)
-/// //                                ^^^^^^              ^^^^^^
-/// ```
-///
+// todo: this doctest fails because this function is not exported!
+//
+// /// Reverse the lowest `num_bits` bits of `x`.
+// ///
+// /// ```
+// /// assert_eq!(reverse_low_bits(0b0000100100, 6), 0b0000001001)
+// /// //                                ^^^^^^            ^^^^^^
+// /// ```
+// ///
 pub(crate) const fn reverse_low_bits(x: usize, num_bits: usize) -> usize {
     x.reverse_bits() >> (usize::BITS as usize - num_bits)
 }

@@ -1,8 +1,14 @@
 use crate::{
-    bitbuf::BitBuf,
+    bitbuf,
+    bitbuf::{basic_block_index, basic_block_offset, BitBuf, BASIC_BLOCK_BITS, BASIC_BLOCK_SIZE},
+    bits,
     bits::{
-        basic_block_index, basic_block_offset, one_mask, select1, BASIC_BLOCK_BITS,
-        BASIC_BLOCK_SIZE,
+        // basic_block_index,
+        // basic_block_offset,
+        one_mask,
+        select1,
+        // BASIC_BLOCK_BITS,
+        // BASIC_BLOCK_SIZE,
     },
     bitvec::{BitVec, BitVecBuilder},
 };
@@ -93,7 +99,7 @@ impl DenseBitVec {
             // Don't count trailing ones or zeros in the final data block towards the 0/1 count
             if block_index == max_block_index {
                 let num_non_trailing_bits = BASIC_BLOCK_SIZE - buf.num_trailing_bits();
-                let trailing_bits = block & !one_mask::<u64>(num_non_trailing_bits);
+                let trailing_bits = block & !one_mask::<bitbuf::Block>(num_non_trailing_bits);
                 let trailing_bits_ones = trailing_bits.count_ones();
                 let trailing_bits_zeros = buf.num_trailing_bits() - trailing_bits_ones;
 
@@ -225,7 +231,8 @@ impl BitVec for DenseBitVec {
 
         // Count any 1-bits in the last block up to `bit_index`
         let bit_offset = basic_block_offset(bit_index);
-        let masked_block = self.buf.get_block(last_basic_block_index) & one_mask::<u64>(bit_offset);
+        let masked_block =
+            self.buf.get_block(last_basic_block_index) & one_mask::<bitbuf::Block>(bit_offset);
         count += masked_block.count_ones();
         count
     }
