@@ -1,5 +1,21 @@
-use crate::bits::{basic_block_index, basic_block_offset, one_mask, BASIC_BLOCK_SIZE};
+use crate::bits::one_mask;
 use std::ops::Range;
+
+/// Size of a basic block, in bits
+const BASIC_BLOCK_SIZE: u32 = u32::BITS;
+
+/// The power of 2 of the basic block size
+const BASIC_BLOCK_BITS: u32 = BASIC_BLOCK_SIZE.ilog2();
+
+/// Block index of the block containing the `n`-th bit
+fn basic_block_index(n: u32) -> usize {
+    (n >> BASIC_BLOCK_BITS) as usize
+}
+
+/// Bit index of the `n`-th bit within its block (masking off the high bits)
+fn basic_block_offset(n: u32) -> u32 {
+    n & (BASIC_BLOCK_SIZE - 1)
+}
 
 #[derive(Clone)]
 pub(crate) struct BitBuf {
