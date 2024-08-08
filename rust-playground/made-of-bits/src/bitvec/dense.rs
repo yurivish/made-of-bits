@@ -236,7 +236,7 @@ impl BitVec for DenseBitVec {
         }
 
         // Grab the basic block and count information from the select sample
-        let (mut basic_block_index, mut count) =
+        let (mut count, mut basic_block_index) =
             DenseBitVec::select_sample(n, &self.select1_samples, self.select1_samples_pow2);
         assert!(count <= n);
         // assert the previous rank index is less than the number of rank samples
@@ -284,7 +284,7 @@ impl BitVec for DenseBitVec {
         }
 
         // Grab the basic block and count information from the select sample
-        let (mut basic_block_index, mut count) =
+        let (mut count, mut basic_block_index) =
             DenseBitVec::select_sample(n, &self.select0_samples, self.select0_samples_pow2);
         assert!(count <= n);
         // assert the previous rank index is less than the number of rank samples
