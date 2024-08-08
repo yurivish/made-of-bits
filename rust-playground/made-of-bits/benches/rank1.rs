@@ -15,9 +15,10 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let universe_size = 100_000;
     // density denominator; we will sweep x/denominator for x in 0..=denominator
-    let denominator = 5;
-    // test nonempty, nonfull bitvecs
-    for numerator in 1..denominator {
+
+    let denominator = 1000;
+    for numerator in [1, 10, 100, 700] {
+        // 0.1%, 1%, 10%, 70% fill rate
         let mut b = made_of_bits::ArrayBitVecBuilder::new(universe_size);
         for i in 0..universe_size {
             if rng.gen_ratio(numerator, denominator) {
