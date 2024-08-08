@@ -3,7 +3,7 @@ use crate::bits::BitBlock;
 use std::ops::Range;
 
 /// Block type for BitBuf blocks
-pub(crate) type Block = u64;
+pub(crate) type Block = u32;
 
 #[derive(Clone)]
 pub(crate) struct BitBuf {

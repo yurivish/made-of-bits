@@ -19,7 +19,7 @@ pub(crate) trait BitBlock:
 
     /// Block index of the block containing the `n`-th bit
     fn block_index(n: u32) -> usize {
-        (n >> Self::BITS_LOG2) as usize
+        (n >> Self::BITS_LOG2).try_into().unwrap()
     }
 
     /// Bit index of the `n`-th bit within its block (masking off the high bits)
