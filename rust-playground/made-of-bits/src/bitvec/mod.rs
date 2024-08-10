@@ -61,7 +61,7 @@ pub trait BitVec: Clone {
 
     /// Get the value of the bit at the specified index (0 or 1).
     /// The comparable method on MultiBitVec the presence of multiplicity,
-    // returns the count of the bit.
+    /// returns the count of the bit.
     /// Note: This is rather inefficient since it does two rank calls,
     /// each of which may take O(log(n)) time, depending on the BitVec.
     fn get(&self, bit_index: u32) -> u32 {
