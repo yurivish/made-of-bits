@@ -5,6 +5,7 @@ pub mod rle;
 pub mod sparse;
 #[cfg(test)]
 mod test;
+mod compressed;
 
 use crate::{bitbuf::BitBuf, bits::partition_point};
 
