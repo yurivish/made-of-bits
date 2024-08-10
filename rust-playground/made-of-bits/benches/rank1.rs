@@ -8,17 +8,11 @@ use rand::Rng;
 
 fn criterion_benchmark(c: &mut Criterion) {
     let mut rng = rand::thread_rng();
-
-    // generate needles at uniform random
-    // let unif = Uniform::new(0, haystack.last().unwrap() + 1);
-    // or, generate needles in a narrow range
-    // let unif = Uniform::new(100_000, 1_000_000);
     let mut g = c.benchmark_group("group a");
 
-    let universe_size = 100_000;
-    // density denominator; we will sweep x/denominator for x in 0..=denominator
+    let universe_size = 1_000_000;
 
-    let denominator = 1000;
+    let denominator = 1000; // density denominator
     for numerator in [1, 100, 700] {
         // 0.1%, 10%, 70% fill rate
         let mut b = made_of_bits::DenseBitVecBuilder::new(universe_size);
@@ -29,26 +23,32 @@ fn criterion_benchmark(c: &mut Criterion) {
         }
         let v = b.build();
 
-        // for now, generate a query vector that is 25% full
+        // for now, generate a query vector that is 5% full
         let mut queries = vec![];
         for i in 0..universe_size {
-            if rng.gen_ratio(25, 100) {
+            if rng.gen_ratio(5, 100) {
                 queries.push(i)
             }
         }
 
         g.bench_function(BenchmarkId::new("rank1", numerator), |b| {
             b.iter(|| {
-                let mut ret = 0;
+                let mut ret: u32 = 0;
                 for q in queries.iter().copied() {
-                    ret += v.rank1(q);
+                    ret = ret.wrapping_add(v.rank1(q));
                 }
                 ret
             });
         });
 
         g.bench_function(BenchmarkId::new("rank1_batch", numerator), |b| {
-            b.iter(|| v.rank1_batch(&queries).into_iter().sum::<u32>());
+            b.iter(|| {
+                let mut ret: u32 = 0;
+                for result in v.rank1_batch(&queries).into_iter() {
+                    ret = ret.wrapping_add(result);
+                }
+                ret
+            });
         });
     }
     g.finish();

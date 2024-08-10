@@ -7,6 +7,7 @@ use crate::waveletmatrix_support::union_masks;
 use crate::waveletmatrix_support::RangeOverlaps;
 use crate::waveletmatrix_support::Ranks;
 use crate::waveletmatrix_support::{KeyVal, Level, RangedRankCache, Traversal};
+use crate::DenseBitVecOptions;
 use crate::{
     bits::reverse_low_bits,
     bitvec::dense::{DenseBitVec, DenseBitVecBuilder},
@@ -27,7 +28,11 @@ pub struct WaveletMatrix<V: BitVec> {
 }
 
 impl<V: BitVec> WaveletMatrix<V> {
-    pub fn new(data: Vec<u32>, max_symbol: u32) -> WaveletMatrix<V> {
+    pub fn new(
+        data: Vec<u32>,
+        max_symbol: u32,
+        bitvec_options: Option<<V::Builder as BitVecBuilder>::Options>,
+    ) -> WaveletMatrix<V> {
         let num_levels = (u32::BITS - max_symbol.leading_zeros()).max(1);
 
         // We implement two different wavelet matrix construction algorithms. One of them is more
@@ -40,9 +45,9 @@ impl<V: BitVec> WaveletMatrix<V> {
         let levels = if len == 0 {
             vec![]
         } else if num_levels <= len.ilog2() {
-            build_bitvecs(data, num_levels as usize)
+            build_bitvecs(data, num_levels as usize, bitvec_options)
         } else {
-            build_bitvecs_large_alphabet(data, num_levels as usize)
+            build_bitvecs_large_alphabet(data, num_levels as usize, bitvec_options)
         };
 
         WaveletMatrix::from_bitvecs(levels, max_symbol)
@@ -661,7 +666,11 @@ impl<V: BitVec> WaveletMatrix<V> {
 // dense histogram that counts the number of occurrences of each symbol. Heuristically,
 // this is roughly the case where the alphabet size does not exceed the number of data points.
 // Implements Algorithm 1 (seq.pc) from the paper "Practical Wavelet Tree Construction".
-fn build_bitvecs<T: BitVec>(data: Vec<u32>, num_levels: usize) -> Vec<T> {
+fn build_bitvecs<T: BitVec>(
+    data: Vec<u32>,
+    num_levels: usize,
+    bitvec_options: Option<<T::Builder as BitVecBuilder>::Options>,
+) -> Vec<T> {
     assert!(data.len() <= u32::MAX as usize);
     let mut levels = vec![T::Builder::new(data.len() as u32); num_levels];
     let mut hist = vec![0; 1 << num_levels];
@@ -725,14 +734,29 @@ fn build_bitvecs<T: BitVec>(data: Vec<u32>, num_levels: usize) -> Vec<T> {
         }
     }
 
-    levels.into_iter().map(|level| level.build()).collect()
+    levels
+        .into_iter()
+        .map(|level| {
+            // apply options if any were passed in
+            if let Some(o) = &bitvec_options {
+                level.options(o.clone())
+            } else {
+                level
+            }
+        })
+        .map(|level| level.build())
+        .collect()
 }
 
 /// Wavelet matrix construction algorithm optimized for large alphabets.
 /// Returns an array of level bitvectors built from `data`.
 /// Handles the sparse case where the alphabet size exceeds the number of data points and
 /// building a histogram with an entry for each symbol is expensive.
-fn build_bitvecs_large_alphabet<T: BitVec>(mut data: Vec<u32>, num_levels: usize) -> Vec<T> {
+fn build_bitvecs_large_alphabet<T: BitVec>(
+    mut data: Vec<u32>,
+    num_levels: usize,
+    bitvec_options: Option<<T::Builder as BitVecBuilder>::Options>,
+) -> Vec<T> {
     assert!(data.len() <= u32::MAX as usize);
     let mut levels = Vec::with_capacity(num_levels);
     let max_level = num_levels - 1;
@@ -846,7 +870,7 @@ mod tests {
         let data = vec![1, 3, 3, 2, 7];
         let len = data.len() as u32;
         let max_symbol = data.iter().max().copied().unwrap();
-        let wm = WaveletMatrix::<DenseBitVec>::new(data.clone(), max_symbol);
+        let wm = WaveletMatrix::<DenseBitVec>::new(data.clone(), max_symbol, None);
 
         {
             // num_levels

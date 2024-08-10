@@ -80,12 +80,9 @@ pub trait BitVec: Clone {
         self.universe_size() - self.num_ones()
     }
 
+    // todo: Document that we need the input to the batch rank query to be sorted
     fn rank1_batch(&self, bit_indices: &[u32]) -> Vec<u32> {
-        let mut results = vec![];
-        for i in bit_indices {
-            results.push(self.rank1(*i))
-        }
-        results
+        bit_indices.iter().copied().map(|i| self.rank1(i)).collect()
     }
 }
 

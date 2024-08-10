@@ -30,43 +30,32 @@ pub(crate) trait BitBlock:
     fn block_bit_index(n: u32) -> u32;
 }
 
-impl BitBlock for u32 {
-    const BITS: u32 = Self::BITS;
-    const ZERO: Self = 0;
-    const ONE: Self = 1;
-    const MAX: Self = Self::MAX;
+macro_rules! bit_block_impl {
+    ($type:ty) => {
+        impl BitBlock for $type {
+            const BITS: u32 = Self::BITS;
+            const ZERO: Self = 0;
+            const ONE: Self = 1;
+            const MAX: Self = Self::MAX;
 
-    fn saturating_sub(self, rhs: Self) -> Self {
-        Self::saturating_sub(self, rhs)
-    }
+            fn saturating_sub(self, rhs: Self) -> Self {
+                Self::saturating_sub(self, rhs)
+            }
 
-    fn trailing_zeros(self) -> u32 {
-        Self::trailing_zeros(self)
-    }
+            fn trailing_zeros(self) -> u32 {
+                Self::trailing_zeros(self)
+            }
 
-    fn block_bit_index(n: u32) -> u32 {
-        n & (Self::BITS - 1)
-    }
+            fn block_bit_index(n: u32) -> u32 {
+                n & (Self::BITS - 1)
+            }
+        }
+    };
 }
 
-impl BitBlock for u64 {
-    const BITS: u32 = Self::BITS;
-    const ZERO: Self = 0;
-    const ONE: Self = 1;
-    const MAX: Self = Self::MAX;
-
-    fn saturating_sub(self, rhs: Self) -> Self {
-        Self::saturating_sub(self, rhs)
-    }
-
-    fn trailing_zeros(self) -> u32 {
-        Self::trailing_zeros(self)
-    }
-
-    fn block_bit_index(n: u32) -> u32 {
-        n & (Self::BITS - 1)
-    }
-}
+bit_block_impl!(u32);
+bit_block_impl!(u64);
+bit_block_impl!(u128);
 
 /// Return the position of the k-th least significant set bit.
 /// Assumes that x has at least k set Bits.

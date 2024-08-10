@@ -1,3 +1,4 @@
+use crate::DenseBitVecOptions;
 use crate::{
     bitvec::{
         dense::DenseBitVec,
@@ -52,9 +53,14 @@ impl Thingy {
         let max_id = sorted_ids.iter().copied().max().unwrap_or(0);
         // dbg!(&sorted_ids);
 
+        let options = DenseBitVecOptions {
+            rank1_samples_pow2: Some(10),
+            select_samples_pow2: Some(10),
+        };
+
         Thingy {
-            codes: WaveletMatrix::<DenseBitVec>::new(sorted_codes, max_code),
-            ids: WaveletMatrix::<DenseBitVec>::new(sorted_ids, max_id),
+            codes: WaveletMatrix::<DenseBitVec>::new(sorted_codes, max_code, Some(options)),
+            ids: WaveletMatrix::<DenseBitVec>::new(sorted_ids, max_id, Some(options)),
             len,
         }
     }

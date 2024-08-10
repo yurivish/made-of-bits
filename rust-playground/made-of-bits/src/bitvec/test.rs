@@ -65,11 +65,7 @@ fn arbitrary_ones(
 // return the same result as the default.
 // see: https://chatgpt.com/c/60a1261b-aa53-4e7e-93a8-f01eef386a25
 fn naive_rank1_batch(v: impl BitVec, bit_indices: &[u32]) -> Vec<u32> {
-    let mut results = vec![];
-    for i in bit_indices {
-        results.push(v.rank1(*i))
-    }
-    results
+    bit_indices.iter().copied().map(|i| v.rank1(i)).collect()
 }
 
 /// Spot tests for BitVec

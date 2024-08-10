@@ -188,6 +188,8 @@ impl DenseBitVec {
     }
 
     // todo: doc
+    // Document that providing an explicit hint can slow things down because it means that there will be a linear scan from that point forward
+    // This is why we group our chunks by rank block so that we use the hint only the target block is close by
     fn rank1_hinted(&self, bit_index: u32, hint: Option<(u32, usize)>) -> (u32, (u32, usize)) {
         if bit_index >= self.universe_size() {
             // the hint does we return here does not matter since all queries that
@@ -195,8 +197,8 @@ impl DenseBitVec {
             return (self.num_ones(), (0, 0));
         }
 
-        let last_index = bitbuf::Block::block_index(bit_index);
         let (mut count, start_index) = hint.unwrap_or_else(|| self.hint(bit_index));
+        let last_index = bitbuf::Block::block_index(bit_index);
 
         // Increment the count by the number of ones in every subsequent block
         let blocks = self.buf.blocks();
@@ -354,8 +356,10 @@ impl BitVec for DenseBitVec {
 
     fn rank1_batch(&self, bit_indices: &[u32]) -> Vec<u32> {
         let mut results = vec![];
+        // note: how far apart two bit indices can be within a chunk is an interesting parameter
+        // whose tradeoffs i don't fully understand yet.
         let chunks = bit_indices
-            .chunk_by(|a, b| (a >> self.rank1_samples_pow2) == (b >> self.rank1_samples_pow2));
+            .chunk_by(|a, b| (b >> self.rank1_samples_pow2) - (a >> self.rank1_samples_pow2) == 0);
         for chunk in chunks {
             let mut hint = None;
             for i in chunk {
@@ -368,10 +372,10 @@ impl BitVec for DenseBitVec {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Copy, Clone)]
 pub struct DenseBitVecOptions {
-    rank1_samples_pow2: Option<u32>,
-    select_samples_pow2: Option<u32>,
+    pub rank1_samples_pow2: Option<u32>,
+    pub select_samples_pow2: Option<u32>,
 }
 
 #[derive(Clone)]
