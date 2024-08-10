@@ -178,33 +178,22 @@ impl DenseBitVec {
         );
     }
 
-    pub fn rank1_batch(&self, bit_indices: &[u32]) -> Vec<u32> {
-        let mut results = vec![];
-        for i in bit_indices {
-            results.push(self.rank1(*i))
-        }
-        results
-    }
-}
-
-impl BitVec for DenseBitVec {
-    type Builder = DenseBitVecBuilder;
-
-    fn rank1(&self, bit_index: u32) -> u32 {
-        if bit_index >= self.universe_size() {
-            return self.num_ones();
-        }
-
+    // todo: doc
+    fn hint(&self, bit_index: u32) -> (u32, u32) {
         // Start with the prefix count from the rank block
-        // Structured this way since I'm considering providing a (u32, u32) 'hint' argument.
-        let (mut count, mut start_index) = {
-            let rank_index = bit_index >> self.rank1_samples_pow2;
-            (
-                self.rank1_samples[rank_index as usize],
-                rank_index << self.buf_blocks_per_rank1_sample_pow2,
-            )
-        };
+        let rank_index = bit_index >> self.rank1_samples_pow2;
+        let mut count = self.rank1_samples[rank_index as usize];
+        let mut start_index = rank_index << self.buf_blocks_per_rank1_sample_pow2;
+        (count, start_index)
+    }
+
+    // todo: doc
+    fn rank1_hinted(&self, bit_index: u32, hint: Option<(u32, u32)>) -> (u32, (u32, u32)) {
+        if bit_index >= self.universe_size() {
+            return (self.num_ones(), (0, 0)); // the start_index does not matter since this branch will be taken regardless of the hint
+        }
         let last_index = bitbuf::Block::block_index(bit_index) as u32;
+        let (mut count, mut start_index) = hint.unwrap_or_else(|| self.hint(bit_index));
 
         // Scan any intervening select blocks to skip past multiple basic blocks at a time.
         //
@@ -243,8 +232,15 @@ impl BitVec for DenseBitVec {
         // Count any 1-bits in the last block up to `bit_index`
         let bit_offset = bitbuf::Block::block_bit_index(bit_index);
         let masked_block = self.buf.block(last_index) & one_mask::<bitbuf::Block>(bit_offset);
-        count += masked_block.count_ones();
-        count
+        (count + masked_block.count_ones(), (count, last_index))
+    }
+}
+
+impl BitVec for DenseBitVec {
+    type Builder = DenseBitVecBuilder;
+
+    fn rank1(&self, bit_index: u32) -> u32 {
+        self.rank1_hinted(bit_index, None).0
     }
 
     fn select1(&self, n: u32) -> Option<u32> {
@@ -349,6 +345,21 @@ impl BitVec for DenseBitVec {
 
     fn num_ones(&self) -> u32 {
         self.num_ones
+    }
+
+    fn rank1_batch(&self, bit_indices: &[u32]) -> Vec<u32> {
+        let mut results = vec![];
+        let chunks = bit_indices
+            .chunk_by(|a, b| (a >> self.rank1_samples_pow2) == (b >> self.rank1_samples_pow2));
+        for chunk in chunks {
+            let mut hint = None;
+            for i in chunk {
+                let result = self.rank1_hinted(*i, hint);
+                hint = Some(result.1);
+                results.push(result.0);
+            }
+        }
+        results
     }
 }
 

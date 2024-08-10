@@ -179,7 +179,7 @@ impl Thingy {
     }
 }
 
-/*
+//*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -200,7 +200,7 @@ mod tests {
 
     #[test]
     fn test_json() {
-        let file = File::open("/Users/yurivish/Downloads/data (4).json").unwrap();
+        let file = File::open("/Users/yurivish/Downloads/data (3).json").unwrap();
         let reader = BufReader::new(file);
 
         let mut data: Vec<Datum> = serde_json::from_reader(reader).unwrap();
@@ -273,4 +273,4 @@ mod tests {
     //     panic!("{:?}", t.ids_for_bbox(0..=3, 0..=4));
     // }
 }
-*/
+// */

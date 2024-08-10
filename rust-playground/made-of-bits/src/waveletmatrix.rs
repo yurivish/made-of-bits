@@ -5,6 +5,7 @@ use crate::waveletmatrix_support::mask_extent;
 use crate::waveletmatrix_support::mask_range;
 use crate::waveletmatrix_support::union_masks;
 use crate::waveletmatrix_support::RangeOverlaps;
+use crate::waveletmatrix_support::Ranks;
 use crate::waveletmatrix_support::{KeyVal, Level, RangedRankCache, Traversal};
 use crate::{
     bits::reverse_low_bits,
@@ -329,8 +330,12 @@ impl<V: BitVec> WaveletMatrix<V> {
             end: range.end,
         }));
 
+        let mut bit_indices = vec![];
         for level in self.levels.iter() {
-            // merge traversal
+            bit_indices.clear();
+
+            // merge traversal.
+            // also accumulate bit indices for rank queries, so we can do them in a batch.
             traversal.traverse(|xs, go| {
                 // println!("pre-merge: {}", xs.len());
                 if let Some(first) = xs.first() {
@@ -340,18 +345,35 @@ impl<V: BitVec> WaveletMatrix<V> {
                         if prev.val.symbol == cur.val.symbol && prev.val.end == cur.val.start {
                             prev.val.end = cur.val.end;
                         } else {
+                            bit_indices.push(prev.val.start);
+                            bit_indices.push(prev.val.end);
                             go.right(prev);
                             prev = *cur;
                         }
                     }
+                    bit_indices.push(prev.val.start);
+                    bit_indices.push(prev.val.end);
                     go.right(prev);
                 }
             });
 
+            // TODO: How can we use ranks_batch here? In a way that lets us easily toggle it off and on.
+
             traversal.traverse(|xs, go| {
+                let batch_rank1 = level.bv.rank1_batch(&bit_indices); // todo: do not alloc a new return vec each time, accepting an output parameter
+                let mut rank_iter = batch_rank1.into_iter();
+
                 // println!("post-merge: {}", xs.len());
                 for x in xs {
-                    let (start, end) = (level.ranks(x.val.start), level.ranks(x.val.end));
+                    // let (start, end) = (level.ranks(x.val.start), level.ranks(x.val.end));
+                    let (start, end) = {
+                        let start1 = rank_iter.next().unwrap();
+                        let end1 = rank_iter.next().unwrap();
+                        let start0 = x.val.start - start1;
+                        let end0 = x.val.end - end1;
+                        ((start0, start1), (end0, end1))
+                        // (level.ranks(x.val.start), level.ranks(x.val.end));
+                    };
                     // if there are any left children, go right
                     if start.0 != end.0 {
                         go.left(x.val(Counts::new(x.val.symbol, start.0, end.0)));

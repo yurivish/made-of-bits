@@ -56,6 +56,22 @@ fn arbitrary_ones(
     }
 }
 
+// copied from the default BitVec impl.
+// a nice approach could be to implement a wrapper type for BitVec
+// and MultiBitVec that implements all optional trait functions
+// by falling back to the default trait impl; then we could test
+// the trait's implementation of a function versus the defaulted
+// implementation in the trait to ensure that "specialized" impls
+// return the same result as the default.
+// see: https://chatgpt.com/c/60a1261b-aa53-4e7e-93a8-f01eef386a25
+fn naive_rank1_batch(v: impl BitVec, bit_indices: &[u32]) -> Vec<u32> {
+    let mut results = vec![];
+    for i in bit_indices {
+        results.push(v.rank1(*i))
+    }
+    results
+}
+
 /// Spot tests for BitVec
 pub(crate) fn spot_test_bitvec_builder<T: BitVecBuilder>() {
     {
@@ -174,6 +190,21 @@ pub(crate) fn spot_test_bitvec_builder<T: BitVecBuilder>() {
         assert_eq!(bv.select0(2), Some(3));
         assert_eq!(bv.select0(3), Some(4));
         assert_eq!(bv.select0(31), Some(34));
+    }
+
+    {
+        // check rank1_batch
+
+        let mut b = T::new(1000);
+        for i in [1, 10, 11, 50, 72, 205] {
+            b.one(i);
+        }
+        let v = b.build();
+        let bit_indices = [1, 4, 6, 10, 40, 50, 51, 100, 500, 5000];
+        assert_eq!(
+            v.rank1_batch(&bit_indices),
+            naive_rank1_batch(v, &bit_indices),
+        );
     }
 
     {

@@ -45,9 +45,9 @@ fn criterion_benchmark(c: &mut Criterion) {
             });
         });
 
-        // g.bench_function(BenchmarkId::new("rank1_batch", numerator), |b| {
-        //     b.iter(|| v.rank1_batch(&queries).into_iter().sum::<u32>());
-        // });
+        g.bench_function(BenchmarkId::new("rank1_batch", numerator), |b| {
+            b.iter(|| v.rank1_batch(&queries).into_iter().sum::<u32>());
+        });
     }
     g.finish();
 }

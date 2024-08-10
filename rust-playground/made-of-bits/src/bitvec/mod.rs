@@ -79,6 +79,14 @@ pub trait BitVec: Clone {
     fn num_zeros(&self) -> u32 {
         self.universe_size() - self.num_ones()
     }
+
+    fn rank1_batch(&self, bit_indices: &[u32]) -> Vec<u32> {
+        let mut results = vec![];
+        for i in bit_indices {
+            results.push(self.rank1(*i))
+        }
+        results
+    }
 }
 
 /// Represents a multiset. 1-bits may have multiplicity, but 0-bits may not.
