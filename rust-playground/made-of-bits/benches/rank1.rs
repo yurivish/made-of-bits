@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use made_of_bits::{BitVec, BitVecBuilder, MultiBitVec, MultiBitVecBuilder};
 use rand::Rng;
@@ -52,5 +54,9 @@ fn criterion_benchmark(c: &mut Criterion) {
     g.finish();
 }
 
-criterion_group!(benches, criterion_benchmark);
+criterion_group! {
+    name    = benches;
+    config  = Criterion::default().warm_up_time(Duration::from_secs(1));
+    targets = criterion_benchmark
+}
 criterion_main!(benches);
