@@ -83,7 +83,7 @@ impl DenseBitVec {
 
         let max_block_index = buf.num_blocks().saturating_sub(1);
         for block_index in 0..buf.num_blocks() {
-            let block = buf.get_block(block_index);
+            let block = buf.block(block_index);
             if block_index % buf_blocks_per_rank1_sample == 0 {
                 rank1_samples.push(cumulative_ones);
             }
@@ -177,6 +177,14 @@ impl DenseBitVec {
             bitbuf::Block::block_index(cumulative_bits) as u32,
         );
     }
+
+    pub fn rank1_batch(&self, bit_indices: &[u32]) -> Vec<u32> {
+        let mut results = vec![];
+        for i in bit_indices {
+            results.push(self.rank1(*i))
+        }
+        results
+    }
 }
 
 impl BitVec for DenseBitVec {
@@ -187,50 +195,54 @@ impl BitVec for DenseBitVec {
             return self.num_ones();
         }
 
-        // todo: investigate whether we can provide a 'hint' argument of a start block
-        // that would allow us to skip the rank/select memory fetches if querying
-        // another 1-bit close by. As another way to do a 'batch' operation for a
-        // sorted input.
-
         // Start with the prefix count from the rank block
-        let rank_index = bit_index >> self.rank1_samples_pow2; // todo: why can we inject a +1 here without tests failing?
-        let mut count = self.rank1_samples[rank_index as usize];
-        let mut rank_buf_block_index = rank_index << self.buf_blocks_per_rank1_sample_pow2;
-        let last_buf_block_index = bitbuf::Block::block_index(bit_index) as u32;
-
-        // note: this select-block-skipper actually somewhat slows down some wavelet matrix ops.
+        // Structured this way since I'm considering providing a (u32, u32) 'hint' argument.
+        let (mut count, mut start_index) = {
+            let rank_index = bit_index >> self.rank1_samples_pow2;
+            (
+                self.rank1_samples[rank_index as usize],
+                rank_index << self.buf_blocks_per_rank1_sample_pow2,
+            )
+        };
+        let last_index = bitbuf::Block::block_index(bit_index) as u32;
 
         // Scan any intervening select blocks to skip past multiple basic blocks at a time.
         //
         // Synthesize a fictitious initial select sample located squarely at the position
         // designated by the rank sample.
-        let select_sample_rate = 1 << self.select1_samples_pow2;
-        let select_buf_block_index = rank_buf_block_index;
-        let select_preceding_count = count;
-        let mut select_count = select_preceding_count + select_sample_rate;
-        while select_count < self.num_ones() && select_buf_block_index < last_buf_block_index {
-            let (select_preceding_count, select_buf_block_index) = DenseBitVec::select_sample(
-                select_count,
-                &self.select1_samples,
-                self.select1_samples_pow2,
-            );
-            if select_buf_block_index >= last_buf_block_index {
-                break;
-            }
-            count = select_preceding_count;
-            rank_buf_block_index = select_buf_block_index;
-            select_count += select_sample_rate;
-        }
+        //
+        // Note: When rank samples are sufficiently close (eg. rank_samples_pow2 = 2^10),
+        // this slows rank queries down rather than speeding them up (confirmed with Criterion
+        // benchmarks.) Keeping this code here but commented-out since there could be value in
+        // using this technique in the future.
+        //
+        // let select_sample_rate = 1 << self.select1_samples_pow2;
+        // let select_buf_block_index = start_index;
+        // let select_preceding_count = count;
+        // let mut select_count = select_preceding_count + select_sample_rate;
+        // while select_count < self.num_ones() && select_buf_block_index < last_index {
+        //     let (select_preceding_count, select_buf_block_index) = DenseBitVec::select_sample(
+        //         select_count,
+        //         &self.select1_samples,
+        //         self.select1_samples_pow2,
+        //     );
+        //     if select_buf_block_index >= last_index {
+        //         break;
+        //     }
+        //     count = select_preceding_count;
+        //     start_index = select_buf_block_index;
+        //     select_count += select_sample_rate;
+        // }
 
         // Increment the count by the number of ones in every subsequent block
-        for i in rank_buf_block_index..last_buf_block_index {
-            count += self.buf.get_block(i).count_ones();
+        let blocks = self.buf.blocks();
+        for block in &blocks[start_index as usize..last_index as usize] {
+            count += block.count_ones();
         }
 
         // Count any 1-bits in the last block up to `bit_index`
         let bit_offset = bitbuf::Block::block_bit_index(bit_index);
-        let masked_block =
-            self.buf.get_block(last_buf_block_index) & one_mask::<bitbuf::Block>(bit_offset);
+        let masked_block = self.buf.block(last_index) & one_mask::<bitbuf::Block>(bit_offset);
         count += masked_block.count_ones();
         count
     }
@@ -267,7 +279,7 @@ impl BitVec for DenseBitVec {
         let mut buf_block = 0;
         assert!(buf_block_index < self.buf.num_blocks()); // the index is in-bounds for the first iteration
         while buf_block_index < self.buf.num_blocks() {
-            buf_block = self.buf.get_block(buf_block_index);
+            buf_block = self.buf.block(buf_block_index);
             let next_count = count + buf_block.count_ones();
             if next_count > n {
                 break;
@@ -316,7 +328,7 @@ impl BitVec for DenseBitVec {
         let mut buf_block = 0;
         assert!(buf_block_index < self.buf.num_blocks()); // the index is in-bounds for the first iteration
         while buf_block_index < self.buf.num_blocks() {
-            buf_block = self.buf.get_block(buf_block_index);
+            buf_block = self.buf.block(buf_block_index);
             let next_count = count + bitbuf::Block::count_zeros(buf_block);
             if next_count > n {
                 break;

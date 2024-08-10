@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use made_of_bits::{MultiBitVec, MultiBitVecBuilder};
+use made_of_bits::{BitVec, BitVecBuilder, MultiBitVec, MultiBitVecBuilder};
 use rand::Rng;
 // use rand::distributions::Uniform;
 // use rand::prelude::Distribution;
@@ -17,27 +17,37 @@ fn criterion_benchmark(c: &mut Criterion) {
     // density denominator; we will sweep x/denominator for x in 0..=denominator
 
     let denominator = 1000;
-    for numerator in [1, 10, 100, 700] {
-        // 0.1%, 1%, 10%, 70% fill rate
-        let mut b = made_of_bits::ArrayBitVecBuilder::new(universe_size);
+    for numerator in [1, 100, 700] {
+        // 0.1%, 10%, 70% fill rate
+        let mut b = made_of_bits::DenseBitVecBuilder::new(universe_size);
         for i in 0..universe_size {
             if rng.gen_ratio(numerator, denominator) {
-                b.ones(i, 1)
+                b.one(i)
             }
         }
         let v = b.build();
 
-        let inds: Vec<u32> = (0..universe_size).step_by(11).collect();
+        // for now, generate a query vector that is 25% full
+        let mut queries = vec![];
+        for i in 0..universe_size {
+            if rng.gen_ratio(25, 100) {
+                queries.push(i)
+            }
+        }
 
         g.bench_function(BenchmarkId::new("rank1", numerator), |b| {
             b.iter(|| {
                 let mut ret = 0;
-                for ind in inds.iter().copied() {
-                    ret += v.rank1(ind);
+                for q in queries.iter().copied() {
+                    ret += v.rank1(q);
                 }
                 ret
-            })
+            });
         });
+
+        // g.bench_function(BenchmarkId::new("rank1_batch", numerator), |b| {
+        //     b.iter(|| v.rank1_batch(&queries).into_iter().sum::<u32>());
+        // });
     }
     g.finish();
 }

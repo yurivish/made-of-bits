@@ -56,7 +56,7 @@ impl BitBuf {
     // We give access to blocks individually since lending out the
     // blocks themselves would run into issues with the PaddedBitBuf,
     // which does not have materialized representations for all valid slices.
-    pub(crate) fn get_block(&self, block_index: u32) -> Block {
+    pub(crate) fn block(&self, block_index: u32) -> Block {
         self.blocks[block_index as usize]
     }
 
@@ -347,7 +347,7 @@ mod tests {
     fn test_padded_bitbuf() {
         // should handle zero-width bufs
         assert!(panics(|| BitBuf::new(0).get(0)));
-        assert!(panics(|| BitBuf::new(0).get_block(0)));
+        assert!(panics(|| BitBuf::new(0).block(0)));
 
         // should handle max-size bufs
         {
