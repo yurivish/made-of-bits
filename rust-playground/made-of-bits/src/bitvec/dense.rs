@@ -179,61 +179,66 @@ impl DenseBitVec {
     }
 
     // todo: doc
-    fn hint(&self, bit_index: u32) -> (u32, u32) {
+    fn hint(&self, bit_index: u32) -> (u32, usize) {
         // Start with the prefix count from the rank block
         let rank_index = bit_index >> self.rank1_samples_pow2;
         let mut count = self.rank1_samples[rank_index as usize];
         let mut start_index = rank_index << self.buf_blocks_per_rank1_sample_pow2;
-        (count, start_index)
+        (count, start_index as usize)
     }
 
     // todo: doc
-    fn rank1_hinted(&self, bit_index: u32, hint: Option<(u32, u32)>) -> (u32, (u32, u32)) {
+    fn rank1_hinted(&self, bit_index: u32, hint: Option<(u32, usize)>) -> (u32, (u32, usize)) {
         if bit_index >= self.universe_size() {
-            return (self.num_ones(), (0, 0)); // the start_index does not matter since this branch will be taken regardless of the hint
+            // the hint does we return here does not matter since all queries that
+            // use the hint will fall into this branch.
+            return (self.num_ones(), (0, 0));
         }
-        let last_index = bitbuf::Block::block_index(bit_index) as u32;
-        let (mut count, mut start_index) = hint.unwrap_or_else(|| self.hint(bit_index));
 
-        // Scan any intervening select blocks to skip past multiple basic blocks at a time.
-        //
-        // Synthesize a fictitious initial select sample located squarely at the position
-        // designated by the rank sample.
-        //
-        // Note: When rank samples are sufficiently close (eg. rank_samples_pow2 = 2^10),
-        // this slows rank queries down rather than speeding them up (confirmed with Criterion
-        // benchmarks.) Keeping this code here but commented-out since there could be value in
-        // using this technique in the future.
-        //
-        // let select_sample_rate = 1 << self.select1_samples_pow2;
-        // let select_buf_block_index = start_index;
-        // let select_preceding_count = count;
-        // let mut select_count = select_preceding_count + select_sample_rate;
-        // while select_count < self.num_ones() && select_buf_block_index < last_index {
-        //     let (select_preceding_count, select_buf_block_index) = DenseBitVec::select_sample(
-        //         select_count,
-        //         &self.select1_samples,
-        //         self.select1_samples_pow2,
-        //     );
-        //     if select_buf_block_index >= last_index {
-        //         break;
-        //     }
-        //     count = select_preceding_count;
-        //     start_index = select_buf_block_index;
-        //     select_count += select_sample_rate;
-        // }
+        let last_index = bitbuf::Block::block_index(bit_index);
+        let (mut count, start_index) = hint.unwrap_or_else(|| self.hint(bit_index));
 
         // Increment the count by the number of ones in every subsequent block
         let blocks = self.buf.blocks();
-        for block in &blocks[start_index as usize..last_index as usize] {
+        for block in &blocks[start_index..last_index] {
             count += block.count_ones();
         }
 
         // Count any 1-bits in the last block up to `bit_index`
         let bit_offset = bitbuf::Block::block_bit_index(bit_index);
-        let masked_block = self.buf.block(last_index) & one_mask::<bitbuf::Block>(bit_offset);
+        let masked_block = blocks[last_index] & one_mask::<bitbuf::Block>(bit_offset);
         (count + masked_block.count_ones(), (count, last_index))
     }
+
+    // Note: This code used to be part of `rank1_hinted` but was removed since it did not improve performance.
+    //
+    // Scan any intervening select blocks to skip past multiple basic blocks at a time.
+    //
+    // Synthesize a fictitious initial select sample located squarely at the position
+    // designated by the rank sample.
+    //
+    // Note: When rank samples are sufficiently close (eg. rank_samples_pow2 = 2^10),
+    // this slows rank queries down rather than speeding them up (confirmed with Criterion
+    // benchmarks.) Keeping this code here but commented-out since there could be value in
+    // using this technique in the future.
+    //
+    // let select_sample_rate = 1 << self.select1_samples_pow2;
+    // let select_buf_block_index = start_index;
+    // let select_preceding_count = count;
+    // let mut select_count = select_preceding_count + select_sample_rate;
+    // while select_count < self.num_ones() && select_buf_block_index < last_index {
+    //     let (select_preceding_count, select_buf_block_index) = DenseBitVec::select_sample(
+    //         select_count,
+    //         &self.select1_samples,
+    //         self.select1_samples_pow2,
+    //     );
+    //     if select_buf_block_index >= last_index {
+    //         break;
+    //     }
+    //     count = select_preceding_count;
+    //     start_index = select_buf_block_index;
+    //     select_count += select_sample_rate;
+    // }
 }
 
 impl BitVec for DenseBitVec {
