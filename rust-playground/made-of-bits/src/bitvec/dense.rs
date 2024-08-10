@@ -178,8 +178,9 @@ impl DenseBitVec {
         );
     }
 
-    // todo: doc
-    fn hint(&self, bit_index: u32) -> (u32, usize) {
+    /// Returns a (count, start_index) pair to be used as the starting position
+    /// for a linear search through bit blocks when computing rank1 using rank1_hinted.
+    fn rank1_hint(&self, bit_index: u32) -> (u32, usize) {
         // Start with the prefix count from the rank block
         let rank_index = bit_index >> self.rank1_samples_pow2;
         let mut count = self.rank1_samples[rank_index as usize];
@@ -187,9 +188,14 @@ impl DenseBitVec {
         (count, start_index as usize)
     }
 
-    // todo: doc
-    // Document that providing an explicit hint can slow things down because it means that there will be a linear scan from that point forward
-    // This is why we group our chunks by rank block so that we use the hint only the target block is close by
+    /// Compute rank1, with an optional hint from a preceding call to rank1_hinted which,
+    /// if provided, will be used instead of computing such a hint from the rank blocks
+    /// using `rank1_hint`. When searching for closely spaced bit indices providing a hint
+    /// can speed up processing significantly since it reduces the amount of memory traffic.
+    ///
+    /// If a hint is provided, then a linear search will be conducted from that starting position
+    /// until the desired bit index is reached. This can slow performance if the hint is for a
+    /// distant bit position.
     fn rank1_hinted(&self, bit_index: u32, hint: Option<(u32, usize)>) -> (u32, (u32, usize)) {
         if bit_index >= self.universe_size() {
             // the hint does we return here does not matter since all queries that
@@ -197,7 +203,7 @@ impl DenseBitVec {
             return (self.num_ones(), (0, 0));
         }
 
-        let (mut count, start_index) = hint.unwrap_or_else(|| self.hint(bit_index));
+        let (mut count, start_index) = hint.unwrap_or_else(|| self.rank1_hint(bit_index));
         let last_index = bitbuf::Block::block_index(bit_index);
 
         // Increment the count by the number of ones in every subsequent block
@@ -357,8 +363,9 @@ impl BitVec for DenseBitVec {
     fn rank1_batch(&self, out: &mut Vec<u32>, bit_indices: &[u32]) {
         // note: how far apart two bit indices can be within a chunk is an interesting parameter
         // whose tradeoffs i don't fully understand yet.
-        let chunks = bit_indices
-            .chunk_by(|a, b| (b >> self.rank1_samples_pow2) - (a >> self.rank1_samples_pow2) == 0);
+        // todo: how big should chunks be? should we check the distance between the rank blocks
+        // the two samples fall into, ie. rankblock(b) - rankblock(a), or what we do below?
+        let chunks = bit_indices.chunk_by(|a, b| (b - a) >> self.rank1_samples_pow2 == 0);
         for chunk in chunks {
             let mut hint = None;
             for i in chunk {

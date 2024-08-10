@@ -45,9 +45,9 @@ impl<V: BitVec> WaveletMatrix<V> {
         let levels = if len == 0 {
             vec![]
         } else if num_levels <= len.ilog2() {
-            build_bitvecs(data, num_levels as usize, bitvec_options)
+            Self::build_bitvecs(data, num_levels as usize, bitvec_options)
         } else {
-            build_bitvecs_large_alphabet(data, num_levels as usize, bitvec_options)
+            Self::build_bitvecs_large_alphabet(data, num_levels as usize, bitvec_options)
         };
 
         WaveletMatrix::from_bitvecs(levels, max_symbol)
@@ -663,146 +663,146 @@ impl<V: BitVec> WaveletMatrix<V> {
     pub fn num_levels(&self) -> usize {
         self.levels.len()
     }
-}
 
-// Wavelet matrix construction algorithm optimized for the case where we can afford to build a
-// dense histogram that counts the number of occurrences of each symbol. Heuristically,
-// this is roughly the case where the alphabet size does not exceed the number of data points.
-// Implements Algorithm 1 (seq.pc) from the paper "Practical Wavelet Tree Construction".
-fn build_bitvecs<T: BitVec>(
-    data: Vec<u32>,
-    num_levels: usize,
-    bitvec_options: Option<<T::Builder as BitVecBuilder>::Options>,
-) -> Vec<T> {
-    assert!(data.len() <= u32::MAX as usize);
-    let mut levels = vec![T::Builder::new(data.len() as u32); num_levels];
-    let mut hist = vec![0; 1 << num_levels];
-    let mut borders = vec![0; 1 << num_levels];
-    let max_level = num_levels - 1;
+    // Wavelet matrix construction algorithm optimized for the case where we can afford to build a
+    // dense histogram that counts the number of occurrences of each symbol. Heuristically,
+    // this is roughly the case where the alphabet size does not exceed the number of data points.
+    // Implements Algorithm 1 (seq.pc) from the paper "Practical Wavelet Tree Construction".
+    fn build_bitvecs<T: BitVec>(
+        data: Vec<u32>,
+        num_levels: usize,
+        bitvec_options: Option<<T::Builder as BitVecBuilder>::Options>,
+    ) -> Vec<T> {
+        assert!(data.len() <= u32::MAX as usize);
+        let mut levels = vec![T::Builder::new(data.len() as u32); num_levels];
+        let mut hist = vec![0; 1 << num_levels];
+        let mut borders = vec![0; 1 << num_levels];
+        let max_level = num_levels - 1;
 
-    {
-        // Count symbol occurrences and fill the first bitvector, whose bits
-        // can be read from MSBs of the data in its original order.
-        let level = &mut levels[0];
-        let level_bit = 1 << max_level;
-        for (i, &d) in data.iter().enumerate() {
-            hist[d as usize] += 1;
-            if d & level_bit > 0 {
-                level.one(i as u32);
+        {
+            // Count symbol occurrences and fill the first bitvector, whose bits
+            // can be read from MSBs of the data in its original order.
+            let level = &mut levels[0];
+            let level_bit = 1 << max_level;
+            for (i, &d) in data.iter().enumerate() {
+                hist[d as usize] += 1;
+                if d & level_bit > 0 {
+                    level.one(i as u32);
+                }
             }
         }
+
+        // Construct the other levels bottom-up
+        for l in (1..num_levels).rev() {
+            // The number of wavelet tree nodes at this level
+            let num_nodes = 1 << l;
+
+            // Compute the histogram based on the previous level's histogram
+            for i in 0..num_nodes {
+                // Update the histogram in-place
+                hist[i] = hist[2 * i] + hist[2 * i + 1];
+            }
+
+            // Get starting positions of intervals from the new histogram
+            borders[0] = 0;
+            for i in 1..num_nodes {
+                // Update the positions in-place. The bit reversals map from wavelet tree
+                // node order to wavelet matrix node order, with all left children preceding
+                // the right children.
+                let prev_index = reverse_low_bits(i - 1, l);
+                borders[reverse_low_bits(i, l)] = borders[prev_index] + hist[prev_index];
+            }
+
+            // Fill the bit vector of the current level
+            let level = &mut levels[l];
+            let level_bit_index = max_level - l;
+            let level_bit = 1 << level_bit_index;
+
+            // This mask contains all ones except for the lowest level_bit_index bits.
+            let bit_prefix_mask = usize::MAX
+                .checked_shl((level_bit_index + 1) as u32)
+                .unwrap_or(0);
+            for &d in data.iter() {
+                // Get and update position for bit by computing its bit prefix from the
+                // MSB downwards which encodes the path from the root to the node at
+                // this level that contains this bit
+                let node_index = (d as usize & bit_prefix_mask) >> (level_bit_index + 1);
+                let p = &mut borders[node_index];
+                // Set the bit in the bitvector
+                if d & level_bit > 0 {
+                    level.one(*p);
+                }
+                *p += 1;
+            }
+        }
+
+        levels
+            .into_iter()
+            .map(|level| {
+                // apply options if any were passed in
+                if let Some(o) = &bitvec_options {
+                    level.options(o.clone())
+                } else {
+                    level
+                }
+            })
+            .map(|level| level.build())
+            .collect()
     }
 
-    // Construct the other levels bottom-up
-    for l in (1..num_levels).rev() {
-        // The number of wavelet tree nodes at this level
-        let num_nodes = 1 << l;
+    /// Wavelet matrix construction algorithm optimized for large alphabets.
+    /// Returns an array of level bitvectors built from `data`.
+    /// Handles the sparse case where the alphabet size exceeds the number of data points and
+    /// building a histogram with an entry for each symbol is expensive.
+    fn build_bitvecs_large_alphabet<T: BitVec>(
+        mut data: Vec<u32>,
+        num_levels: usize,
+        bitvec_options: Option<<T::Builder as BitVecBuilder>::Options>,
+    ) -> Vec<T> {
+        assert!(data.len() <= u32::MAX as usize);
+        let mut levels = Vec::with_capacity(num_levels);
+        let max_level = num_levels - 1;
 
-        // Compute the histogram based on the previous level's histogram
-        for i in 0..num_nodes {
-            // Update the histogram in-place
-            hist[i] = hist[2 * i] + hist[2 * i + 1];
+        // For each level, stably sort the datapoints by their bit value at that level.
+        // Elements with a zero bit get sorted left, and elements with a one bits
+        // get sorted right, which is effectvely a bucket sort with two buckets.
+        let mut right = Vec::new();
+
+        for l in 0..max_level {
+            let level_bit = 1 << (max_level - l);
+            let mut b = T::Builder::new(data.len() as u32);
+            let mut index = 0;
+            // Stably sort all elements with a zero bit at this level to the left, storing
+            // the positions of all one bits at this level in `bits`.
+            // We retain the elements that went left, then append those that went right.
+            data.retain_mut(|d| {
+                let value = *d;
+                let go_left = value & level_bit == 0;
+                if !go_left {
+                    b.one(index);
+                    right.push(value);
+                }
+                index += 1;
+                go_left
+            });
+            data.append(&mut right);
+            levels.push(b.build());
         }
 
-        // Get starting positions of intervals from the new histogram
-        borders[0] = 0;
-        for i in 1..num_nodes {
-            // Update the positions in-place. The bit reversals map from wavelet tree
-            // node order to wavelet matrix node order, with all left children preceding
-            // the right children.
-            let prev_index = reverse_low_bits(i - 1, l);
-            borders[reverse_low_bits(i, l)] = borders[prev_index] + hist[prev_index];
-        }
-
-        // Fill the bit vector of the current level
-        let level = &mut levels[l];
-        let level_bit_index = max_level - l;
-        let level_bit = 1 << level_bit_index;
-
-        // This mask contains all ones except for the lowest level_bit_index bits.
-        let bit_prefix_mask = usize::MAX
-            .checked_shl((level_bit_index + 1) as u32)
-            .unwrap_or(0);
-        for &d in data.iter() {
-            // Get and update position for bit by computing its bit prefix from the
-            // MSB downwards which encodes the path from the root to the node at
-            // this level that contains this bit
-            let node_index = (d as usize & bit_prefix_mask) >> (level_bit_index + 1);
-            let p = &mut borders[node_index];
-            // Set the bit in the bitvector
-            if d & level_bit > 0 {
-                level.one(*p);
+        // For the last level we don't need to do anything but build the bitvector
+        {
+            let mut b = T::Builder::new(data.len() as u32);
+            let level_bit = 1 << 0;
+            for (index, d) in data.iter().enumerate() {
+                if d & level_bit > 0 {
+                    b.one(index as u32);
+                }
             }
-            *p += 1;
+            levels.push(b.build());
         }
+
+        levels
     }
-
-    levels
-        .into_iter()
-        .map(|level| {
-            // apply options if any were passed in
-            if let Some(o) = &bitvec_options {
-                level.options(o.clone())
-            } else {
-                level
-            }
-        })
-        .map(|level| level.build())
-        .collect()
-}
-
-/// Wavelet matrix construction algorithm optimized for large alphabets.
-/// Returns an array of level bitvectors built from `data`.
-/// Handles the sparse case where the alphabet size exceeds the number of data points and
-/// building a histogram with an entry for each symbol is expensive.
-fn build_bitvecs_large_alphabet<T: BitVec>(
-    mut data: Vec<u32>,
-    num_levels: usize,
-    bitvec_options: Option<<T::Builder as BitVecBuilder>::Options>,
-) -> Vec<T> {
-    assert!(data.len() <= u32::MAX as usize);
-    let mut levels = Vec::with_capacity(num_levels);
-    let max_level = num_levels - 1;
-
-    // For each level, stably sort the datapoints by their bit value at that level.
-    // Elements with a zero bit get sorted left, and elements with a one bits
-    // get sorted right, which is effectvely a bucket sort with two buckets.
-    let mut right = Vec::new();
-
-    for l in 0..max_level {
-        let level_bit = 1 << (max_level - l);
-        let mut b = T::Builder::new(data.len() as u32);
-        let mut index = 0;
-        // Stably sort all elements with a zero bit at this level to the left, storing
-        // the positions of all one bits at this level in `bits`.
-        // We retain the elements that went left, then append those that went right.
-        data.retain_mut(|d| {
-            let value = *d;
-            let go_left = value & level_bit == 0;
-            if !go_left {
-                b.one(index);
-                right.push(value);
-            }
-            index += 1;
-            go_left
-        });
-        data.append(&mut right);
-        levels.push(b.build());
-    }
-
-    // For the last level we don't need to do anything but build the bitvector
-    {
-        let mut b = T::Builder::new(data.len() as u32);
-        let level_bit = 1 << 0;
-        for (index, d) in data.iter().enumerate() {
-            if d & level_bit > 0 {
-                b.one(index as u32);
-            }
-        }
-        levels.push(b.build());
-    }
-
-    levels
 }
 
 /// Type representing the state of an individual traversal path down the wavelet tree
