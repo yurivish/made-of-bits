@@ -49,8 +49,7 @@ impl<V: BitVec> WaveletMatrix<V> {
         } else {
             Self::build_bitvecs_large_alphabet(data, num_levels as usize, bitvec_options)
         };
-
-        WaveletMatrix::from_bitvecs(levels, max_symbol)
+        Self::from_bitvecs(levels, max_symbol)
     }
 
     fn from_bitvecs(levels: Vec<V>, max_symbol: u32) -> WaveletMatrix<V> {
@@ -302,8 +301,6 @@ impl<V: BitVec> WaveletMatrix<V> {
                     let symbol = x.val.symbol;
                     let (left, right) = level.child_symbol_extents(symbol, mask);
                     let (start, end) = rank_cache.get(x.val.start, x.val.end, level);
-                    // dbg!(&(left.clone(), right.clone()));
-                    // dbg!(&(start.clone(), end.clone()));
                     // if there are any left children, go left
                     if start.0 != end.0 && symbol_extent.overlaps_range(&left) {
                         go.left(x.val(Counts::new(symbol, start.0, end.0)));
@@ -340,7 +337,6 @@ impl<V: BitVec> WaveletMatrix<V> {
 
         for level in self.levels.iter() {
             bit_indices.clear();
-            batch_ranks.clear();
 
             // merge traversal.
             // also accumulate bit indices for rank queries, so we can do them in a batch.
@@ -353,34 +349,31 @@ impl<V: BitVec> WaveletMatrix<V> {
                         if prev.val.symbol == cur.val.symbol && prev.val.end == cur.val.start {
                             prev.val.end = cur.val.end;
                         } else {
+                            debug_assert!(prev.val.start <= prev.val.end);
                             bit_indices.push(prev.val.start);
                             bit_indices.push(prev.val.end);
                             go.right(prev);
                             prev = *cur;
                         }
                     }
+                    debug_assert!(prev.val.start <= prev.val.end);
                     bit_indices.push(prev.val.start);
                     bit_indices.push(prev.val.end);
                     go.right(prev);
                 }
             });
 
-            // TODO: How can we use ranks_batch here? In a way that lets us easily toggle it off and on.
+            batch_ranks.clear();
+            level.bv.rank1_batch(&mut batch_ranks, &bit_indices);
 
             traversal.traverse(|xs, go| {
-                level.bv.rank1_batch(&mut batch_ranks, &bit_indices); // todo: do not alloc a new return vec each time, accepting an output parameter
-                let mut rank_iter = batch_ranks.iter().copied();
-
-                // println!("post-merge: {}", xs.len());
-                for x in xs {
-                    // let (start, end) = (level.ranks(x.val.start), level.ranks(x.val.end));
+                for (x, r) in xs.iter().zip(batch_ranks.chunks_exact(2)) {
                     let (start, end) = {
-                        let start1 = rank_iter.next().unwrap();
-                        let end1 = rank_iter.next().unwrap();
+                        let start1 = r[0];
+                        let end1 = r[1];
                         let start0 = x.val.start - start1;
                         let end0 = x.val.end - end1;
                         ((start0, start1), (end0, end1))
-                        // (level.ranks(x.val.start), level.ranks(x.val.end));
                     };
                     // if there are any left children, go right
                     if start.0 != end.0 {

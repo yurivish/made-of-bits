@@ -154,10 +154,7 @@ mod tests {
             // than none.
             if bit_width > 0 {
                 let mut xs = xs.clone();
-                catch_unwind(move || {
-                    xs.push(0);
-                })
-                .unwrap_err();
+                catch_unwind(move || xs.push(0)).unwrap_err();
             } else {
                 xs.push(0);
             }
