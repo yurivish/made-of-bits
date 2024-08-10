@@ -1,4 +1,4 @@
-use crate::bits::BitBlock;
+use crate::bitblock::BitBlock;
 use crate::{
     bitbuf,
     bitbuf::BitBuf,
@@ -354,8 +354,7 @@ impl BitVec for DenseBitVec {
         self.num_ones
     }
 
-    fn rank1_batch(&self, bit_indices: &[u32]) -> Vec<u32> {
-        let mut results = vec![];
+    fn rank1_batch(&self, out: &mut Vec<u32>, bit_indices: &[u32]) {
         // note: how far apart two bit indices can be within a chunk is an interesting parameter
         // whose tradeoffs i don't fully understand yet.
         let chunks = bit_indices
@@ -365,10 +364,9 @@ impl BitVec for DenseBitVec {
             for i in chunk {
                 let result = self.rank1_hinted(*i, hint);
                 hint = Some(result.1);
-                results.push(result.0);
+                out.push(result.0);
             }
         }
-        results
     }
 }
 

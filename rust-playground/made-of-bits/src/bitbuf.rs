@@ -1,5 +1,5 @@
+use crate::bitblock::BitBlock;
 use crate::bits::one_mask;
-use crate::bits::BitBlock;
 use std::ops::Range;
 
 /// Block type for BitBuf blocks

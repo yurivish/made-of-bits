@@ -197,10 +197,9 @@ pub(crate) fn spot_test_bitvec_builder<T: BitVecBuilder>() {
         }
         let v = b.build();
         let bit_indices = [1, 4, 6, 10, 40, 50, 51, 100, 500, 5000];
-        assert_eq!(
-            v.rank1_batch(&bit_indices),
-            naive_rank1_batch(v, &bit_indices),
-        );
+        let mut result = vec![];
+        v.rank1_batch(&mut result, &bit_indices);
+        assert_eq!(result, naive_rank1_batch(v, &bit_indices),);
     }
 
     {

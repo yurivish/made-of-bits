@@ -336,8 +336,11 @@ impl<V: BitVec> WaveletMatrix<V> {
         }));
 
         let mut bit_indices = vec![];
+        let mut batch_ranks = vec![];
+
         for level in self.levels.iter() {
             bit_indices.clear();
+            batch_ranks.clear();
 
             // merge traversal.
             // also accumulate bit indices for rank queries, so we can do them in a batch.
@@ -365,8 +368,8 @@ impl<V: BitVec> WaveletMatrix<V> {
             // TODO: How can we use ranks_batch here? In a way that lets us easily toggle it off and on.
 
             traversal.traverse(|xs, go| {
-                let batch_rank1 = level.bv.rank1_batch(&bit_indices); // todo: do not alloc a new return vec each time, accepting an output parameter
-                let mut rank_iter = batch_rank1.into_iter();
+                level.bv.rank1_batch(&mut batch_ranks, &bit_indices); // todo: do not alloc a new return vec each time, accepting an output parameter
+                let mut rank_iter = batch_ranks.iter().copied();
 
                 // println!("post-merge: {}", xs.len());
                 for x in xs {

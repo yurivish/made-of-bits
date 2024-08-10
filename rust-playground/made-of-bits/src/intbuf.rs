@@ -1,5 +1,5 @@
 use crate::bits::one_mask;
-use crate::bits::BitBlock;
+use crate::bitblock::BitBlock;
 
 /// Block type for IntBuf blocks
 type Block = u32;

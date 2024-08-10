@@ -10,6 +10,7 @@ macro_rules! time {
     }};
 }
 
+mod bitblock;
 mod bitbuf;
 mod bits;
 mod bitvec;

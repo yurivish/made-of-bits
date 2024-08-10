@@ -80,9 +80,10 @@ pub trait BitVec: Clone {
         self.universe_size() - self.num_ones()
     }
 
-    // todo: Document that we need the input to the batch rank query to be sorted
-    fn rank1_batch(&self, bit_indices: &[u32]) -> Vec<u32> {
-        bit_indices.iter().copied().map(|i| self.rank1(i)).collect()
+    // Given a slice of sorted bit indices and an output vector, push their ranks
+    // onto the output vector.
+    fn rank1_batch(&self, out: &mut Vec<u32>, bit_indices: &[u32]) {
+        out.extend(bit_indices.iter().copied().map(|i| self.rank1(i)));
     }
 }
 
