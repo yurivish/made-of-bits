@@ -21,18 +21,17 @@ pub(crate) struct Level<V: BitVec> {
 }
 
 impl<V: BitVec> Level<V> {
-    // Returns (rank0(index), rank1(index))
-    // This means that if x = ranks(index), x.0 is rank0 and x.1 is rank1.
-    pub(crate) fn ranks(&self, index: u32) -> Ranks<u32> {
-        let (num_zeros, num_ones) = self.bv.ranks(index);
-        Ranks(num_zeros, num_ones)
+    /// Returns (rank0(index), rank1(index))
+    /// This means that if x = ranks(index), x.0 is rank0 and x.1 is rank1.
+    pub(crate) fn ranks(&self, index: u32) -> (u32, u32) {
+        self.bv.ranks(index)
     }
 
-    // Given the start index of a left node on this level, return the split points
-    // that cover the range:
-    // - left is the start of the left node
-    // - mid is the start of the right node
-    // - right is one past the end of the right node
+    /// Given the start index of a left node on this level, return the split points
+    /// that cover the range:
+    /// - left is the start of the left node
+    /// - mid is the start of the right node
+    /// - right is one past the end of the right node
     pub(crate) fn splits(&self, left: u32) -> (u32, u32, u32) {
         (left, left + self.bit, left + self.bit + self.bit)
     }
@@ -51,30 +50,30 @@ impl<V: BitVec> Level<V> {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub(crate) struct KeyVal<T> {
-    pub(crate) key: usize,
+pub(crate) struct KeyVal<K, T> {
+    pub(crate) key: K,
     pub(crate) val: T,
 }
 
 // Associate a usize key to an arbitrary value; used for propagating the metadata
 // of which original query element a partial query result is associated with as we
 // traverse the wavelet tree
-impl<T> KeyVal<T> {
-    pub(crate) fn new(key: usize, value: T) -> KeyVal<T> {
+impl<K, T> KeyVal<K, T> {
+    pub(crate) fn new(key: K, value: T) -> KeyVal<K, T> {
         KeyVal { key, val: value }
     }
     // construct a BatchValue from an (key, value) tuple
-    pub(crate) fn from_tuple((key, value): (usize, T)) -> KeyVal<T> {
+    pub(crate) fn from_tuple((key, value): (K, T)) -> KeyVal<K, T> {
         KeyVal { key, val: value }
     }
-    pub(crate) fn map<U>(self, f: impl FnOnce(T) -> U) -> KeyVal<U> {
+    pub(crate) fn map<U>(self, f: impl FnOnce(T) -> U) -> KeyVal<K, U> {
         KeyVal {
             key: self.key,
             val: f(self.val),
         }
     }
     // return a new KeyVal with the previous key and new value
-    pub(crate) fn val(self, value: T) -> KeyVal<T> {
+    pub(crate) fn val(self, value: T) -> KeyVal<K, T> {
         KeyVal { val: value, ..self }
     }
 }
@@ -85,34 +84,36 @@ impl<T> KeyVal<T> {
 // nodes in the wavelet matrix (all left nodes precede all
 // right nodes).
 #[derive(Debug)]
-pub(crate) struct Traversal<T> {
-    cur: VecDeque<KeyVal<T>>,
-    next: VecDeque<KeyVal<T>>,
+pub(crate) struct Traversal<K, T> {
+    cur: VecDeque<KeyVal<K, T>>,
+    next: VecDeque<KeyVal<K, T>>,
     num_left: usize,
 }
 
 // Traverse a wavelet matrix levelwise, at each level maintaining tree nodes
 // in order they appear in the wavelet matrix (left children preceding right).
-impl<T> Traversal<T> {
-    pub(crate) fn new(values: impl IntoIterator<Item = T>) -> Self {
+impl<K, T> Traversal<K, T> {
+    pub(crate) fn new(
+        keys: impl IntoIterator<Item = K>,
+        vals: impl IntoIterator<Item = T>,
+    ) -> Self {
         let mut traversal = Self {
             cur: VecDeque::new(),
             next: VecDeque::new(),
             num_left: 0,
         };
-        traversal.init(values);
+        traversal.cur.clear();
+        traversal.next.clear();
+        traversal.next.extend(
+            keys.into_iter()
+                .zip(vals.into_iter())
+                .map(KeyVal::from_tuple),
+        );
+        traversal.num_left = 0;
         traversal
     }
 
-    pub(crate) fn init(&mut self, values: impl IntoIterator<Item = T>) {
-        let iter = values.into_iter().enumerate().map(KeyVal::from_tuple);
-        self.cur.clear();
-        self.next.clear();
-        self.next.extend(iter);
-        self.num_left = 0;
-    }
-
-    pub(crate) fn traverse(&mut self, mut f: impl FnMut(&[KeyVal<T>], &mut Goer<KeyVal<T>>)) {
+    pub(crate) fn traverse(&mut self, mut f: impl FnMut(&[KeyVal<K, T>], &mut Goer<KeyVal<K, T>>)) {
         // precondition: `next` contains things to traverse.
         // postcondition: `next` has the next things to traverse, with (reversed)
         // left children followed by (non-reversed) right children, and num_left
@@ -147,7 +148,7 @@ impl<T> Traversal<T> {
         self.num_left = go.num_left;
     }
 
-    pub(crate) fn results(&mut self) -> &mut [KeyVal<T>] {
+    pub(crate) fn results(&mut self) -> &mut [KeyVal<K, T>] {
         let slice = self.next.make_contiguous();
         // note: reverse only required if we want to return results in wm order,
         // which might be nice if we are eg. looking up associated data.
@@ -184,6 +185,8 @@ impl<T> Goer<'_, T> {
     }
 }
 
+type Ranks<T> = (T, T);
+
 pub(crate) struct RangedRankCache<V: BitVec> {
     end_index: Option<u32>, // previous end index
     end_ranks: Ranks<u32>,  // previous end ranks
@@ -198,7 +201,7 @@ impl<V: BitVec> RangedRankCache<V> {
     pub(crate) fn new() -> Self {
         Self {
             end_index: None,
-            end_ranks: Ranks(0, 0),
+            end_ranks: (0, 0),
             num_hits: 0,
             num_misses: 0,
             _v: PhantomData,
@@ -233,10 +236,6 @@ impl<V: BitVec> RangedRankCache<V> {
         );
     }
 }
-
-// Stores (rank0, rank1) as resulting from the Level::ranks function
-#[derive(Copy, Clone, Debug)]
-pub(crate) struct Ranks<T>(pub(crate) T, pub(crate) T);
 
 // Mask stuff
 

@@ -1,12 +1,9 @@
 use crate::bitvec::BitVec;
 use crate::bitvec::BitVecBuilder;
-use crate::waveletmatrix_support::accumulate_mask;
-use crate::waveletmatrix_support::mask_extent;
-use crate::waveletmatrix_support::mask_range;
-use crate::waveletmatrix_support::union_masks;
-use crate::waveletmatrix_support::RangeOverlaps;
-use crate::waveletmatrix_support::Ranks;
-use crate::waveletmatrix_support::{KeyVal, Level, RangedRankCache, Traversal};
+use crate::waveletmatrix_support::{
+    accumulate_mask, mask_extent, mask_range, union_masks, RangeOverlaps,
+    {KeyVal, Level, RangedRankCache, Traversal},
+};
 use crate::DenseBitVecOptions;
 use crate::{
     bits::reverse_low_bits,
@@ -18,21 +15,20 @@ use std::ops::Range;
 use std::ops::RangeInclusive;
 
 #[derive(Debug)]
-pub struct WaveletMatrix<V: BitVec = DenseBitVec> {
-    levels: Vec<Level<V>>, // wm levels (bit planes)
-    max_symbol: u32,       // maximum symbol value
-    len: u32,              // number of symbols
+pub struct WaveletMatrix<BV: BitVec = DenseBitVec> {
+    levels: Vec<Level<BV>>, // wm levels (bit planes)
+    max_symbol: u32,        // maximum symbol value
+    len: u32,               // number of symbols
     default_masks: Box<[u32]>,
 }
 
-impl<V: BitVec> WaveletMatrix<V> {
+impl<BV: BitVec> WaveletMatrix<BV> {
     pub fn new(
         data: Vec<u32>,
         max_symbol: u32,
-        bitvec_options: Option<<V::Builder as BitVecBuilder>::Options>,
-    ) -> WaveletMatrix<V> {
+        bitvec_options: Option<<BV::Builder as BitVecBuilder>::Options>,
+    ) -> WaveletMatrix<BV> {
         let num_levels = (u32::BITS - max_symbol.leading_zeros()).max(1);
-
         // We implement two different wavelet matrix construction algorithms. One of them is more
         // efficient, but that algorithm does not scale well to large alphabets and also cannot
         // cannot handle element multiplicity because it constructs the bitvectors out-of-order.
@@ -50,13 +46,14 @@ impl<V: BitVec> WaveletMatrix<V> {
         Self::from_bitvecs(levels, max_symbol)
     }
 
-    fn from_bitvecs(levels: Vec<V>, max_symbol: u32) -> WaveletMatrix<V> {
+    /// Construct a wavelet matrix directly from an array of level bitvectors.
+    fn from_bitvecs(levels: Vec<BV>, max_symbol: u32) -> WaveletMatrix<BV> {
         let max_level = levels.len() - 1;
         let len = levels
             .first()
             .map(|level| level.universe_size())
             .unwrap_or(0);
-        let levels: Vec<Level<V>> = levels
+        let levels: Vec<Level<BV>> = levels
             .into_iter()
             .enumerate()
             .map(|(index, bits)| Level {
@@ -65,7 +62,6 @@ impl<V: BitVec> WaveletMatrix<V> {
                 bv: bits,
             })
             .collect();
-
         let num_levels = levels.len();
         Self {
             levels,
@@ -75,26 +71,23 @@ impl<V: BitVec> WaveletMatrix<V> {
         }
     }
 
-    // Locate a symbol on the virtual bottom level of the wavelet tree.
-    // Returns two things, both restricted to the query range:
-    // - the number of symbols preceding this one in sorted order (less than)
-    // - the range of this symbol on the virtual bottom level
-    // This function is designed for internal use, where knowing the precise
-    // range on the virtual level can be useful, e.g. for select queries.
-    // Since the range also tells us the count of this symbol in the range, we
-    // can combine the two pieces of data together for a count-less-than-or-equal query.
-    // We compute both of these in one function since it's pretty cheap to do so.
+    /// Locate a symbol on the virtual bottom level of the wavelet tree.
+    /// Returns a tuple of two results, both restricted to the query range:
+    /// 1. the number of symbols preceding this one in sorted order (less than)
+    /// 2. the range of this symbol on the virtual bottom level
+    /// This function is designed for internal use, where knowing the precise
+    /// range on the virtual level can be useful, e.g. for select queries.
+    /// Since the range also tells us the count of this symbol in the range, we
+    /// can combine the two pieces of data together for a count-less-than-or-equal query.
+    /// We compute both of these in one function since it's pretty cheap to do so.
     pub fn locate(&self, range: Range<u32>, symbol: u32, ignore_bits: usize) -> (u32, Range<u32>) {
-        assert!(
-            symbol <= self.max_symbol,
-            "symbol must not exceed max_symbol"
-        );
+        assert!(symbol <= self.max_symbol);
         let mut preceding_count = 0;
         let mut range = range;
         for level in self.levels(ignore_bits) {
             let start = level.ranks(range.start);
             let end = level.ranks(range.end);
-            // check if the symbol's level bit is set to determine whether it should be mapped
+            // Check if the symbol's level bit is set to determine whether it should be mapped
             // to the left or right child node
             if symbol & level.bit == 0 {
                 // go left
@@ -275,18 +268,21 @@ impl<V: BitVec> WaveletMatrix<V> {
         // representing 0..1025 (11 bits) as 0..=1024 (10 bits).
         symbol_extent: RangeInclusive<u32>,
         masks: Option<&[u32]>,
-    ) -> Traversal<Counts> {
+    ) -> Traversal<usize, Counts> {
         let masks = masks.unwrap_or(&self.default_masks);
 
         for range in ranges {
             assert!(range.end <= self.len());
         }
 
-        let mut traversal = Traversal::new(ranges.iter().map(|range| Counts {
-            symbol: 0, // the leftmost symbol in the current node
-            start: range.start,
-            end: range.end,
-        }));
+        let mut traversal = Traversal::new(
+            0..,
+            ranges.iter().map(|range| Counts {
+                symbol: 0, // the leftmost symbol in the current node
+                start: range.start,
+                end: range.end,
+            }),
+        );
 
         for (level, mask) in self.levels.iter().zip(masks.iter().copied()) {
             let symbol_extent = mask_extent(&symbol_extent, mask);
@@ -319,16 +315,19 @@ impl<V: BitVec> WaveletMatrix<V> {
         traversal
     }
 
-    pub fn counts_faster_maybe(&self, ranges: &[Range<u32>]) -> Traversal<Counts> {
+    pub fn counts_faster_maybe(&self, ranges: &[Range<u32>]) -> Traversal<usize, Counts> {
         for range in ranges {
             assert!(range.end <= self.len());
         }
 
-        let mut traversal = Traversal::new(ranges.iter().map(|range| Counts {
-            symbol: 0, // the leftmost symbol in the current node
-            start: range.start,
-            end: range.end,
-        }));
+        let mut traversal = Traversal::new(
+            0..,
+            ranges.iter().map(|range| Counts {
+                symbol: 0, // the leftmost symbol in the current node
+                start: range.start,
+                end: range.end,
+            }),
+        );
 
         let mut bit_indices = vec![];
         let mut batch_ranks = vec![];
@@ -341,7 +340,7 @@ impl<V: BitVec> WaveletMatrix<V> {
             traversal.traverse(|xs, go| {
                 // println!("pre-merge: {}", xs.len());
                 if let Some(first) = xs.first() {
-                    let mut prev: KeyVal<Counts> = *first;
+                    let mut prev: KeyVal<usize, Counts> = *first;
                     for x in &xs[1..] {
                         let cur = x;
                         if prev.val.symbol == cur.val.symbol && prev.val.end == cur.val.start {
@@ -444,7 +443,7 @@ impl<V: BitVec> WaveletMatrix<V> {
 
         // Initialize a wavelet matrix traversal with one entry per symbol range we're searching.
         let init = CountSymbolRange::new(0, 0, range.start, range.end);
-        let mut traversal = Traversal::new(std::iter::repeat(init).take(symbol_ranges.len()));
+        let mut traversal = Traversal::new(0.., std::iter::repeat(init).take(symbol_ranges.len()));
 
         for (level, mask) in self.levels.iter().zip(masks.iter().copied()) {
             traversal.traverse(|xs, go| {
@@ -600,7 +599,11 @@ impl<V: BitVec> WaveletMatrix<V> {
         }
     }
 
-    pub fn locate_batch(&self, ranges: &[Range<u32>], symbols: &[u32]) -> Traversal<LocateBatch> {
+    pub fn locate_batch(
+        &self,
+        ranges: &[Range<u32>],
+        symbols: &[u32],
+    ) -> Traversal<usize, LocateBatch> {
         let iter = symbols.iter().flat_map(|symbol| {
             assert!(
                 *symbol <= self.max_symbol,
@@ -610,7 +613,7 @@ impl<V: BitVec> WaveletMatrix<V> {
                 .iter()
                 .map(|range| (*symbol, 0, range.start, range.end))
         });
-        let mut traversal = Traversal::new(iter.map(LocateBatch::new_tuple));
+        let mut traversal = Traversal::new(0.., iter.map(LocateBatch::new_tuple));
         for level in &self.levels {
             traversal.traverse(|xs, go| {
                 for x in xs {
@@ -639,7 +642,7 @@ impl<V: BitVec> WaveletMatrix<V> {
 
     /// Return an iterator over levels from the high bit downwards, ignoring the
     /// bottom `ignore_bits` levels.
-    fn levels(&self, ignore_bits: usize) -> std::slice::Iter<Level<V>> {
+    fn levels(&self, ignore_bits: usize) -> std::slice::Iter<Level<BV>> {
         self.levels[..self.levels.len() - ignore_bits].iter()
     }
 
