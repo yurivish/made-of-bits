@@ -166,8 +166,8 @@ impl<K, V> Traversal<K, V> {
 
 // Passed into the traversal callback as a way to control the recursion.
 // Goes left and/or right.
-pub(crate) struct Goer<'a, T> {
-    next: &'a mut VecDeque<T>,
+pub(crate) struct Goer<'next, T> {
+    next: &'next mut VecDeque<T>,
     num_left: usize,
 }
 
@@ -240,8 +240,8 @@ impl<V: BitVec> RangedRankCache<V> {
 //
 
 // Return the union of set bits across all masks in `masks`
-pub(crate) fn union_masks(masks: &[u32]) -> u32 {
-    masks.iter().copied().reduce(set_bits).unwrap_or(0)
+pub(crate) fn union_masks(masks: impl IntoIterator<Item = u32>) -> u32 {
+    masks.into_iter().reduce(set_bits).unwrap_or(0)
 }
 
 pub(crate) fn mask_range(range: Range<u32>, mask: u32) -> Range<u32> {
@@ -306,6 +306,8 @@ pub(crate) fn toggle_bits(accumulator: u32, mask: u32, cond: bool) -> u32 {
 pub(crate) trait RangeOverlaps {
     /// Return true if `self` overlaps `other`
     fn overlaps(self, other: Self) -> bool;
+    /// Return true if `self` fully contains `other`
+    fn fully_contains(self, other: Self) -> bool;
     /// Return true if `self` overlaps the range `other`
     fn overlaps_range(self, other: Range<u32>) -> bool;
     /// Return true if `self` fully contains `other`
@@ -317,18 +319,26 @@ impl RangeOverlaps for &Range<u32> {
         self.start < other.end && other.start < self.end
     }
 
+    fn fully_contains(self, other: Self) -> bool {
+        self.start <= other.start && self.end >= other.end
+    }
+
     fn overlaps_range(self, other: Range<u32>) -> bool {
         self.overlaps(&other)
     }
 
     fn fully_contains_range(self, other: Range<u32>) -> bool {
-        self.start <= other.start && self.end >= other.end
+        self.fully_contains(&other)
     }
 }
 
 impl RangeOverlaps for &RangeInclusive<u32> {
     fn overlaps(self, other: Self) -> bool {
         self.start() <= other.end() && other.start() <= self.end()
+    }
+
+    fn fully_contains(self, other: Self) -> bool {
+        self.start() <= other.start() && self.end() >= other.end()
     }
 
     fn overlaps_range(self, other: Range<u32>) -> bool {
