@@ -45,13 +45,13 @@ impl<V: BitVec> Level<V> {
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub(crate) struct KeyVal<K, V> {
-    pub(crate) key: K,
-    pub(crate) val: V,
+    pub(crate) k: K,
+    pub(crate) v: V,
 }
 
 impl<K, V> From<(K, V)> for KeyVal<K, V> {
     fn from(x: (K, V)) -> Self {
-        KeyVal { key: x.0, val: x.1 }
+        KeyVal { k: x.0, v: x.1 }
     }
 }
 
@@ -60,17 +60,17 @@ impl<K, V> From<(K, V)> for KeyVal<K, V> {
 // traverse the wavelet tree
 impl<K, V> KeyVal<K, V> {
     pub(crate) fn new(key: K, value: V) -> KeyVal<K, V> {
-        KeyVal { key, val: value }
+        KeyVal { k: key, v: value }
     }
     pub(crate) fn map<U>(self, f: impl FnOnce(V) -> U) -> KeyVal<K, U> {
         KeyVal {
-            key: self.key,
-            val: f(self.val),
+            k: self.k,
+            v: f(self.v),
         }
     }
     // return a new KeyVal with the previous key and new value
     pub(crate) fn val(self, value: V) -> KeyVal<K, V> {
-        KeyVal { val: value, ..self }
+        KeyVal { v: value, ..self }
     }
 }
 

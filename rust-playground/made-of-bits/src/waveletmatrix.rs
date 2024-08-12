@@ -292,9 +292,9 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                 // if it is the same as the `start` of the current range.
                 let mut rank_cache = RangedRankCache::new();
                 for x in xs {
-                    let symbol = x.val.symbol;
+                    let symbol = x.v.symbol;
                     let (left, right) = level.child_symbol_extents(symbol, mask);
-                    let (start, end) = rank_cache.get(x.val.start, x.val.end, level);
+                    let (start, end) = rank_cache.get(x.v.start, x.v.end, level);
                     // if there are any left children, go left
                     if start.0 != end.0 && symbol_extent.overlaps_range(&left) {
                         go.left(x.val(Counts::new(symbol, start.0, end.0)));
@@ -343,19 +343,19 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                     let mut prev: KeyVal<usize, Counts> = *first;
                     for x in &xs[1..] {
                         let cur = x;
-                        if prev.val.symbol == cur.val.symbol && prev.val.end == cur.val.start {
-                            prev.val.end = cur.val.end;
+                        if prev.v.symbol == cur.v.symbol && prev.v.end == cur.v.start {
+                            prev.v.end = cur.v.end;
                         } else {
-                            debug_assert!(prev.val.start <= prev.val.end);
-                            bit_indices.push(prev.val.start);
-                            bit_indices.push(prev.val.end);
+                            debug_assert!(prev.v.start <= prev.v.end);
+                            bit_indices.push(prev.v.start);
+                            bit_indices.push(prev.v.end);
                             go.right(prev);
                             prev = *cur;
                         }
                     }
-                    debug_assert!(prev.val.start <= prev.val.end);
-                    bit_indices.push(prev.val.start);
-                    bit_indices.push(prev.val.end);
+                    debug_assert!(prev.v.start <= prev.v.end);
+                    bit_indices.push(prev.v.start);
+                    bit_indices.push(prev.v.end);
                     go.right(prev);
                 }
             });
@@ -368,18 +368,18 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                     let (start, end) = {
                         let start1 = r[0];
                         let end1 = r[1];
-                        let start0 = x.val.start - start1;
-                        let end0 = x.val.end - end1;
+                        let start0 = x.v.start - start1;
+                        let end0 = x.v.end - end1;
                         ((start0, start1), (end0, end1))
                     };
                     // if there are any left children, go right
                     if start.0 != end.0 {
-                        go.left(x.val(Counts::new(x.val.symbol, start.0, end.0)));
+                        go.left(x.val(Counts::new(x.v.symbol, start.0, end.0)));
                     }
                     // if there are any right children, set the level bit and go right
                     if start.1 != end.1 {
                         go.right(x.val(Counts::new(
-                            x.val.symbol + level.bit,
+                            x.v.symbol + level.bit,
                             level.nz + start.1,
                             level.nz + end.1,
                         )));
@@ -451,13 +451,13 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                 let mut rank_cache = RangedRankCache::new();
                 for x in xs {
                     // The symbol range corresponding to the current query, masked to the relevant dimensions at this level
-                    let symbol_range = mask_range(symbol_ranges[x.key].clone(), mask);
+                    let symbol_range = mask_range(symbol_ranges[x.k].clone(), mask);
 
                     // Left, middle, and right symbol indices for the children of this node.
-                    let (left, mid, right) = level.splits(x.val.left);
+                    let (left, mid, right) = level.splits(x.v.left);
 
                     // Tuples representing the rank0/1 of start and rank0/1 of end.
-                    let (start, end) = rank_cache.get(x.val.start, x.val.end, level);
+                    let (start, end) = rank_cache.get(x.v.start, x.v.end, level);
 
                     // Check the left child if there are any elements there
                     if start.0 != end.0 {
@@ -480,9 +480,9 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                         //
                         // If the node is contained in all dimensions, then the accumulator will be equal to all_masks,
                         // and we can stop the recursion early.
-                        let acc = accumulate_mask(left..mid, mask, &symbol_range, x.val.acc);
+                        let acc = accumulate_mask(left..mid, mask, &symbol_range, x.v.acc);
                         if acc == all_masks {
-                            counts[x.key] += end.0 - start.0;
+                            counts[x.k] += end.0 - start.0;
                         } else if symbol_range.overlaps_range(&mask_range(left..mid, mask)) {
                             // We need to recurse into the left child. Do so with the new acc value.
                             go.left(x.val(CountSymbolRange::new(acc, left, start.0, end.0)));
@@ -492,9 +492,9 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                     // right child
                     if start.1 != end.1 {
                         // See the comments for the left node; the logical structure here is identical.
-                        let acc = accumulate_mask(mid..right, mask, &symbol_range, x.val.acc);
+                        let acc = accumulate_mask(mid..right, mask, &symbol_range, x.v.acc);
                         if acc == all_masks {
-                            counts[x.key] += end.1 - start.1;
+                            counts[x.k] += end.1 - start.1;
                         } else if symbol_range.overlaps_range(&mask_range(mid..right, mask)) {
                             go.right(x.val(CountSymbolRange::new(
                                 acc,
@@ -619,8 +619,8 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         for level in &self.levels {
             traversal.traverse(|xs, go| {
                 for x in xs {
-                    let (symbol, preceding_count) = (x.val.symbol, x.val.preceding_count);
-                    let (start, end) = (level.bv.ranks(x.val.start), level.bv.ranks(x.val.end));
+                    let (symbol, preceding_count) = (x.v.symbol, x.v.preceding_count);
+                    let (start, end) = (level.bv.ranks(x.v.start), level.bv.ranks(x.v.end));
                     if symbol & level.bit == 0 {
                         go.left(x.val(LocateBatch {
                             symbol,

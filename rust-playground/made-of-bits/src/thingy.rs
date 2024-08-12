@@ -109,8 +109,8 @@ impl Thingy {
 
                 for x in counts.results() {
                     println!("incrementing {:?}", x);
-                    let count = x.val.end - x.val.start;
-                    *ids.entry(x.val.symbol).or_insert(0) += count;
+                    let count = x.v.end - x.v.start;
+                    *ids.entry(x.v.symbol).or_insert(0) += count;
                 }
             }
         }
@@ -145,7 +145,7 @@ impl Thingy {
             //         continue;
             //     }
             // }
-            ranges.push(result.val.start..result.val.end);
+            ranges.push(result.v.start..result.v.end);
         }
 
         // dbg!(ranges.len());
@@ -162,8 +162,8 @@ impl Thingy {
         // );
 
         for x in traversal.results() {
-            let count = x.val.end - x.val.start;
-            *counts.entry(x.val.symbol).or_insert(0) += count;
+            let count = x.v.end - x.v.start;
+            *counts.entry(x.v.symbol).or_insert(0) += count;
         }
 
         // dbg!(counts.len());
@@ -178,8 +178,8 @@ impl Thingy {
             .codes
             .counts(&[0..self.len], 0..=self.codes.max_symbol(), None);
         for x in traversal.results() {
-            let count = x.val.end - x.val.start;
-            *counts.entry(x.val.symbol).or_insert(0) += count;
+            let count = x.v.end - x.v.start;
+            *counts.entry(x.v.symbol).or_insert(0) += count;
         }
         counts
     }
