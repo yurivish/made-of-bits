@@ -59,8 +59,8 @@ impl Thingy {
         };
 
         Thingy {
-            codes: WaveletMatrix::<DenseBitVec>::new(sorted_codes, max_code, Some(options)),
-            ids: WaveletMatrix::<DenseBitVec>::new(sorted_ids, max_id, Some(options)),
+            codes: WaveletMatrix::new(sorted_codes, max_code, Some(options)),
+            ids: WaveletMatrix::new(sorted_ids, max_id, Some(options)),
             len,
         }
     }

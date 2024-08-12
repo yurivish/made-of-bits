@@ -17,10 +17,8 @@ use std::marker::PhantomData;
 use std::ops::Range;
 use std::ops::RangeInclusive;
 
-// todo: explore whether we can use a default value for V = DenseBitVec
-
 #[derive(Debug)]
-pub struct WaveletMatrix<V: BitVec> {
+pub struct WaveletMatrix<V: BitVec = DenseBitVec> {
     levels: Vec<Level<V>>, // wm levels (bit planes)
     max_symbol: u32,       // maximum symbol value
     len: u32,              // number of symbols
