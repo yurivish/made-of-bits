@@ -56,14 +56,7 @@ fn arbitrary_ones(
     }
 }
 
-// copied from the default BitVec impl.
-// a nice approach could be to implement a wrapper type for BitVec
-// and MultiBitVec that implements all optional trait functions
-// by falling back to the default trait impl; then we could test
-// the trait's implementation of a function versus the defaulted
-// implementation in the trait to ensure that "specialized" impls
-// return the same result as the default.
-// see: https://chatgpt.com/c/60a1261b-aa53-4e7e-93a8-f01eef386a25
+/// Note: Copied from the default BitVec impl.
 fn naive_rank1_batch(v: impl BitVec, bit_indices: &[u32]) -> Vec<u32> {
     bit_indices.iter().copied().map(|i| v.rank1(i)).collect()
 }
