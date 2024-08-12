@@ -604,16 +604,18 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         ranges: &[Range<u32>],
         symbols: &[u32],
     ) -> Traversal<usize, LocateBatch> {
-        let iter = symbols.iter().flat_map(|symbol| {
-            assert!(
-                *symbol <= self.max_symbol,
-                "symbol must not exceed max_symbol"
-            );
-            ranges
-                .iter()
-                .map(|range| (*symbol, 0, range.start, range.end))
-        });
-        let mut traversal = Traversal::new(0.., iter.map(LocateBatch::new_tuple));
+        let mut traversal = Traversal::new(
+            0..,
+            symbols.iter().flat_map(|symbol| {
+                assert!(*symbol <= self.max_symbol,);
+                ranges.iter().map(|range| LocateBatch {
+                    symbol: *symbol,
+                    preceding_count: 0,
+                    start: range.start,
+                    end: range.end,
+                })
+            }),
+        );
         for level in &self.levels {
             traversal.traverse(|xs, go| {
                 for x in xs {
@@ -826,17 +828,6 @@ pub struct LocateBatch {
     pub preceding_count: u32, // number of symbols strictly less than this one
     pub start: u32,           // index range start
     pub end: u32,             // index range end
-}
-
-impl LocateBatch {
-    fn new_tuple((symbol, preceding_count, start, end): (u32, u32, u32, u32)) -> Self {
-        Self {
-            symbol,
-            preceding_count,
-            start,
-            end,
-        }
-    }
 }
 
 #[derive(Debug, Copy, Clone)]

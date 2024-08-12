@@ -50,30 +50,32 @@ impl<V: BitVec> Level<V> {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub(crate) struct KeyVal<K, T> {
+pub(crate) struct KeyVal<K, V> {
     pub(crate) key: K,
-    pub(crate) val: T,
+    pub(crate) val: V,
+}
+
+impl<K, V> From<(K, V)> for KeyVal<K, V> {
+    fn from(x: (K, V)) -> Self {
+        KeyVal { key: x.0, val: x.1 }
+    }
 }
 
 // Associate a usize key to an arbitrary value; used for propagating the metadata
 // of which original query element a partial query result is associated with as we
 // traverse the wavelet tree
-impl<K, T> KeyVal<K, T> {
-    pub(crate) fn new(key: K, value: T) -> KeyVal<K, T> {
+impl<K, V> KeyVal<K, V> {
+    pub(crate) fn new(key: K, value: V) -> KeyVal<K, V> {
         KeyVal { key, val: value }
     }
-    // construct a BatchValue from an (key, value) tuple
-    pub(crate) fn from_tuple((key, value): (K, T)) -> KeyVal<K, T> {
-        KeyVal { key, val: value }
-    }
-    pub(crate) fn map<U>(self, f: impl FnOnce(T) -> U) -> KeyVal<K, U> {
+    pub(crate) fn map<U>(self, f: impl FnOnce(V) -> U) -> KeyVal<K, U> {
         KeyVal {
             key: self.key,
             val: f(self.val),
         }
     }
     // return a new KeyVal with the previous key and new value
-    pub(crate) fn val(self, value: T) -> KeyVal<K, T> {
+    pub(crate) fn val(self, value: V) -> KeyVal<K, V> {
         KeyVal { val: value, ..self }
     }
 }
@@ -84,18 +86,18 @@ impl<K, T> KeyVal<K, T> {
 // nodes in the wavelet matrix (all left nodes precede all
 // right nodes).
 #[derive(Debug)]
-pub(crate) struct Traversal<K, T> {
-    cur: VecDeque<KeyVal<K, T>>,
-    next: VecDeque<KeyVal<K, T>>,
+pub(crate) struct Traversal<K, V> {
+    cur: VecDeque<KeyVal<K, V>>,
+    next: VecDeque<KeyVal<K, V>>,
     num_left: usize,
 }
 
 // Traverse a wavelet matrix levelwise, at each level maintaining tree nodes
 // in order they appear in the wavelet matrix (left children preceding right).
-impl<K, T> Traversal<K, T> {
+impl<K, V> Traversal<K, V> {
     pub(crate) fn new(
         keys: impl IntoIterator<Item = K>,
-        vals: impl IntoIterator<Item = T>,
+        vals: impl IntoIterator<Item = V>,
     ) -> Self {
         let mut traversal = Self {
             cur: VecDeque::new(),
@@ -104,16 +106,14 @@ impl<K, T> Traversal<K, T> {
         };
         traversal.cur.clear();
         traversal.next.clear();
-        traversal.next.extend(
-            keys.into_iter()
-                .zip(vals.into_iter())
-                .map(KeyVal::from_tuple),
-        );
+        traversal
+            .next
+            .extend(keys.into_iter().zip(vals.into_iter()).map(Into::into));
         traversal.num_left = 0;
         traversal
     }
 
-    pub(crate) fn traverse(&mut self, mut f: impl FnMut(&[KeyVal<K, T>], &mut Goer<KeyVal<K, T>>)) {
+    pub(crate) fn traverse(&mut self, mut f: impl FnMut(&[KeyVal<K, V>], &mut Goer<KeyVal<K, V>>)) {
         // precondition: `next` contains things to traverse.
         // postcondition: `next` has the next things to traverse, with (reversed)
         // left children followed by (non-reversed) right children, and num_left
@@ -148,7 +148,7 @@ impl<K, T> Traversal<K, T> {
         self.num_left = go.num_left;
     }
 
-    pub(crate) fn results(&mut self) -> &mut [KeyVal<K, T>] {
+    pub(crate) fn results(&mut self) -> &mut [KeyVal<K, V>] {
         let slice = self.next.make_contiguous();
         // note: reverse only required if we want to return results in wm order,
         // which might be nice if we are eg. looking up associated data.
