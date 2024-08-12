@@ -33,7 +33,7 @@ impl<V: BitVec> Level<V> {
     }
 
     // todo: rename to morton_splits and return values similar to morton?
-    pub(crate) fn child_symbol_extents(
+    pub(crate) fn child_symbol_ranges(
         &self,
         left: u32,
         mask: u32,

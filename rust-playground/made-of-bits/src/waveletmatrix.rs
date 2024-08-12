@@ -333,7 +333,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                 let mut rank_cache = RangedRankCache::new();
                 for x in xs {
                     let symbol = x.v.symbol;
-                    let (left, right) = level.child_symbol_extents(symbol, level.mask);
+                    let (left, right) = level.child_symbol_ranges(symbol, level.mask);
                     let (start, end) = rank_cache.get(x.v.start, x.v.end, &level.bv);
 
                     // if there are any left children, go left
@@ -510,6 +510,14 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                 }
             });
         }
+
+        // For complete queries, the last iteration of the levels loop recurses all the way down
+        // to the virtual bottom level of the wavelet tree, each node representing an individual
+        // symbol, so there should be no uncounted nodes left over.
+        if ignore_bits == 0 {
+            debug_assert!(traversal.is_empty());
+        }
+
         counts
     }
 
@@ -517,7 +525,6 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         &self,
         range: Range<u32>,
         symbol_ranges: &[RangeInclusive<u32>],
-        ignore_bits: usize,
     ) -> Vec<u32> {
         // The return vector of counts
         let mut counts = vec![0; symbol_ranges.len()];
@@ -528,15 +535,14 @@ impl<BV: BitVec> WaveletMatrix<BV> {
 
         // what it looks like when all masks are accumulated; used to early-out
         // when a range is contained in all morton dimensions.
-        let all_masks = union_masks(self.levels(ignore_bits).map(|x| x.mask));
+        let all_masks = union_masks(self.levels.iter().map(|x| x.mask));
 
-        for level in self.levels(ignore_bits) {
+        for level in &self.levels {
             traversal.traverse(|xs, go| {
                 // Cache rank queries when the start of the current range is the same as the end of the previous range
                 for x in xs {
                     let symbol_range = mask_range_inclusive(&symbol_ranges[x.k], level.mask);
-
-                    let (left, right) = level.child_symbol_extents(x.v.left, level.mask);
+                    let (left_child, right_child) = level.child_symbol_ranges(x.v.left, level.mask);
 
                     // Tuples representing the rank0/1 of start and rank0/1 of end.
                     let start = level.bv.ranks(x.v.start);
@@ -549,12 +555,12 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                         // once all bits are accumulated, we can stop the recursion
                         // since it means that the range of symbols represented by this node
                         // is fully contained by the query symbol_range in all dimensions.
-                        let contains = symbol_range.fully_contains(&left);
+                        let contains = symbol_range.fully_contains(&left_child);
                         let f = if contains { set_bits } else { unset_bits };
                         let accumulated_masks = f(x.v.accumulated_masks, level.mask);
                         if contains && accumulated_masks == all_masks {
                             counts[x.k] += end.0 - start.0;
-                        } else if symbol_range.overlaps(&left) {
+                        } else if symbol_range.overlaps(&left_child) {
                             go.left(x.val(MortonCountSymbolRange::new(
                                 accumulated_masks,
                                 x.v.left,
@@ -566,12 +572,12 @@ impl<BV: BitVec> WaveletMatrix<BV> {
 
                     // check the right child
                     if start.1 != end.1 {
-                        let contains = symbol_range.fully_contains(&right);
+                        let contains = symbol_range.fully_contains(&right_child);
                         let f = if contains { set_bits } else { unset_bits };
                         let accumulated_masks = f(x.v.accumulated_masks, level.mask);
                         if contains && accumulated_masks == all_masks {
                             counts[x.k] += end.1 - start.1;
-                        } else if symbol_range.overlaps(&right) {
+                        } else if symbol_range.overlaps(&right_child) {
                             go.right(x.val(MortonCountSymbolRange::new(
                                 accumulated_masks,
                                 x.v.left | level.bit,
@@ -583,6 +589,12 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                 }
             });
         }
+
+        // The last iteration of the levels loop recurses all the way down
+        // to the virtual bottom level of the wavelet tree, where each node
+        // represents an individual symbol, so there should be no uncounted nodes.
+        debug_assert!(traversal.is_empty());
+
         counts
     }
 
@@ -592,15 +604,10 @@ impl<BV: BitVec> WaveletMatrix<BV> {
     // Masks is a slice of bitmasks, one per level, indicating the bitmask operational
     // at that level, to enable multidimensional queries.
     // To search in 1d, pass std::iter::repeat(u32::MAX).take(wm.num_levels()).collect().
-    pub fn xmorton_count_batch(
-        &self,
-        range: Range<u32>,
-        symbol_ranges: &[Range<u32>],
-        ignore_bits: usize,
-    ) -> Vec<u32> {
+    pub fn xmorton_count_batch(&self, range: Range<u32>, symbol_ranges: &[Range<u32>]) -> Vec<u32> {
         // Union all bitmasks so we can tell when we the symbol range is fully contained within
         // the query range at a particular wavelet tree node, in order to avoid needless recursion.
-        let all_masks = union_masks(self.levels(ignore_bits).map(|x| x.mask));
+        let all_masks = union_masks(self.levels.iter().map(|x| x.mask));
 
         // The return vector of counts
         let mut counts = vec![0; symbol_ranges.len()];
@@ -609,7 +616,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         let init = MortonCountSymbolRange::new(0, 0, range.start, range.end);
         let mut traversal = Traversal::new(0.., std::iter::repeat(init).take(symbol_ranges.len()));
 
-        for level in self.levels(ignore_bits) {
+        for level in &self.levels {
             traversal.traverse(|xs, go| {
                 // Cache rank queries when the start of the current range is the same as the end of the previous range
                 let mut rank_cache = RangedRankCache::new();
@@ -685,25 +692,10 @@ impl<BV: BitVec> WaveletMatrix<BV> {
             });
         }
 
-        // For complete queries, the last iteration of the loop above finds itself recursing to the
-        // virtual bottom level of the wavelet tree, each node representing an individual symbol,
-        // so there should be no uncounted nodes left over. This is a bit subtle when masks are
-        // involved but I think the same logic applies.
-        if ignore_bits == 0 {
-            debug_assert!(traversal.is_empty());
-        } else {
-            // Count any nodes left over in the traversal if it didn't traverse all levels,
-            // ie. some bottom levels were ignored.
-            //
-            // I'm not sure if this is actually the behavior we want – it means that symbols
-            // outside the range will be counted...
-            //
-            // Yeah, let's comment this out for now and leave this note here to decide later.
-            //
-            // for x in traversal.results() {
-            //     counts[x.key] += x.val.end - x.val.start;
-            // }
-        }
+        // The last iteration of the levels loop recurses all the way down
+        // to the virtual bottom level of the wavelet tree, where each node
+        // represents an individual symbol, so there should be no uncounted nodes.
+        debug_assert!(traversal.is_empty());
 
         counts
     }
