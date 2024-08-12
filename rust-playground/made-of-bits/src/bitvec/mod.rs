@@ -1,11 +1,11 @@
 pub mod array;
+mod compressed;
 pub mod dense;
 pub mod multi;
 pub mod rle;
 pub mod sparse;
 #[cfg(test)]
 mod test;
-mod compressed;
 
 use crate::{bitbuf::BitBuf, bits::partition_point};
 
@@ -29,6 +29,7 @@ pub trait BitVec: Clone {
     }
 
     /// Return `(rank0(bit_index), rank1(bit_index))`
+    /// This means that if x = ranks(index), x.0 is rank0 and x.1 is rank1.
     fn ranks(&self, bit_index: u32) -> (u32, u32) {
         if bit_index >= self.universe_size() {
             return (self.num_zeros(), self.num_ones());

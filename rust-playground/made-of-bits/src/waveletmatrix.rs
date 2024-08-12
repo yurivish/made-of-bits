@@ -85,8 +85,8 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         let mut preceding_count = 0;
         let mut range = range;
         for level in self.levels(ignore_bits) {
-            let start = level.ranks(range.start);
-            let end = level.ranks(range.end);
+            let start = level.bv.ranks(range.start);
+            let end = level.bv.ranks(range.end);
             // Check if the symbol's level bit is set to determine whether it should be mapped
             // to the left or right child node
             if symbol & level.bit == 0 {
@@ -119,8 +119,8 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         let mut range = range;
         let mut symbol = 0;
         for level in self.levels(0) {
-            let start = level.ranks(range.start);
-            let end = level.ranks(range.end);
+            let start = level.bv.ranks(range.start);
+            let end = level.bv.ranks(range.end);
             let left_count = end.0 - start.0;
             if k < left_count {
                 // go left
@@ -569,8 +569,8 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                 return Some(best.min(candidate));
             }
 
-            let start = level.ranks(range.start);
-            let end = level.ranks(range.end);
+            let start = level.bv.ranks(range.start);
+            let end = level.bv.ranks(range.end);
 
             // otherwise, we know that there are two possibilities:
             // 1. the left node is partly contained and the right node does not overlap the target
@@ -620,7 +620,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
             traversal.traverse(|xs, go| {
                 for x in xs {
                     let (symbol, preceding_count) = (x.val.symbol, x.val.preceding_count);
-                    let (start, end) = (level.ranks(x.val.start), level.ranks(x.val.end));
+                    let (start, end) = (level.bv.ranks(x.val.start), level.bv.ranks(x.val.end));
                     if symbol & level.bit == 0 {
                         go.left(x.val(LocateBatch {
                             symbol,

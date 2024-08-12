@@ -21,12 +21,6 @@ pub(crate) struct Level<V: BitVec> {
 }
 
 impl<V: BitVec> Level<V> {
-    /// Returns (rank0(index), rank1(index))
-    /// This means that if x = ranks(index), x.0 is rank0 and x.1 is rank1.
-    pub(crate) fn ranks(&self, index: u32) -> (u32, u32) {
-        self.bv.ranks(index)
-    }
-
     /// Given the start index of a left node on this level, return the split points
     /// that cover the range:
     /// - left is the start of the left node
@@ -219,10 +213,10 @@ impl<V: BitVec> RangedRankCache<V> {
             self.end_ranks
         } else {
             self.num_misses += 1;
-            level.ranks(start_index)
+            level.bv.ranks(start_index)
         };
         self.end_index = Some(end_index);
-        self.end_ranks = level.ranks(end_index);
+        self.end_ranks = level.bv.ranks(end_index);
         (start_ranks, self.end_ranks)
     }
 
@@ -238,6 +232,7 @@ impl<V: BitVec> RangedRankCache<V> {
 }
 
 // Mask stuff
+//
 
 // Return the union of set bits across all masks in `masks`
 pub(crate) fn union_masks(masks: &[u32]) -> u32 {
