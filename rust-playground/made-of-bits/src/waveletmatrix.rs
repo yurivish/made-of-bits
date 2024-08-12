@@ -550,12 +550,19 @@ impl<BV: BitVec> WaveletMatrix<BV> {
 
                     // check the left child if nonempty
                     if start.0 != end.0 {
-                        // set or unset the accumulated bits for this dimension,
-                        // which represents which dimensions this node is fully-contained in.
-                        // once all bits are accumulated, we can stop the recursion
-                        // since it means that the range of symbols represented by this node
-                        // is fully contained by the query symbol_range in all dimensions.
+                        // Set or unset the accumulated bits for this dimension,
+                        // Used to determine whether we can short-circuit the recursion because the symbols
+                        // represented by the left child are fully contained in symbol_range in all
+                        // dimensions (ie. for all unique masks). For example, if the masks represent
+                        // a two-dimensional query, we need to check that (effectively) the quadtree
+                        // node, represented by two contiguous dimensions, is contained. It's a bit subtle
+                        // since we can early-out not only if a contiguous 'xy' range is detected, but also
+                        // a contiguous 'yx' range – so long as the symbol range is contained in the most
+                        // recent branching in all dimensions, we can stop the recursion early and count the
+                        // node's children, since that means all children are contained within the query range.
                         let contains = symbol_range.fully_contains(&left_child);
+                        // either set or unset the bits associated with this level's mask
+                        // based on whether this node is fully contained on this level.
                         let f = if contains { set_bits } else { unset_bits };
                         let accumulated_masks = f(x.v.accumulated_masks, level.mask);
                         if contains && accumulated_masks == all_masks {
@@ -987,10 +994,12 @@ impl CountSymbolRange {
 /// during a count_symbol_range operation
 #[derive(Copy, Clone, Debug)]
 struct MortonCountSymbolRange {
-    accumulated_masks: u32, // mask accumulator for the levels traversed so far
-    left: u32,              // leftmost symbol in the node
-    start: u32,             // index  range start
-    end: u32,               // index range end
+    // used to track in which dimensions this symbol range is fully contained
+    // in the bounding box for the count query
+    accumulated_masks: u32,
+    left: u32,  // leftmost symbol in the node
+    start: u32, // index  range start
+    end: u32,   // index range end
 }
 
 impl MortonCountSymbolRange {
