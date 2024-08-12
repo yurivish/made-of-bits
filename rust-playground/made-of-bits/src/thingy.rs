@@ -59,8 +59,8 @@ impl Thingy {
         };
 
         Thingy {
-            codes: WaveletMatrix::new(sorted_codes, max_code, Some(options)),
-            ids: WaveletMatrix::new(sorted_ids, max_id, Some(options)),
+            codes: WaveletMatrix::new(sorted_codes, max_code, Some(options), None),
+            ids: WaveletMatrix::new(sorted_ids, max_id, Some(options), None),
             len,
         }
     }
@@ -105,7 +105,7 @@ impl Thingy {
                     lo..hi
                 );
 
-                let mut counts = self.ids.counts(&[rng], 0..=self.ids.max_symbol(), None);
+                let mut counts = self.ids.counts(&[rng], 0..=self.ids.max_symbol());
 
                 for x in counts.results() {
                     println!("incrementing {:?}", x);
@@ -173,10 +173,10 @@ impl Thingy {
 
     pub fn counts(&self) -> BTreeMap<u32, u32> {
         let mut counts = BTreeMap::new();
-        // search over the entire symbol range
+        // search over the entire symbol range (so we don't need to do a morton query)
         let mut traversal = self
             .codes
-            .counts(&[0..self.len], 0..=self.codes.max_symbol(), None);
+            .counts(&[0..self.len], 0..=self.codes.max_symbol());
         for x in traversal.results() {
             let count = x.v.end - x.v.start;
             *counts.entry(x.v.symbol).or_insert(0) += count;

@@ -18,6 +18,8 @@ pub(crate) struct Level<V: BitVec> {
     // the magnitude represented at that level.
     // e.g.  levels[0].bit == 1 << levels.len() - 1
     pub(crate) bit: u32,
+    // morton mask for this level
+    pub(crate) mask: u32,
 }
 
 impl<V: BitVec> Level<V> {
@@ -30,6 +32,7 @@ impl<V: BitVec> Level<V> {
         (left, left + self.bit, left + self.bit + self.bit)
     }
 
+    // todo: rename to morton_splits and return values similar to morton?
     pub(crate) fn child_symbol_extents(
         &self,
         left: u32,
@@ -48,6 +51,8 @@ pub(crate) struct KeyVal<K, V> {
     pub(crate) k: K,
     pub(crate) v: V,
 }
+
+pub(crate) type Val<V> = KeyVal<(), V>;
 
 impl<K, V> From<(K, V)> for KeyVal<K, V> {
     fn from(x: (K, V)) -> Self {
@@ -206,17 +211,17 @@ impl<V: BitVec> RangedRankCache<V> {
         &mut self,
         start_index: u32,
         end_index: u32,
-        level: &Level<V>,
+        bv: &V,
     ) -> (Ranks<u32>, Ranks<u32>) {
         let start_ranks = if Some(start_index) == self.end_index {
             self.num_hits += 1;
             self.end_ranks
         } else {
             self.num_misses += 1;
-            level.bv.ranks(start_index)
+            bv.ranks(start_index)
         };
         self.end_index = Some(end_index);
-        self.end_ranks = level.bv.ranks(end_index);
+        self.end_ranks = bv.ranks(end_index);
         (start_ranks, self.end_ranks)
     }
 
@@ -276,7 +281,7 @@ pub(crate) fn accumulate_mask(
     toggle_bits(
         accumulator,
         mask,
-        symbol_range.contains_range(mask_range(node_range, mask)),
+        symbol_range.fully_contains_range(mask_range(node_range, mask)),
     )
 }
 
@@ -299,30 +304,38 @@ pub(crate) fn toggle_bits(accumulator: u32, mask: u32, cond: bool) -> u32 {
 }
 
 pub(crate) trait RangeOverlaps {
-    fn overlaps_range(self, other: Self) -> bool;
-    fn contains_range(self, other: Range<u32>) -> bool;
+    /// Return true if `self` overlaps `other`
+    fn overlaps(self, other: Self) -> bool;
+    /// Return true if `self` overlaps the range `other`
+    fn overlaps_range(self, other: Range<u32>) -> bool;
+    /// Return true if `self` fully contains `other`
+    fn fully_contains_range(self, other: Range<u32>) -> bool;
 }
 
 impl RangeOverlaps for &Range<u32> {
-    /// Return true if `self` overlaps `other`
-    fn overlaps_range(self, other: Self) -> bool {
+    fn overlaps(self, other: Self) -> bool {
         self.start < other.end && other.start < self.end
     }
 
-    /// Return true if `self` fully contains `other`
-    fn contains_range(self, other: Range<u32>) -> bool {
+    fn overlaps_range(self, other: Range<u32>) -> bool {
+        self.overlaps(&other)
+    }
+
+    fn fully_contains_range(self, other: Range<u32>) -> bool {
         self.start <= other.start && self.end >= other.end
     }
 }
 
 impl RangeOverlaps for &RangeInclusive<u32> {
-    /// Return true if `self` overlaps `other`
-    fn overlaps_range(self, other: Self) -> bool {
+    fn overlaps(self, other: Self) -> bool {
         self.start() <= other.end() && other.start() <= self.end()
     }
 
-    /// Return true if `self` fully contains `other`
-    fn contains_range(self, other: Range<u32>) -> bool {
+    fn overlaps_range(self, other: Range<u32>) -> bool {
+        *self.start() < other.end && other.start <= *self.end()
+    }
+
+    fn fully_contains_range(self, other: Range<u32>) -> bool {
         *self.start() <= other.start && *self.end() > other.end
     }
 }

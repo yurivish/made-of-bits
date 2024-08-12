@@ -37,6 +37,11 @@ fn bbox(tl: u32, br: u32) -> CStringResult<(u32, u32)> {
     Ok((width, height))
 }
 
+/// Checks whether the code range tl..br is fully contained inside its 2d bounding box.
+/// Works by checking whether the number of codes in the code range (br - tl) does not
+/// exceed the number of codes in the rectangular bounding box.
+/// This relies on the fact that the region tl..br always at covers the bounding box,
+/// and may cover more area than that .
 fn range_contained_in_bbox_2d(tl: u32, br: u32) -> CStringResult<bool> {
     bbox(tl, br).map(|(width, height)| {
         let count = width * height;
