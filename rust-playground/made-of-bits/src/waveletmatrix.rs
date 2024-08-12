@@ -2,9 +2,10 @@ use crate::bitvec::BitVec;
 use crate::bitvec::BitVecBuilder;
 use crate::waveletmatrix_support::Val;
 use crate::waveletmatrix_support::{
-    accumulate_mask, mask_extent, mask_range, union_masks, RangeOverlaps,
+    accumulate_mask, mask_range, mask_range_inclusive, union_masks, RangeOverlaps,
     {KeyVal, Level, RangedRankCache, Traversal},
 };
+use crate::waveletmatrix_support::{set_bits, unset_bits};
 use crate::DenseBitVecOptions;
 use crate::{
     bits::reverse_low_bits,
@@ -327,7 +328,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         );
 
         for level in self.levels(ignore_bits) {
-            let symbol_extent = mask_extent(&symbol_extent, level.mask);
+            let symbol_extent = mask_range_inclusive(&symbol_extent, level.mask);
             traversal.traverse(|xs, go| {
                 let mut rank_cache = RangedRankCache::new();
                 for x in xs {
@@ -458,6 +459,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
     /// Count the number of symbols in the given index range
     /// for each of the given symbol ranges. Returns one set
     /// of symbol counts per symbol range.
+    // todo: coalesce within each batch, since we don't return symbol values to the user
     pub fn count_batch(
         &self,
         range: Range<u32>,
@@ -469,12 +471,10 @@ impl<BV: BitVec> WaveletMatrix<BV> {
 
         // Initialize a wavelet matrix traversal with one entry per symbol range we're searching.
         let init = CountSymbolRange::new(0, range.start, range.end);
-        let mut traversal = Traversal::new(0.., std::iter::repeat(init).take(symbol_ranges.len()));
+        let mut traversal = Traversal::new(0.., symbol_ranges.iter().map(|_| init));
 
         for level in self.levels(ignore_bits) {
             traversal.traverse(|xs, go| {
-                // Cache rank queries when the start of the current range is the same as the end of the previous range
-                let mut rank_cache = RangedRankCache::new();
                 for x in xs {
                     let symbol_range = &symbol_ranges[x.k];
 
@@ -482,28 +482,99 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                     let (left, mid, right) = level.splits(x.v.left);
 
                     // Tuples representing the rank0/1 of start and rank0/1 of end.
-                    let (start, end) = rank_cache.get(x.v.start, x.v.end, &level.bv);
+                    let start = level.bv.ranks(x.v.start);
+                    let end = level.bv.ranks(x.v.end);
+
+                    // left child
+                    if start.0 != end.0 {
+                        if symbol_range.fully_contains_range(left..mid) {
+                            counts[x.k] += end.0 - start.0;
+                        } else if symbol_range.overlaps_range(left..mid) {
+                            // recurse if there is partial overlap
+                            go.left(x.val(CountSymbolRange::new(left, start.0, end.0)));
+                        }
+                    }
+
+                    // right child
+                    if start.1 != end.1 {
+                        if symbol_range.fully_contains_range(mid..right) {
+                            counts[x.k] += end.1 - start.1;
+                        } else if symbol_range.overlaps_range(mid..right) {
+                            go.right(x.val(CountSymbolRange::new(
+                                mid,
+                                level.nz + start.1,
+                                level.nz + end.1,
+                            )));
+                        }
+                    }
+                }
+            });
+        }
+        counts
+    }
+
+    pub fn morton_count_batch(
+        &self,
+        range: Range<u32>,
+        symbol_ranges: &[RangeInclusive<u32>],
+        ignore_bits: usize,
+    ) -> Vec<u32> {
+        // The return vector of counts
+        let mut counts = vec![0; symbol_ranges.len()];
+
+        // Initialize a wavelet matrix traversal with one entry per symbol range we're searching.
+        let init = MortonCountSymbolRange::new(0, 0, range.start, range.end);
+        let mut traversal = Traversal::new(0.., symbol_ranges.iter().map(|_| init));
+
+        // what it looks like when all masks are accumulated; used to early-out
+        // when a range is contained in all morton dimensions.
+        let all_masks = union_masks(self.levels(ignore_bits).map(|x| x.mask));
+
+        for level in self.levels(ignore_bits) {
+            traversal.traverse(|xs, go| {
+                // Cache rank queries when the start of the current range is the same as the end of the previous range
+                for x in xs {
+                    let symbol_range = mask_range_inclusive(&symbol_ranges[x.k], level.mask);
+
+                    let (left, right) = level.child_symbol_extents(x.v.left, level.mask);
+
+                    // Tuples representing the rank0/1 of start and rank0/1 of end.
+                    let start = level.bv.ranks(x.v.start);
+                    let end = level.bv.ranks(x.v.end);
 
                     // check the left child if nonempty
                     if start.0 != end.0 {
-                        let child = &(left..=mid - 1);
-                        // if the entire symbol range represented by the left child is in our target range,
-                        // avoid the recursion
-                        if symbol_range.fully_contains(child) {
+                        // set or unset the accumulated bits for this dimension,
+                        // which represents which dimensions this node is fully-contained in.
+                        // once all bits are accumulated, we can stop the recursion
+                        // since it means that the range of symbols represented by this node
+                        // is fully contained by the query symbol_range in all dimensions.
+                        let contains = symbol_range.fully_contains(&left);
+                        let f = if contains { set_bits } else { unset_bits };
+                        let accumulated_masks = f(x.v.accumulated_masks, level.mask);
+                        if contains && accumulated_masks == all_masks {
                             counts[x.k] += end.0 - start.0;
-                        } else if symbol_range.overlaps(child) {
-                            go.left(x.val(CountSymbolRange::new(left, start.0, end.0)));
+                        } else if symbol_range.overlaps(&left) {
+                            go.left(x.val(MortonCountSymbolRange::new(
+                                accumulated_masks,
+                                x.v.left,
+                                start.0,
+                                end.0,
+                            )));
                         }
                     }
 
                     // check the right child
                     if start.1 != end.1 {
-                        let child = &(mid..=right - 1);
-                        if symbol_range.fully_contains(child) {
+                        let contains = symbol_range.fully_contains(&right);
+                        let f = if contains { set_bits } else { unset_bits };
+                        let accumulated_masks = f(x.v.accumulated_masks, level.mask);
+                        if contains && accumulated_masks == all_masks {
                             counts[x.k] += end.1 - start.1;
-                        } else if symbol_range.overlaps(child) {
-                            go.right(x.val(CountSymbolRange::new(
-                                mid,
+                        } else if symbol_range.overlaps(&right) {
+                            go.right(x.val(MortonCountSymbolRange::new(
+                                accumulated_masks,
+                                x.v.left | level.bit,
                                 level.nz + start.1,
                                 level.nz + end.1,
                             )));
@@ -521,7 +592,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
     // Masks is a slice of bitmasks, one per level, indicating the bitmask operational
     // at that level, to enable multidimensional queries.
     // To search in 1d, pass std::iter::repeat(u32::MAX).take(wm.num_levels()).collect().
-    pub fn morton_count_batch(
+    pub fn xmorton_count_batch(
         &self,
         range: Range<u32>,
         symbol_ranges: &[Range<u32>],
@@ -576,7 +647,12 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                         //
                         // If the node is contained in all dimensions, then the accumulator will be equal to all_masks,
                         // and we can stop the recursion early.
-                        let acc = accumulate_mask(left..mid, level.mask, &symbol_range, x.v.acc);
+                        let acc = accumulate_mask(
+                            left..mid,
+                            level.mask,
+                            &symbol_range,
+                            x.v.accumulated_masks,
+                        );
                         if acc == all_masks {
                             counts[x.k] += end.0 - start.0;
                         } else if symbol_range.overlaps(&mask_range(left..mid, level.mask)) {
@@ -588,7 +664,12 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                     // right child
                     if start.1 != end.1 {
                         // See the comments for the left node; the logical structure here is identical.
-                        let acc = accumulate_mask(mid..right, level.mask, &symbol_range, x.v.acc);
+                        let acc = accumulate_mask(
+                            mid..right,
+                            level.mask,
+                            &symbol_range,
+                            x.v.accumulated_masks,
+                        );
                         if acc == all_masks {
                             counts[x.k] += end.1 - start.1;
                         } else if symbol_range.overlaps(&mask_range(mid..right, level.mask)) {
@@ -914,16 +995,16 @@ impl CountSymbolRange {
 /// during a count_symbol_range operation
 #[derive(Copy, Clone, Debug)]
 struct MortonCountSymbolRange {
-    acc: u32,   // mask accumulator for the levels traversed so far
-    left: u32,  // leftmost symbol in the node
-    start: u32, // index  range start
-    end: u32,   // index range end
+    accumulated_masks: u32, // mask accumulator for the levels traversed so far
+    left: u32,              // leftmost symbol in the node
+    start: u32,             // index  range start
+    end: u32,               // index range end
 }
 
 impl MortonCountSymbolRange {
     fn new(acc: u32, left: u32, start: u32, end: u32) -> Self {
         MortonCountSymbolRange {
-            acc,
+            accumulated_masks: acc,
             left,
             start,
             end,
@@ -1094,8 +1175,13 @@ mod tests {
         }
 
         {
-            // counts
-            // wm.counts(ranges, symbol_extent, masks)
+            // count_batch
+            assert_eq!(wm.count_batch(0..len, &[0..=10], 0), vec![5]);
+            assert_eq!(wm.count_batch(0..len, &[0..=5, 6..=10], 0), vec![4, 1]);
+            assert_eq!(
+                wm.count_batch(0..len, &[0..=2, 3..=3, 4..=10], 0),
+                vec![2, 2, 1]
+            );
         }
     }
 }

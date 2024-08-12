@@ -40,8 +40,8 @@ impl<V: BitVec> Level<V> {
     ) -> (RangeInclusive<u32>, RangeInclusive<u32>) {
         let (left, mid, right) = self.splits(left);
         (
-            mask_extent(&(left..=mid - 1), mask),
-            mask_extent(&(mid..=right - 1), mask),
+            mask_range_inclusive(&(left..=mid - 1), mask),
+            mask_range_inclusive(&(mid..=right - 1), mask),
         )
     }
 }
@@ -244,11 +244,12 @@ pub(crate) fn union_masks(masks: impl IntoIterator<Item = u32>) -> u32 {
     masks.into_iter().reduce(set_bits).unwrap_or(0)
 }
 
+// todo: accept a reference
 pub(crate) fn mask_range(range: Range<u32>, mask: u32) -> Range<u32> {
     (range.start & mask)..((range.end - 1) & mask) + 1
 }
 
-pub(crate) fn mask_extent(extent: &RangeInclusive<u32>, mask: u32) -> RangeInclusive<u32> {
+pub(crate) fn mask_range_inclusive(extent: &RangeInclusive<u32>, mask: u32) -> RangeInclusive<u32> {
     extent.start() & mask..=extent.end() & mask
 }
 
@@ -320,7 +321,7 @@ impl RangeOverlaps for &Range<u32> {
     }
 
     fn fully_contains(self, other: Self) -> bool {
-        self.start <= other.start && self.end >= other.end
+        self.start <= other.start && other.end <= self.end
     }
 
     fn overlaps_range(self, other: Range<u32>) -> bool {
@@ -346,6 +347,6 @@ impl RangeOverlaps for &RangeInclusive<u32> {
     }
 
     fn fully_contains_range(self, other: Range<u32>) -> bool {
-        *self.start() <= other.start && *self.end() > other.end
+        *self.start() <= other.start && other.end.saturating_sub(1) <= *self.end()
     }
 }
