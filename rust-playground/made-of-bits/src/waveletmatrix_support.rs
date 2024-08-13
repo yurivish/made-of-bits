@@ -62,7 +62,7 @@ impl<K, V> From<(K, V)> for KeyVal<K, V> {
 }
 
 // we will merge if the keys are the same and can_merge is true
-// later we can figure out if a thing is even Possibly mergeable and if it isn't, skip the mergy logic
+// later we can figure out if a thing is even Possibly mergeable and if it isn't, skip the mergy logic entirely
 pub(crate) trait CanMerge {
     fn can_merge(&self, other: &Self) -> bool {
         false
@@ -150,13 +150,13 @@ impl<K: PartialEq, V: CanMerge> Traversal<K, V> {
         let mut go = Goer {
             next: &mut self.next,
             num_left: 0,
-            last_left: None,
-            last_right: None,
+            prev_left: None,
+            prev_right: None,
         };
 
         // invoke the traversal function with the current elements and the recursion helper
         // we pass an iterator rather than an element at a time so that f can do its own
-        // batching if it wants to
+        // batching or re-traversal within a single level if it wants to
         f(cur, &mut go);
 
         go.done();
@@ -169,10 +169,8 @@ impl<K: PartialEq, V: CanMerge> Traversal<K, V> {
 
     pub(crate) fn results(&mut self) -> &mut [KeyVal<K, V>] {
         let slice = self.next.make_contiguous();
-        // note: reverse only required if we want to return results in wm order,
-        // which might be nice if we are eg. looking up associated data.
+        // note: we reverse here so that results are returned in ascending (ie. wm index order along the bottom level).
         slice[..self.num_left].reverse();
-
         self.num_left = 0; // update this so that calling results multiple times does not re-reverse the left
         slice
     }
@@ -184,53 +182,84 @@ impl<K: PartialEq, V: CanMerge> Traversal<K, V> {
     }
 }
 
-// Passed into the traversal callback as a way to control the recursion.
-// Goes left and/or right.
+/// Passed into the traversal callback as a way to control the recursion.
+/// Goes left and/or right.
+/// Will merge entries together if they
+/// 1. have the same key
+/// 2. are mergeable
+/// 3. both went in the same direction
+/// this is sometimes wasteful since eg. if you're tracking individual symbols
+/// down the tree then you cannot merge any entries from the same original query,
+/// and could only merge across different input index ranges. But those will have
+/// different keys, so they won't be merged here.
+/// But merging works well when you don't care about the key -- eg. compute something
+/// for a collection of distinct index ranges that are effectively treated as a single
+/// discontiguous range. (In this case the key is `()`)
 pub(crate) struct Goer<'next, T> {
-    last_left: Option<T>,
-    last_right: Option<T>,
+    // the collection into which we are placing guys
     next: &'next mut VecDeque<T>,
+    // number of guys who went left
     num_left: usize,
+    // the last seen guy who went left
+    prev_left: Option<T>,
+    // the last seen guy who went right
+    prev_right: Option<T>,
 }
 
-impl<K: PartialEq, V: CanMerge> Goer<'_, KeyVal<K, V>> {
-    pub(crate) fn left(&mut self, kv: KeyVal<K, V>) {
-        match &mut self.last_left {
-            Some(last_left) => {
-                if last_left.k == kv.k && V::can_merge(&last_left.v, &kv.v) {
-                    last_left.v.merge(kv.v);
-                } else {
-                    // left children are appended to the front of the queue
-                    // which causes them to be in reverse order
-                    self.next.push_front(self.last_left.replace(kv).unwrap());
-                    self.num_left += 1;
-                }
-            }
-            None => self.last_left = Some(kv),
-        }
+impl<T> Goer<'_, T> {
+    pub(crate) fn push_left(&mut self, value: T) {
+        // left children are appended to the front of the queue,
+        // which causes them to be in reverse order, so they get reversed
+        // back to the right way round in `traverse` (this is why we track num_left).
+        self.next.push_front(value);
+        self.num_left += 1;
     }
 
-    pub(crate) fn right(&mut self, kv: KeyVal<K, V>) {
+    pub(crate) fn push_right(&mut self, value: T) {
         // right children are appended to the back of the queue
-        match &mut self.last_right {
-            Some(last_right) => {
-                if last_right.k == kv.k && V::can_merge(&last_right.v, &kv.v) {
-                    last_right.v.merge(kv.v);
-                } else {
-                    self.next.push_back(self.last_right.replace(kv).unwrap());
-                }
-            }
-            None => self.last_right = Some(kv),
-        }
+        self.next.push_back(value);
     }
 
     pub(crate) fn done(&mut self) {
-        if let Some(last_left) = self.last_left.take() {
-            self.next.push_front(last_left);
-            self.num_left += 1;
+        if let Some(prev_left) = self.prev_left.take() {
+            // left children are appended to the front of the queue,
+            // which causes them to be in reverse order, so they get reversed
+            // back to the right way round in `traverse` (this is why we track num_left).
+            self.push_left(prev_left);
         }
-        if let Some(last_right) = self.last_right.take() {
-            self.next.push_back(last_right);
+        if let Some(prev_right) = self.prev_right.take() {
+            // right children are appended to the back of the queue
+            self.push_right(prev_right);
+        }
+    }
+}
+
+impl<K: PartialEq, V: CanMerge> Goer<'_, KeyVal<K, V>> {
+    pub(crate) fn left(&mut self, x: KeyVal<K, V>) {
+        match &mut self.prev_left {
+            Some(prev_left) => {
+                if prev_left.k == x.k && V::can_merge(&prev_left.v, &x.v) {
+                    prev_left.v.merge(x.v);
+                } else {
+                    let value = self.prev_left.replace(x).unwrap();
+                    self.push_left(value);
+                }
+            }
+            None => self.prev_left = Some(x),
+        }
+    }
+
+    pub(crate) fn right(&mut self, x: KeyVal<K, V>) {
+        match &mut self.prev_right {
+            Some(prev_right) => {
+                if prev_right.k == x.k && V::can_merge(&prev_right.v, &x.v) {
+                    prev_right.v.merge(x.v);
+                } else {
+                    let value = self.prev_right.replace(x).unwrap();
+                    self.push_right(value);
+                }
+            }
+            None => self.prev_right = Some(x),
         }
     }
 }
@@ -242,8 +271,8 @@ pub(crate) struct RangedRankCache<V: BitVec> {
     end_ranks: Ranks<u32>,  // previous end ranks
     // note: we track these just out of interest;
     // we could enable only when profiling.
-    num_hits: usize,   // number of cache hits
-    num_misses: usize, // number of cache misses
+    // num_hits: usize,   // number of cache hits
+    // num_misses: usize, // number of cache misses
     _v: PhantomData<V>,
 }
 
@@ -252,8 +281,8 @@ impl<V: BitVec> RangedRankCache<V> {
         Self {
             end_index: None,
             end_ranks: (0, 0),
-            num_hits: 0,
-            num_misses: 0,
+            // num_hits: 0,
+            // num_misses: 0,
             _v: PhantomData,
         }
     }
@@ -265,10 +294,10 @@ impl<V: BitVec> RangedRankCache<V> {
         bv: &V,
     ) -> (Ranks<u32>, Ranks<u32>) {
         let start_ranks = if Some(start_index) == self.end_index {
-            self.num_hits += 1;
+            // self.num_hits += 1;
             self.end_ranks
         } else {
-            self.num_misses += 1;
+            // self.num_misses += 1;
             bv.ranks(start_index)
         };
         self.end_index = Some(end_index);
@@ -276,15 +305,15 @@ impl<V: BitVec> RangedRankCache<V> {
         (start_ranks, self.end_ranks)
     }
 
-    pub(crate) fn log_stats(&self) {
-        println!(
-            "cached {:.1}%: {:?} / {:?}",
-            // note: can be nan
-            100.0 * self.num_hits as f64 / (self.num_hits + self.num_misses) as f64,
-            self.num_hits,
-            self.num_hits + self.num_misses,
-        );
-    }
+    // pub(crate) fn log_stats(&self) {
+    //     println!(
+    //         "cached {:.1}%: {:?} / {:?}",
+    //         // note: can be nan
+    //         100.0 * self.num_hits as f64 / (self.num_hits + self.num_misses) as f64,
+    //         self.num_hits,
+    //         self.num_hits + self.num_misses,
+    //     );
+    // }
 }
 
 // Mask stuff

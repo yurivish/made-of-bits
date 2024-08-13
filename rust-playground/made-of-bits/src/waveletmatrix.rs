@@ -258,10 +258,10 @@ impl<BV: BitVec> WaveletMatrix<BV> {
     // todo: fn k_majority(&self, k, range) { ... }
 
     /// Count the number of occurrences of each symbol in the given index ranges.
-    /// Returns a vec of (input_index, symbol, start, end) tuples.
+    /// Returns a vec of (input_index, symbol, start, end) tuples. [todo: no longer true; now returns Counts]
     /// Returning (start, end) rather than a count `end - start` is helpful for
     /// use cases that associate per-symbol data with each entry.
-    /// Note that (when ignore_bits is 0) the range is on the virtual bottom layer
+    /// Note that (when ignore_bits is 0) the range is on the virtual bottom layer [todo: no more ignore bits for now]
     /// of the wavelet matrix, where symbols are sorted in ascending bit-reversed order.
     // TODO: Is there a way to do ~half the number of rank queries for contiguous
     // ranges that share a midpoint, ie. [a..b, b..c, c..d]?
