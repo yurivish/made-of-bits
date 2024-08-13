@@ -370,36 +370,12 @@ impl<BV: BitVec> WaveletMatrix<BV> {
             }),
         );
 
-        let mut bit_indices = vec![];
-        let mut batch_ranks = vec![];
+        let mut bit_indices = vec![]; // batch rank input
+        let mut batch_ranks = vec![]; // batch rank output
 
         for level in self.levels.iter() {
-            // merge traversal.
-            // also accumulate bit indices for rank queries, so we can do them in a batch.
-            // traversal.traverse(|xs, go| {
-            //     // println!("pre-merge: {}", xs.len());
-            //     if let Some(first) = xs.first() {
-            //         let mut prev: Val<Counts> = *first;
-            //         for x in &xs[1..] {
-            //             let cur = x;
-            //             if prev.v.symbol == cur.v.symbol && prev.v.end == cur.v.start {
-            //                 prev.v.end = cur.v.end;
-            //             } else {
-            //                 debug_assert!(prev.v.start <= prev.v.end);
-            //                 bit_indices.push(prev.v.start);
-            //                 bit_indices.push(prev.v.end);
-            //                 go.right(prev);
-            //                 prev = *cur;
-            //             }
-            //         }
-            //         debug_assert!(prev.v.start <= prev.v.end);
-            //         bit_indices.push(prev.v.start);
-            //         bit_indices.push(prev.v.end);
-            //         go.right(prev);
-            //     }
-            // });
-
             traversal.traverse(|xs, go| {
+                // prepare the input for the batch rank operation
                 bit_indices.clear();
                 for x in xs {
                     bit_indices.push(x.v.start);
@@ -991,8 +967,11 @@ struct CountSymbolRange {
 
 impl CanMerge for CountSymbolRange {
     fn can_merge(&self, other: &Self) -> bool {
-        // we want to return individual symbols to the user, so do not merge them
-        false
+        self.left == other.left && self.end == other.start
+    }
+
+    fn merge(&mut self, other: Self) {
+        self.end = other.end
     }
 }
 
@@ -1016,13 +995,15 @@ struct MortonCountSymbolRange {
 
 impl CanMerge for MortonCountSymbolRange {
     fn can_merge(&self, other: &Self) -> bool {
-        // what do we do with accumulated_masks when symbols differ?
-        false // self.end == other.start
+        if self.left == other.left {
+            debug_assert!(self.accumulated_masks == other.accumulated_masks);
+        }
+        self.left == other.left && self.end == other.start
     }
 
-    // fn merge(&mut self, other: Self) {
-    //     self.end = other.end
-    // }
+    fn merge(&mut self, other: Self) {
+        self.end = other.end
+    }
 }
 
 impl MortonCountSymbolRange {

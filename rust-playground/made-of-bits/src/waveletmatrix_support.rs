@@ -163,6 +163,8 @@ impl<K: PartialEq, V: CanMerge> Traversal<K, V> {
 
         // update the number of nodes that went left based on the calls `f` made to `go`
         self.num_left = go.num_left;
+
+        // dbg!(self.next.len());
     }
 
     pub(crate) fn results(&mut self) -> &mut [KeyVal<K, V>] {
