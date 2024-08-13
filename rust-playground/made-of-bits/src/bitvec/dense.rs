@@ -361,11 +361,12 @@ impl BitVec for DenseBitVec {
     }
 
     fn rank1_batch(&self, out: &mut Vec<u32>, bit_indices: &[u32]) {
-        // note: how far apart two bit indices can be within a chunk is an interesting parameter
-        // whose tradeoffs i don't fully understand yet.
-        // todo: how big should chunks be? should we check the distance between the rank blocks
-        // the two samples fall into, ie. rankblock(b) - rankblock(a), or what we do below?
-        let chunks = bit_indices.chunk_by(|a, b| (b - a) >> self.rank1_samples_pow2 == 0);
+        let chunks = bit_indices.chunk_by(|a, b| {
+            // note: we could instead measure the distance in terms of rank blocks.
+            // this is an interesting parameter to play with.
+            let rank_blocks_apart = (b - a) >> self.rank1_samples_pow2;
+            rank_blocks_apart <= 1
+        });
         for chunk in chunks {
             let mut hint = None;
             for i in chunk {

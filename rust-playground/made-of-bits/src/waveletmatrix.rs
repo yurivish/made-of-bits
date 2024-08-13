@@ -404,8 +404,8 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                     if start.1 != end.1 {
                         go.right(x.val(Counts {
                             symbol: x.v.symbol | level.bit,
-                            start: level.nz + start.1,
-                            end: level.nz + end.1,
+                            start: start.1 + level.nz,
+                            end: end.1 + level.nz,
                         }));
                     }
                 }
@@ -462,7 +462,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                     let symbol_range = &symbol_ranges[x.k];
 
                     // Left, middle, and right symbol indices for the children of this node.
-                    let (left, mid, right) = level.splits(x.v.left);
+                    let (left, mid, right) = level.splits(x.v.symbol);
 
                     // Tuples representing the rank0/1 of start and rank0/1 of end.
                     let start = level.bv.ranks(x.v.start);
@@ -523,7 +523,8 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                 // Cache rank queries when the start of the current range is the same as the end of the previous range
                 for x in xs {
                     let symbol_range = mask_range_inclusive(&symbol_ranges[x.k], level.mask);
-                    let (left_child, right_child) = level.child_symbol_ranges(x.v.left, level.mask);
+                    let (left_child, right_child) =
+                        level.child_symbol_ranges(x.v.symbol, level.mask);
 
                     // Tuples representing the rank0/1 of start and rank0/1 of end.
                     let start = level.bv.ranks(x.v.start);
@@ -551,7 +552,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                         } else if symbol_range.overlaps(&left_child) {
                             go.left(x.val(MortonCountSymbolRange::new(
                                 accumulated_masks,
-                                x.v.left,
+                                x.v.symbol,
                                 start.0,
                                 end.0,
                             )));
@@ -568,7 +569,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                         } else if symbol_range.overlaps(&right_child) {
                             go.right(x.val(MortonCountSymbolRange::new(
                                 accumulated_masks,
-                                x.v.left | level.bit,
+                                x.v.symbol | level.bit,
                                 level.nz + start.1,
                                 level.nz + end.1,
                             )));
@@ -613,7 +614,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                     let symbol_range = mask_range(symbol_ranges[x.k].clone(), level.mask);
 
                     // Left, middle, and right symbol indices for the children of this node.
-                    let (left, mid, right) = level.splits(x.v.left);
+                    let (left, mid, right) = level.splits(x.v.symbol);
 
                     // Tuples representing the rank0/1 of start and rank0/1 of end.
                     let (start, end) = rank_cache.get(x.v.start, x.v.end, &level.bv);
@@ -960,14 +961,14 @@ impl<BV: BitVec> WaveletMatrix<BV> {
 
 #[derive(Copy, Clone, Debug)]
 struct CountSymbolRange {
-    left: u32,  // leftmost symbol in the node
-    start: u32, // index  range start
-    end: u32,   // index range end
+    symbol: u32, // leftmost symbol in the node
+    start: u32,  // index  range start
+    end: u32,    // index range end
 }
 
 impl CanMerge for CountSymbolRange {
     fn can_merge(&self, other: &Self) -> bool {
-        self.left == other.left && self.end == other.start
+        self.symbol == other.symbol && self.end == other.start
     }
 
     fn merge(&mut self, other: Self) {
@@ -976,8 +977,8 @@ impl CanMerge for CountSymbolRange {
 }
 
 impl CountSymbolRange {
-    fn new(left: u32, start: u32, end: u32) -> Self {
-        CountSymbolRange { left, start, end }
+    fn new(symbol: u32, start: u32, end: u32) -> Self {
+        CountSymbolRange { symbol, start, end }
     }
 }
 
@@ -988,17 +989,17 @@ struct MortonCountSymbolRange {
     // used to track in which dimensions this symbol range is fully contained
     // in the bounding box for the count query
     accumulated_masks: u32,
-    left: u32,  // leftmost symbol in the node
-    start: u32, // index  range start
-    end: u32,   // index range end
+    symbol: u32, // leftmost symbol in the node
+    start: u32,  // index  range start
+    end: u32,    // index range end
 }
 
 impl CanMerge for MortonCountSymbolRange {
     fn can_merge(&self, other: &Self) -> bool {
-        if self.left == other.left {
+        if self.symbol == other.symbol {
             debug_assert!(self.accumulated_masks == other.accumulated_masks);
         }
-        self.left == other.left && self.end == other.start
+        self.symbol == other.symbol && self.end == other.start
     }
 
     fn merge(&mut self, other: Self) {
@@ -1007,10 +1008,10 @@ impl CanMerge for MortonCountSymbolRange {
 }
 
 impl MortonCountSymbolRange {
-    fn new(acc: u32, left: u32, start: u32, end: u32) -> Self {
+    fn new(acc: u32, symbol: u32, start: u32, end: u32) -> Self {
         MortonCountSymbolRange {
             accumulated_masks: acc,
-            left,
+            symbol,
             start,
             end,
         }
@@ -1025,24 +1026,18 @@ pub struct LocateBatch {
     pub end: u32,             // index range end
 }
 
-impl CanMerge for LocateBatch {}
+impl CanMerge for LocateBatch {
+    fn can_merge(&self, other: &Self) -> bool {
+        if self.symbol == other.symbol {
+            debug_assert!(self.preceding_count == other.preceding_count);
+        }
+        self.symbol == other.symbol && self.end == other.start
+    }
 
-// with no symbol if we just want a single aggregate count
-// #[derive(Debug, Copy, Clone)]
-// pub struct CountsFasterMaybe {
-//     pub start: u32, // index range start
-//     pub end: u32,   // index range end
-// }
-
-// impl CanMerge for CountsFasterMaybe {
-//     fn can_merge(&self, other: &Self) -> bool {
-//         self.end == other.start
-//     }
-
-//     fn merge(&mut self, other: Self) {
-//         self.end = other.end
-//     }
-// }
+    fn merge(&mut self, other: Self) {
+        self.end = other.end
+    }
+}
 
 #[derive(Debug, Copy, Clone)]
 pub struct Counts {
