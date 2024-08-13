@@ -133,7 +133,7 @@ impl Thingy {
         // we can tally up the number of elements in each symbol (id) to determine which
         // ids are "fully contained" in the rectangular query region for the time series
         // case where we can predetermine exactly how many ids there WOULD be in that region
-        // if they were all contained (since only 1 per x value). ie. target_value = x extent;
+        // if they were all contained (since only 1 per x value). ie. target_value == x extent;
         // then we can filter to those time series that are fully contained in the rectangle,
         // rather than (as we do currently) selecting those where a single point in the bbox
         // is sufficient for inclusion in the result set,

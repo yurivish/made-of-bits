@@ -364,7 +364,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         let mut traversal = Traversal::new(
             std::iter::repeat(()),
             ranges.iter().map(|range| Counts {
-                symbol: 0, // the leftmost symbol in the current node
+                symbol: 0,
                 start: range.start,
                 end: range.end,
             }),
@@ -416,17 +416,21 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                         let end0 = x.v.end - end1;
                         ((start0, start1), (end0, end1))
                     };
-                    // if there are any left children, go right
+                    // if there are any left children, go left
                     if start.0 != end.0 {
-                        go.left(x.val(Counts::new(x.v.symbol, start.0, end.0)));
+                        go.left(x.val(Counts {
+                            symbol: x.v.symbol,
+                            start: start.0,
+                            end: end.0,
+                        }));
                     }
-                    // if there are any right children, set the level bit and go right
+                    // if there are any right children, go right
                     if start.1 != end.1 {
-                        go.right(x.val(Counts::new(
-                            x.v.symbol | level.bit,
-                            level.nz + start.1,
-                            level.nz + end.1,
-                        )));
+                        go.right(x.val(Counts {
+                            symbol: x.v.symbol | level.bit,
+                            start: level.nz + start.1,
+                            end: level.nz + end.1,
+                        }));
                     }
                 }
             });
@@ -468,7 +472,6 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         &self,
         range: Range<u32>,
         symbol_ranges: &[RangeInclusive<u32>],
-        ignore_bits: usize,
     ) -> Vec<u32> {
         // The return vector of counts
         let mut counts = vec![0; symbol_ranges.len()];
@@ -477,7 +480,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         let init = CountSymbolRange::new(0, range.start, range.end);
         let mut traversal = Traversal::new(0.., symbol_ranges.iter().map(|_| init));
 
-        for level in self.levels(ignore_bits) {
+        for level in &self.levels {
             traversal.traverse(|xs, go| {
                 for x in xs {
                     let symbol_range = &symbol_ranges[x.k];
@@ -515,12 +518,10 @@ impl<BV: BitVec> WaveletMatrix<BV> {
             });
         }
 
-        // For complete queries, the last iteration of the levels loop recurses all the way down
-        // to the virtual bottom level of the wavelet tree, each node representing an individual
-        // symbol, so there should be no uncounted nodes left over.
-        if ignore_bits == 0 {
-            debug_assert!(traversal.is_empty());
-        }
+        // The last iteration of the levels loop recurses all the way down
+        // to the virtual bottom level of the wavelet tree, where each node
+        // represents an individual symbol, so there should be no uncounted nodes.
+        debug_assert!(traversal.is_empty());
 
         counts
     }
@@ -1015,7 +1016,7 @@ struct MortonCountSymbolRange {
 
 impl CanMerge for MortonCountSymbolRange {
     fn can_merge(&self, other: &Self) -> bool {
-        // what do we do with accumulated_masks?
+        // what do we do with accumulated_masks when symbols differ?
         false // self.end == other.start
     }
 
@@ -1045,6 +1046,23 @@ pub struct LocateBatch {
 
 impl CanMerge for LocateBatch {}
 
+// with no symbol if we just want a single aggregate count
+// #[derive(Debug, Copy, Clone)]
+// pub struct CountsFasterMaybe {
+//     pub start: u32, // index range start
+//     pub end: u32,   // index range end
+// }
+
+// impl CanMerge for CountsFasterMaybe {
+//     fn can_merge(&self, other: &Self) -> bool {
+//         self.end == other.start
+//     }
+
+//     fn merge(&mut self, other: Self) {
+//         self.end = other.end
+//     }
+// }
+
 #[derive(Debug, Copy, Clone)]
 pub struct Counts {
     pub symbol: u32, // leftmost symbol in the node
@@ -1054,7 +1072,7 @@ pub struct Counts {
 
 impl CanMerge for Counts {
     fn can_merge(&self, other: &Self) -> bool {
-        self.end == other.start
+        self.symbol == other.symbol && self.end == other.start
     }
 
     fn merge(&mut self, other: Self) {
@@ -1211,10 +1229,10 @@ mod tests {
 
         {
             // count_batch
-            assert_eq!(wm.count_batch(0..len, &[0..=10], 0), vec![5]);
-            assert_eq!(wm.count_batch(0..len, &[0..=5, 6..=10], 0), vec![4, 1]);
+            assert_eq!(wm.count_batch(0..len, &[0..=10]), vec![5]);
+            assert_eq!(wm.count_batch(0..len, &[0..=5, 6..=10]), vec![4, 1]);
             assert_eq!(
-                wm.count_batch(0..len, &[0..=2, 3..=3, 4..=10], 0),
+                wm.count_batch(0..len, &[0..=2, 3..=3, 4..=10]),
                 vec![2, 2, 1]
             );
         }
