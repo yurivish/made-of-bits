@@ -1,3 +1,4 @@
+use std::cmp::PartialEq;
 use std::ops::{Range, RangeInclusive};
 // The traversal order means that outputs do not appear in the same order as inputs and
 // there may be multiple outputs per input (e.g. symbols found within a given index range)
@@ -60,10 +61,25 @@ impl<K, V> From<(K, V)> for KeyVal<K, V> {
     }
 }
 
+// we will merge if the keys are the same and can_merge is true
+// later we can figure out if a thing is even Possibly mergeable and if it isn't, skip the mergy logic
+pub(crate) trait CanMerge {
+    fn can_merge(&self, other: &Self) -> bool {
+        false
+    }
+
+    fn merge(&mut self, other: Self)
+    where
+        Self: Sized,
+    {
+        unimplemented!("must implement merge if can_merge is true")
+    }
+}
+
 // Associate a usize key to an arbitrary value; used for propagating the metadata
 // of which original query element a partial query result is associated with as we
 // traverse the wavelet tree
-impl<K, V> KeyVal<K, V> {
+impl<K, V: CanMerge> KeyVal<K, V> {
     pub(crate) fn new(key: K, value: V) -> KeyVal<K, V> {
         KeyVal { k: key, v: value }
     }
@@ -93,7 +109,7 @@ pub(crate) struct Traversal<K, V> {
 
 // Traverse a wavelet matrix levelwise, at each level maintaining tree nodes
 // in order they appear in the wavelet matrix (left children preceding right).
-impl<K, V> Traversal<K, V> {
+impl<K: PartialEq, V: CanMerge> Traversal<K, V> {
     pub(crate) fn new(
         keys: impl IntoIterator<Item = K>,
         vals: impl IntoIterator<Item = V>,
@@ -103,8 +119,6 @@ impl<K, V> Traversal<K, V> {
             next: VecDeque::new(),
             num_left: 0,
         };
-        traversal.cur.clear();
-        traversal.next.clear();
         traversal
             .next
             .extend(keys.into_iter().zip(vals.into_iter()).map(Into::into));
@@ -136,12 +150,16 @@ impl<K, V> Traversal<K, V> {
         let mut go = Goer {
             next: &mut self.next,
             num_left: 0,
+            last_left: None,
+            last_right: None,
         };
 
         // invoke the traversal function with the current elements and the recursion helper
         // we pass an iterator rather than an element at a time so that f can do its own
         // batching if it wants to
         f(cur, &mut go);
+
+        go.done();
 
         // update the number of nodes that went left based on the calls `f` made to `go`
         self.num_left = go.num_left;
@@ -167,20 +185,51 @@ impl<K, V> Traversal<K, V> {
 // Passed into the traversal callback as a way to control the recursion.
 // Goes left and/or right.
 pub(crate) struct Goer<'next, T> {
+    last_left: Option<T>,
+    last_right: Option<T>,
     next: &'next mut VecDeque<T>,
     num_left: usize,
 }
 
-impl<T> Goer<'_, T> {
-    pub(crate) fn left(&mut self, kv: T) {
-        // left children are appended to the front of the queue
-        // which causes them to be in reverse order
-        self.next.push_front(kv);
-        self.num_left += 1;
+impl<K: PartialEq, V: CanMerge> Goer<'_, KeyVal<K, V>> {
+    pub(crate) fn left(&mut self, kv: KeyVal<K, V>) {
+        match &mut self.last_left {
+            Some(last_left) => {
+                if last_left.k == kv.k && V::can_merge(&last_left.v, &kv.v) {
+                    last_left.v.merge(kv.v);
+                } else {
+                    // left children are appended to the front of the queue
+                    // which causes them to be in reverse order
+                    self.next.push_front(self.last_left.replace(kv).unwrap());
+                    self.num_left += 1;
+                }
+            }
+            None => self.last_left = Some(kv),
+        }
     }
-    pub(crate) fn right(&mut self, kv: T) {
+
+    pub(crate) fn right(&mut self, kv: KeyVal<K, V>) {
         // right children are appended to the back of the queue
-        self.next.push_back(kv);
+        match &mut self.last_right {
+            Some(last_right) => {
+                if last_right.k == kv.k && V::can_merge(&last_right.v, &kv.v) {
+                    last_right.v.merge(kv.v);
+                } else {
+                    self.next.push_back(self.last_right.replace(kv).unwrap());
+                }
+            }
+            None => self.last_right = Some(kv),
+        }
+    }
+
+    pub(crate) fn done(&mut self) {
+        if let Some(last_left) = self.last_left.take() {
+            self.next.push_front(last_left);
+            self.num_left += 1;
+        }
+        if let Some(last_right) = self.last_right.take() {
+            self.next.push_back(last_right);
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 use crate::bitvec::BitVec;
 use crate::bitvec::BitVecBuilder;
+use crate::waveletmatrix_support::CanMerge;
 use crate::waveletmatrix_support::Val;
 use crate::waveletmatrix_support::{
     accumulate_mask, mask_range, mask_range_inclusive, union_masks, RangeOverlaps,
@@ -373,37 +374,40 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         let mut batch_ranks = vec![];
 
         for level in self.levels.iter() {
-            bit_indices.clear();
-
             // merge traversal.
             // also accumulate bit indices for rank queries, so we can do them in a batch.
+            // traversal.traverse(|xs, go| {
+            //     // println!("pre-merge: {}", xs.len());
+            //     if let Some(first) = xs.first() {
+            //         let mut prev: Val<Counts> = *first;
+            //         for x in &xs[1..] {
+            //             let cur = x;
+            //             if prev.v.symbol == cur.v.symbol && prev.v.end == cur.v.start {
+            //                 prev.v.end = cur.v.end;
+            //             } else {
+            //                 debug_assert!(prev.v.start <= prev.v.end);
+            //                 bit_indices.push(prev.v.start);
+            //                 bit_indices.push(prev.v.end);
+            //                 go.right(prev);
+            //                 prev = *cur;
+            //             }
+            //         }
+            //         debug_assert!(prev.v.start <= prev.v.end);
+            //         bit_indices.push(prev.v.start);
+            //         bit_indices.push(prev.v.end);
+            //         go.right(prev);
+            //     }
+            // });
+
             traversal.traverse(|xs, go| {
-                // println!("pre-merge: {}", xs.len());
-                if let Some(first) = xs.first() {
-                    let mut prev: Val<Counts> = *first;
-                    for x in &xs[1..] {
-                        let cur = x;
-                        if prev.v.symbol == cur.v.symbol && prev.v.end == cur.v.start {
-                            prev.v.end = cur.v.end;
-                        } else {
-                            debug_assert!(prev.v.start <= prev.v.end);
-                            bit_indices.push(prev.v.start);
-                            bit_indices.push(prev.v.end);
-                            go.right(prev);
-                            prev = *cur;
-                        }
-                    }
-                    debug_assert!(prev.v.start <= prev.v.end);
-                    bit_indices.push(prev.v.start);
-                    bit_indices.push(prev.v.end);
-                    go.right(prev);
+                bit_indices.clear();
+                for x in xs {
+                    bit_indices.push(x.v.start);
+                    bit_indices.push(x.v.end);
                 }
-            });
+                batch_ranks.clear();
+                level.bv.rank1_batch(&mut batch_ranks, &bit_indices);
 
-            batch_ranks.clear();
-            level.bv.rank1_batch(&mut batch_ranks, &bit_indices);
-
-            traversal.traverse(|xs, go| {
                 for (x, r) in xs.iter().zip(batch_ranks.chunks_exact(2)) {
                     let (start, end) = {
                         let start1 = r[0];
@@ -984,6 +988,13 @@ struct CountSymbolRange {
     end: u32,   // index range end
 }
 
+impl CanMerge for CountSymbolRange {
+    fn can_merge(&self, other: &Self) -> bool {
+        // we want to return individual symbols to the user, so do not merge them
+        false
+    }
+}
+
 impl CountSymbolRange {
     fn new(left: u32, start: u32, end: u32) -> Self {
         CountSymbolRange { left, start, end }
@@ -1000,6 +1011,17 @@ struct MortonCountSymbolRange {
     left: u32,  // leftmost symbol in the node
     start: u32, // index  range start
     end: u32,   // index range end
+}
+
+impl CanMerge for MortonCountSymbolRange {
+    fn can_merge(&self, other: &Self) -> bool {
+        // what do we do with accumulated_masks?
+        false // self.end == other.start
+    }
+
+    // fn merge(&mut self, other: Self) {
+    //     self.end = other.end
+    // }
 }
 
 impl MortonCountSymbolRange {
@@ -1021,11 +1043,23 @@ pub struct LocateBatch {
     pub end: u32,             // index range end
 }
 
+impl CanMerge for LocateBatch {}
+
 #[derive(Debug, Copy, Clone)]
 pub struct Counts {
     pub symbol: u32, // leftmost symbol in the node
     pub start: u32,  // index range start
     pub end: u32,    // index range end
+}
+
+impl CanMerge for Counts {
+    fn can_merge(&self, other: &Self) -> bool {
+        self.end == other.start
+    }
+
+    fn merge(&mut self, other: Self) {
+        self.end = other.end
+    }
 }
 
 impl Counts {
