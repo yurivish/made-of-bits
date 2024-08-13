@@ -362,10 +362,10 @@ impl BitVec for DenseBitVec {
 
     fn rank1_batch(&self, out: &mut Vec<u32>, bit_indices: &[u32]) {
         let chunks = bit_indices.chunk_by(|a, b| {
-            // note: we could instead measure the distance in terms of rank blocks.
-            // this is an interesting parameter to play with.
-            let rank_blocks_apart = (b - a) >> self.rank1_samples_pow2;
-            rank_blocks_apart <= 1
+            // note: we could instead measure the distance in terms of actual rank blocks.
+            //       this is an interesting parameter to play with.
+            let dist = (b - a) >> self.rank1_samples_pow2;
+            dist <= 1
         });
         for chunk in chunks {
             let mut hint = None;
