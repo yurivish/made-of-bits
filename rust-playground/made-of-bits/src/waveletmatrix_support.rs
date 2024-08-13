@@ -266,6 +266,8 @@ impl<K: PartialEq, V: CanMerge> Goer<'_, KeyVal<K, V>> {
 
 type Ranks<T> = (T, T);
 
+/// Note that this cache fulfills a different purpose than merging because it can be used even when merging cannot.
+/// For example, when you want to maintain distinct symbols but they share a boundary
 pub(crate) struct RangedRankCache<V: BitVec> {
     end_index: Option<u32>, // previous end index
     end_ranks: Ranks<u32>,  // previous end ranks

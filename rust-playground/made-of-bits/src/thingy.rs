@@ -152,7 +152,7 @@ impl Thingy {
 
         let mut traversal = time!(
             "counts_faster_maybe",
-            self.codes.counts_faster_maybe(&ranges)
+            self.codes.counts_faster_maybe(&ranges) //, 0..=self.codes.max_symbol())
         );
 
         // let mut traversal = time!(

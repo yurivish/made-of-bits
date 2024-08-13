@@ -13,6 +13,7 @@ use crate::{
     bitvec::dense::{DenseBitVec, DenseBitVecBuilder},
 };
 use std::collections::VecDeque;
+use std::iter::repeat;
 use std::marker::PhantomData;
 use std::ops::Range;
 use std::ops::RangeInclusive;
@@ -265,6 +266,9 @@ impl<BV: BitVec> WaveletMatrix<BV> {
     /// of the wavelet matrix, where symbols are sorted in ascending bit-reversed order.
     // TODO: Is there a way to do ~half the number of rank queries for contiguous
     // ranges that share a midpoint, ie. [a..b, b..c, c..d]?
+    // NOTE: This is slower mainly due to
+    // - a usize key rather than ()
+    // - individual rank calls rather than batched
     pub fn counts(
         &self,
         ranges: &[Range<u32>],
@@ -288,6 +292,8 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                     let symbol = x.v.symbol;
                     let (left, mid, right) = level.splits(symbol);
                     let (start, end) = rank_cache.get(x.v.start, x.v.end, &level.bv);
+                    // let start = level.bv.ranks(x.v.start);
+                    // let end = level.bv.ranks(x.v.end);
 
                     // if there are any left children, go left
                     if start.0 != end.0 && symbol_extent.overlaps_range(left..mid) {
@@ -362,7 +368,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         }
 
         let mut traversal = Traversal::new(
-            std::iter::repeat(()),
+            repeat(()),
             ranges.iter().map(|range| Counts {
                 symbol: 0,
                 start: range.start,
@@ -404,8 +410,8 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                     if start.1 != end.1 {
                         go.right(x.val(Counts {
                             symbol: x.v.symbol | level.bit,
-                            start: start.1 + level.nz,
-                            end: end.1 + level.nz,
+                            start: level.nz + start.1,
+                            end: level.nz + end.1,
                         }));
                     }
                 }
@@ -443,7 +449,6 @@ impl<BV: BitVec> WaveletMatrix<BV> {
     /// Count the number of symbols in the given index range
     /// for each of the given symbol ranges. Returns one set
     /// of symbol counts per symbol range.
-    // todo: coalesce within each batch, since we don't return symbol values to the user
     pub fn count_batch(
         &self,
         range: Range<u32>,
