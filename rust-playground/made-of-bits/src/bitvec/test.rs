@@ -282,6 +282,14 @@ pub(crate) fn test_bitvec<T: BitVecBuilder>(
         assert_eq!(a.select1(i), b.select1(i));
         assert_eq!(a.select0(i), b.select0(i));
     }
+
+    let bit_indices: Vec<_> = (0..universe_size).step_by(3).collect();
+    let a_out = naive_rank1_batch(a, &bit_indices);
+    let naive_out = naive_rank1_batch(b.clone(), &bit_indices);
+    let mut b_out = vec![];
+    b.rank1_batch(&mut b_out, &bit_indices);
+    assert_eq!(a_out, b_out);
+    assert_eq!(a_out, naive_out);
 }
 
 // MultiBitVec

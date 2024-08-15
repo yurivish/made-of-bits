@@ -72,8 +72,25 @@ impl<T: BitVec> BitVec for ZeroPadded<T> {
         self.bv.num_zeros() + padding_zeros
     }
 
+    /// An extremely silly way to implement this: clone the input vector
+    /// to adjust all bit indices for bv.
+    /// Should we change the interface to require ownership of bit_indices
+    /// so that we can mutate them (or require mutable access, or change them back?)
     fn rank1_batch(&self, out: &mut Vec<u32>, bit_indices: &[u32]) {
-        self.bv.rank1_batch(out, bit_indices)
+        let bit_indices: Vec<_> = bit_indices
+            .iter()
+            .copied()
+            .map(|i| {
+                if i < self.start {
+                    0
+                } else if i >= self.end {
+                    u32::MAX
+                } else {
+                    i - self.start
+                }
+            })
+            .collect();
+        self.bv.rank1_batch(out, &bit_indices);
     }
 
     fn rank1(&self, bit_index: u32) -> u32 {
