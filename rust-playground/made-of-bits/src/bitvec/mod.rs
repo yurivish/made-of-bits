@@ -125,7 +125,7 @@ pub trait BitVecBuilder: Clone {
     /// 1-bits may be added in any order.
     fn one(&mut self, bit_index: u32);
     fn build(self) -> Self::Target;
-    fn from_ones(universe_size: u32, ones: &[u32], options: Self::Options) -> Self::Target
+    fn from_ones(universe_size: u32, options: Self::Options, ones: &[u32]) -> Self::Target
     where
         Self: Sized,
     {
@@ -148,11 +148,16 @@ pub trait MultiBitVecBuilder: Clone {
 
     fn ones(&mut self, bit_index: u32, count: u32);
     fn build(self) -> Self::Target;
-    fn from_ones_counts(universe_size: u32, ones: &[u32], counts: &[u32]) -> Self::Target
+    fn from_ones_counts(
+        universe_size: u32,
+        options: Self::Options,
+        ones: &[u32],
+        counts: &[u32],
+    ) -> Self::Target
     where
         Self: Sized,
     {
-        let mut b = Self::new(universe_size);
+        let mut b = Self::new(universe_size, options);
         for (&one, &count) in ones.iter().zip(counts.iter()) {
             b.ones(one, count)
         }
@@ -236,9 +241,9 @@ where
     type Target = BitVecOf<B::Target>;
     type Options = B::Options;
 
-    fn new(universe_size: u32) -> Self {
+    fn new(universe_size: u32, options: Self::Options) -> Self {
         Self {
-            builder: B::new(universe_size),
+            builder: B::new(universe_size, options),
             ones: BitBuf::new(universe_size),
         }
     }

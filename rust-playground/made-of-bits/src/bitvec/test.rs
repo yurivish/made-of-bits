@@ -17,6 +17,7 @@ use std::any::type_name;
 // - some individual bitvec types should have type-specific tests that stress specific bitvec
 //   shapes and assert the appropriate size guarantees, eg. sparse (large universe), rle (runs),
 //   and multi (large multiplicities)
+// - Default options are used everywhere; we should be able to generate and test arbitrary options.
 
 /// Top-level functions for testing the BitVec and MultiBitVec interfaces
 
@@ -65,7 +66,7 @@ fn naive_rank1_batch(v: impl BitVec, bit_indices: &[u32]) -> Vec<u32> {
 pub(crate) fn spot_test_bitvec_builder<T: BitVecBuilder>() {
     {
         // empty bitvec
-        let bv = T::new(0).build();
+        let bv = T::new(0, Default::default()).build();
 
         assert_eq!(bv.rank1(0), 0);
         assert_eq!(bv.rank1(1), 0);
@@ -88,7 +89,7 @@ pub(crate) fn spot_test_bitvec_builder<T: BitVecBuilder>() {
         assert_eq!(bv.universe_size(), 0);
 
         // all-zero bitvec
-        let bv = T::new(100).build();
+        let bv = T::new(100, Default::default()).build();
 
         assert_eq!(bv.rank1(0), 0);
         assert_eq!(bv.rank1(1), 0);
@@ -113,7 +114,7 @@ pub(crate) fn spot_test_bitvec_builder<T: BitVecBuilder>() {
 
     {
         // builder allows but ignores multiplicity (idempotency)
-        let mut b = T::new(10);
+        let mut b = T::new(10, Default::default());
         b.one(5);
         b.one(5);
         let bv = b.build();
@@ -125,7 +126,7 @@ pub(crate) fn spot_test_bitvec_builder<T: BitVecBuilder>() {
 
     {
         // builder panics on out-of-range values
-        let mut b = T::new(100);
+        let mut b = T::new(100, Default::default());
         assert!(panics(|| b.one(100)));
     }
 
@@ -133,7 +134,7 @@ pub(crate) fn spot_test_bitvec_builder<T: BitVecBuilder>() {
         // bitvec gives correct answers for some basic rank and select queries.
         // we use a universe size of 70 since it's enough to cover a few basic blocks.
 
-        let mut b = T::new(70);
+        let mut b = T::new(70, Default::default());
         b.one(0);
         b.one(31);
         b.one(32);
@@ -184,7 +185,7 @@ pub(crate) fn spot_test_bitvec_builder<T: BitVecBuilder>() {
     {
         // check rank1_batch
 
-        let mut b = T::new(1000);
+        let mut b = T::new(1000, Default::default());
         for i in [1, 10, 11, 50, 72, 205] {
             b.one(i);
         }
@@ -201,9 +202,9 @@ pub(crate) fn spot_test_bitvec_builder<T: BitVecBuilder>() {
             // The RLEBitVec rejects a universe size of u32::MAX
             // due to the fact that it needs to place a 1 into one of its inner
             // bit vectors at index `universe_size`.
-            assert!(panics(|| T::new(u32::MAX).build()));
+            assert!(panics(|| T::new(u32::MAX, Default::default()).build()));
 
-            let mut b = T::new(u32::MAX - 1);
+            let mut b = T::new(u32::MAX - 1, Default::default());
             // can add a bit at the maximum allowed index
             b.one(u32::MAX - 2);
             // cannot add one beyond that
@@ -211,7 +212,7 @@ pub(crate) fn spot_test_bitvec_builder<T: BitVecBuilder>() {
             // builds without panic
             b.build()
         } else {
-            let mut b = T::new(u32::MAX);
+            let mut b = T::new(u32::MAX, Default::default());
             // can add a bit at the maximum allowed index
             b.one(u32::MAX - 1);
             // cannot add one beyond that
@@ -230,7 +231,8 @@ pub(crate) fn prop_test_bitvec_builder<T: BitVecBuilder>(
     arbtest(|u| {
         let universe_size = u.arbitrary_len::<u32>()? as u32;
         let ones = arbitrary_ones(u, universe_size)?;
-        test_bitvec::<T>(universe_size, ones);
+        // todo: can we do arbitrary options?
+        test_bitvec::<T>(universe_size, Default::default(), ones);
         Ok(())
     })
 }
@@ -248,15 +250,20 @@ pub(crate) fn sweep_test_bitvec_builder<T: BitVecBuilder>() {
             .gen_elts(2, universe_size as usize - 1) // note the inclusive upper bound
             .map(|x| x as u32)
             .collect();
-        test_bitvec::<T>(universe_size, ones);
+        test_bitvec::<T>(universe_size, Default::default(), ones);
     }
 }
 
 /// Equality tests for BitVec, checking against an ArrayBitVec
-pub(crate) fn test_bitvec<T: BitVecBuilder>(universe_size: u32, ones: Vec<u32>) {
+pub(crate) fn test_bitvec<T: BitVecBuilder>(
+    universe_size: u32,
+    options: T::Options,
+    ones: Vec<u32>,
+) {
     // a is the baseline and b is the candidate bitvector under test
-    let a = BitVecBuilderOf::<ArrayBitVecBuilder>::from_ones(universe_size, &ones);
-    let b = T::from_ones(universe_size, &ones);
+    let a =
+        BitVecBuilderOf::<ArrayBitVecBuilder>::from_ones(universe_size, Default::default(), &ones);
+    let b = T::from_ones(universe_size, options, &ones);
 
     assert_eq!(a.num_zeros(), b.num_zeros());
     assert_eq!(a.num_ones(), b.num_ones());
@@ -269,6 +276,7 @@ pub(crate) fn test_bitvec<T: BitVecBuilder>(universe_size: u32, ones: Vec<u32>) 
     // test with some extra values on the top of the array to ensure that out-of-bounds
     // queries are treated identically between the two options
     for i in 0..universe_size.saturating_add(10) {
+        dbg!(i);
         assert_eq!(a.rank1(i), b.rank1(i));
         assert_eq!(a.rank0(i), b.rank0(i));
         assert_eq!(a.select1(i), b.select1(i));
@@ -283,7 +291,7 @@ pub(crate) fn test_bitvec<T: BitVecBuilder>(universe_size: u32, ones: Vec<u32>) 
 pub(crate) fn spot_test_multibitvec_builder<T: MultiBitVecBuilder>() {
     {
         // empty bitvec
-        let bv = T::new(0).build();
+        let bv = T::new(0, Default::default()).build();
         assert_eq!(bv.num_unique_ones(), 0);
     }
 }
@@ -313,8 +321,8 @@ pub(crate) fn test_multibitvec<T: MultiBitVecBuilder>(
     counts: Vec<u32>,
 ) {
     // a is the baseline and b is the candidate bitvector under test
-    let a = ArrayBitVecBuilder::from_ones_counts(universe_size, &ones, &counts);
-    let b = T::from_ones_counts(universe_size, &ones, &counts);
+    let a = ArrayBitVecBuilder::from_ones_counts(universe_size, Default::default(), &ones, &counts);
+    let b = T::from_ones_counts(universe_size, Default::default(), &ones, &counts);
 
     assert_eq!(a.num_zeros(), b.num_zeros());
     assert_eq!(a.num_ones(), b.num_ones());

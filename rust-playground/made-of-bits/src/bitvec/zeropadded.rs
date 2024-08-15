@@ -1,3 +1,4 @@
+use crate::bitblock::BitBlock;
 use crate::bitvec::sparse::SparseBitVec;
 use crate::bitvec::BitVec;
 use crate::bitvec::BitVecBuilder;
@@ -10,8 +11,8 @@ use std::collections::HashMap;
 pub struct ZeroPadded<T> {
     bv: T,
     universe_size: u32,
-    pad_left: u32,
-    pad_right: u32,
+    start: u32,
+    end: u32,
 }
 
 impl<T: BitVec> ZeroPadded<T> {
@@ -19,18 +20,23 @@ impl<T: BitVec> ZeroPadded<T> {
         Self {
             bv,
             universe_size,
-            pad_left,
-            pad_right,
+            start: pad_left,                // index of the first non-padding bit
+            end: universe_size - pad_right, // one past the index of the last padding bit
         }
     }
 }
 
-// TODO: account for offset and padding (ie. left and right zero padding) in trait impl
 impl<T: BitVec> BitVec for ZeroPadded<T> {
     type Builder = ZeroPaddedBuilder<T::Builder>;
 
     fn rank0(&self, bit_index: u32) -> u32 {
-        self.bv.rank0(bit_index)
+        if bit_index >= self.universe_size() {
+            return self.num_zeros();
+        }
+        if bit_index < self.start {
+            return bit_index;
+        }
+        self.start + self.bv.rank0(bit_index - self.start) + bit_index.saturating_sub(self.end)
     }
 
     fn ranks(&self, bit_index: u32) -> (u32, u32) {
@@ -38,19 +44,32 @@ impl<T: BitVec> BitVec for ZeroPadded<T> {
     }
 
     fn select1(&self, n: u32) -> Option<u32> {
-        self.bv.select1(n)
+        self.bv.select1(n).map(|i| self.start + i)
     }
 
     fn select0(&self, n: u32) -> Option<u32> {
-        self.bv.select0(n)
+        if n < self.start {
+            return Some(n);
+        }
+        if n >= self.num_zeros() {
+            return None;
+        }
+        self.bv
+            .select0(n - self.start)
+            .map(|i| self.start + i)
+            .or_else(|| Some(n + self.bv.num_ones()))
     }
 
     fn get(&self, bit_index: u32) -> u32 {
-        self.bv.get(bit_index)
+        if bit_index < self.start || bit_index >= self.end {
+            return 0;
+        }
+        self.bv.get(bit_index - self.start)
     }
 
     fn num_zeros(&self) -> u32 {
-        self.bv.num_zeros()
+        let padding_zeros = self.universe_size() - self.end + self.start;
+        self.bv.num_zeros() + padding_zeros
     }
 
     fn rank1_batch(&self, out: &mut Vec<u32>, bit_indices: &[u32]) {
@@ -58,11 +77,14 @@ impl<T: BitVec> BitVec for ZeroPadded<T> {
     }
 
     fn rank1(&self, bit_index: u32) -> u32 {
-        self.bv.rank1(bit_index)
+        if bit_index < self.start {
+            return 0;
+        }
+        self.bv.rank1(bit_index - self.start)
     }
 
     fn universe_size(&self) -> u32 {
-        self.bv.universe_size()
+        self.universe_size
     }
 
     fn num_ones(&self) -> u32 {
@@ -72,17 +94,15 @@ impl<T: BitVec> BitVec for ZeroPadded<T> {
 
 #[derive(Default, Clone)]
 pub struct ZeroPaddedOptions<O: Default + Clone> {
-    universe_size: u32,
     pad_left: u32,
     pad_right: u32,
-    options: O,
+    options: O, // options for the inner bitvector
 }
 
 #[derive(Clone)]
-struct ZeroPaddedBuilder<B: BitVecBuilder> {
+pub struct ZeroPaddedBuilder<B: BitVecBuilder> {
     universe_size: u32,
-    pad_left: u32,
-    pad_right: u32,
+    options: ZeroPaddedOptions<B::Options>,
     builder: B,
 }
 
@@ -93,8 +113,7 @@ impl<B: BitVecBuilder> BitVecBuilder for ZeroPaddedBuilder<B> {
     fn new(universe_size: u32, options: Self::Options) -> Self {
         Self {
             universe_size,
-            pad_left: options.pad_left,
-            pad_right: options.pad_right,
+            options: options.clone(),
             builder: B::new(
                 universe_size - options.pad_left - options.pad_right,
                 options.options,
@@ -103,30 +122,61 @@ impl<B: BitVecBuilder> BitVecBuilder for ZeroPaddedBuilder<B> {
     }
 
     fn one(&mut self, bit_index: u32) {
-        self.builder.one(bit_index - self.pad_left);
+        assert!(bit_index >= self.options.pad_left);
+        assert!(bit_index < self.universe_size - self.options.pad_right);
+        self.builder.one(bit_index - self.options.pad_left);
     }
 
     fn build(self) -> Self::Target {
         ZeroPadded::new(
             self.builder.build(),
             self.universe_size,
-            self.pad_left,
-            self.pad_right,
+            self.options.pad_left,
+            self.options.pad_right,
         )
     }
 }
 
-// TODO
 #[cfg(test)]
 mod tests {
-    // use super::*;
-    // use crate::bitvec::array::ArrayBitVecBuilder;
-    // use crate::bitvec::BitVecBuilderOf;
-    // use crate::{bitvec::dense::DenseBitVecBuilder, bitvec::test::*};
+    use super::*;
+    use crate::bitvec::array::ArrayBitVecBuilder;
+    use crate::bitvec::BitVecBuilderOf;
+    use crate::{bitvec::dense::DenseBitVecBuilder, bitvec::test::*};
 
-    // #[test]
-    // fn multibitvec_interface() {
-    //     test_multibitvec_builder::<MultiBuilder<DenseBitVecBuilder>>();
-    //     test_multibitvec_builder::<MultiBuilder<BitVecBuilderOf<ArrayBitVecBuilder>>>();
-    // }
+    #[test]
+    fn zeropadded_interface() {
+        // test different collections of ones.
+        // we test 10 and 94, which are the first
+        // and last elements allowed to be nonzero
+        // under the provided padding and universe size
+        // (universe size 100, padding left 10, padding right 5).
+        let oneses = [
+            vec![],
+            vec![10, 15, 19, 80, 94],
+            vec![10],
+            vec![50],
+            vec![94],
+        ];
+        for ones in oneses {
+            let options = test_bitvec::<ZeroPaddedBuilder<DenseBitVecBuilder>>(
+                100,
+                ZeroPaddedOptions {
+                    pad_left: 10,
+                    pad_right: 5,
+                    options: Default::default(),
+                },
+                ones.clone(),
+            );
+            test_bitvec::<ZeroPaddedBuilder<BitVecBuilderOf<ArrayBitVecBuilder>>>(
+                100,
+                ZeroPaddedOptions {
+                    pad_left: 10,
+                    pad_right: 5,
+                    options: Default::default(),
+                },
+                ones.clone(),
+            );
+        }
+    }
 }

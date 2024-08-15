@@ -29,7 +29,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
     pub fn new(
         data: Vec<u32>,
         max_symbol: u32,
-        bitvec_options: Option<<BV::Builder as BitVecBuilder>::Options>,
+        bitvec_options: <BV::Builder as BitVecBuilder>::Options,
         morton_masks: Option<&[u32]>,
     ) -> WaveletMatrix<BV> {
         let num_levels = (u32::BITS - max_symbol.leading_zeros()).max(1);
@@ -830,10 +830,10 @@ impl<BV: BitVec> WaveletMatrix<BV> {
     fn build_bitvecs<T: BitVec>(
         data: Vec<u32>,
         num_levels: usize,
-        bitvec_options: Option<<T::Builder as BitVecBuilder>::Options>,
+        bitvec_options: <T::Builder as BitVecBuilder>::Options,
     ) -> Vec<T> {
         assert!(data.len() <= u32::MAX as usize);
-        let mut levels = vec![T::Builder::new(data.len() as u32); num_levels];
+        let mut levels = vec![T::Builder::new(data.len() as u32, bitvec_options); num_levels];
         let mut hist = vec![0; 1 << num_levels];
         let mut borders = vec![0; 1 << num_levels];
         let max_level = num_levels - 1;
@@ -895,18 +895,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
             }
         }
 
-        levels
-            .into_iter()
-            .map(|level| {
-                // apply options if any were passed in
-                if let Some(o) = &bitvec_options {
-                    level.options(o.clone())
-                } else {
-                    level
-                }
-            })
-            .map(|level| level.build())
-            .collect()
+        levels.into_iter().map(|level| level.build()).collect()
     }
 
     /// Wavelet matrix construction algorithm optimized for large alphabets.
@@ -916,7 +905,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
     fn build_bitvecs_large_alphabet<T: BitVec>(
         mut data: Vec<u32>,
         num_levels: usize,
-        bitvec_options: Option<<T::Builder as BitVecBuilder>::Options>,
+        bitvec_options: <T::Builder as BitVecBuilder>::Options,
     ) -> Vec<T> {
         assert!(data.len() <= u32::MAX as usize);
         let mut levels = Vec::with_capacity(num_levels);
@@ -929,7 +918,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
 
         for l in 0..max_level {
             let level_bit = 1 << (max_level - l);
-            let mut b = T::Builder::new(data.len() as u32);
+            let mut b = T::Builder::new(data.len() as u32, bitvec_options.clone());
             let mut index = 0;
             // Stably sort all elements with a zero bit at this level to the left, storing
             // the positions of all one bits at this level in `bits`.
@@ -950,7 +939,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
 
         // For the last level we don't need to do anything but build the bitvector
         {
-            let mut b = T::Builder::new(data.len() as u32);
+            let mut b = T::Builder::new(data.len() as u32, bitvec_options);
             let level_bit = 1 << 0;
             for (index, d) in data.iter().enumerate() {
                 if d & level_bit > 0 {
@@ -1082,7 +1071,8 @@ mod tests {
         let data = vec![1, 3, 3, 2, 7];
         let len = data.len() as u32;
         let max_symbol = data.iter().max().copied().unwrap();
-        let wm = WaveletMatrix::<DenseBitVec>::new(data.clone(), max_symbol, None, None);
+        let wm =
+            WaveletMatrix::<DenseBitVec>::new(data.clone(), max_symbol, Default::default(), None);
 
         {
             // num_levels

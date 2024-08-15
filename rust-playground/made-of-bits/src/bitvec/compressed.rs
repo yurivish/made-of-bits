@@ -1,12 +1,13 @@
 use crate::bitvec::BitVec;
 use crate::bitvec::BitVecBuilder;
 
-// NOTE: This is just a renamed ArrayBitVec at the moment.
 // The goal is to implement the compressed bit vector as
 // described in "Fast, Small, Simple Rank/Select on Bitmaps":
 // https://users.dcc.uchile.cl/~gnavarro/ps/sea12.1.pdf
 // See also: https://observablehq.com/d/5370347688e58b4d
 
+// NOTE: This is just a renamed ArrayBitVec at the moment.
+/*
 #[derive(Clone)]
 pub struct CompressedBitVec {
     ones: Box<[u32]>,
@@ -70,7 +71,7 @@ impl BitVecBuilder for CompressedBitVecBuilder {
     type Target = CompressedBitVec;
     type Options = ();
 
-    fn new(universe_size: u32) -> Self {
+    fn new(universe_size: u32, options: Self::Options) -> Self {
         Self {
             universe_size,
             ones: Vec::new(),
@@ -94,7 +95,9 @@ mod tests {
     use crate::bitvec::test::*;
 
     #[test]
-    fn multibitvec_interface() {
+    fn test() {
         test_bitvec_builder::<CompressedBitVecBuilder>();
     }
 }
+
+*/

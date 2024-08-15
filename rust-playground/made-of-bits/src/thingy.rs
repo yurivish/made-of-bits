@@ -59,8 +59,8 @@ impl Thingy {
         };
 
         Thingy {
-            codes: WaveletMatrix::new(sorted_codes, max_code, Some(options), None),
-            ids: WaveletMatrix::new(sorted_ids, max_id, Some(options), None),
+            codes: WaveletMatrix::new(sorted_codes, max_code, options, None),
+            ids: WaveletMatrix::new(sorted_ids, max_id, options, None),
             len,
         }
     }

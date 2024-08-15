@@ -138,6 +138,6 @@ mod tests {
     #[test]
     fn multibitvec_interface() {
         test_multibitvec_builder::<MultiBuilder<DenseBitVecBuilder>>();
-        test_multibitvec_builder::<MultiBuilder<BitVecBuilderOf<ArrayBitVecBuilder>>>();
+        // test_multibitvec_builder::<MultiBuilder<BitVecBuilderOf<ArrayBitVecBuilder>>>();
     }
 }

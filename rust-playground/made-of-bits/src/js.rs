@@ -111,7 +111,7 @@ macro_rules! export_multibitvec {
 
         #[js(name_prefix = $name_prefix)]
         fn builder_new(universe_size: u32) -> *mut $builder_type {
-            allocate(<$builder_type>::new(universe_size))
+            allocate(<$builder_type>::new(universe_size, Default::default()))
         }
 
         #[js(name_prefix = $name_prefix)]
