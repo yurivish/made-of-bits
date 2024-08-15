@@ -10,15 +10,17 @@ use std::collections::HashMap;
 pub struct ZeroPadded<T> {
     bv: T,
     universe_size: u32,
-    offset: u32, // start offset
+    pad_left: u32,
+    pad_right: u32,
 }
 
 impl<T: BitVec> ZeroPadded<T> {
-    fn new(bv: T, universe_size: u32, offset: u32) -> Self {
+    fn new(bv: T, universe_size: u32, pad_left: u32, pad_right: u32) -> Self {
         Self {
             bv,
             universe_size,
-            offset,
+            pad_left,
+            pad_right,
         }
     }
 }
@@ -71,14 +73,16 @@ impl<T: BitVec> BitVec for ZeroPadded<T> {
 #[derive(Default, Clone)]
 pub struct ZeroPaddedOptions<O: Default + Clone> {
     universe_size: u32,
-    offset: u32,
+    pad_left: u32,
+    pad_right: u32,
     options: O,
 }
 
 #[derive(Clone)]
 struct ZeroPaddedBuilder<B: BitVecBuilder> {
     universe_size: u32,
-    offset: u32,
+    pad_left: u32,
+    pad_right: u32,
     builder: B,
 }
 
@@ -89,17 +93,26 @@ impl<B: BitVecBuilder> BitVecBuilder for ZeroPaddedBuilder<B> {
     fn new(universe_size: u32, options: Self::Options) -> Self {
         Self {
             universe_size,
-            offset: options.offset,
-            builder: B::new(universe_size - options.offset, options.options),
+            pad_left: options.pad_left,
+            pad_right: options.pad_right,
+            builder: B::new(
+                universe_size - options.pad_left - options.pad_right,
+                options.options,
+            ),
         }
     }
 
     fn one(&mut self, bit_index: u32) {
-        self.builder.one(bit_index - self.offset);
+        self.builder.one(bit_index - self.pad_left);
     }
 
     fn build(self) -> Self::Target {
-        ZeroPadded::new(self.builder.build(), self.universe_size, self.offset)
+        ZeroPadded::new(
+            self.builder.build(),
+            self.universe_size,
+            self.pad_left,
+            self.pad_right,
+        )
     }
 }
 
