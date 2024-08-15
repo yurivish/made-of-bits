@@ -395,16 +395,11 @@ impl BitVecBuilder for DenseBitVecBuilder {
     /// (rank1_samples_pow2, select_samples_pow2)
     type Options = DenseBitVecOptions;
 
-    fn new(universe_size: u32) -> Self {
+    fn new(universe_size: u32, options: Self::Options) -> Self {
         Self {
             buf: BitBuf::new(universe_size),
-            options: Default::default(),
+            options,
         }
-    }
-
-    fn options(mut self, options: Self::Options) -> Self {
-        self.options = options;
-        self
     }
 
     fn build(self) -> DenseBitVec {

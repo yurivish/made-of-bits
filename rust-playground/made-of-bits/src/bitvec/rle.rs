@@ -146,7 +146,7 @@ impl BitVecBuilder for RLEBitVecBuilder {
     type Target = RLEBitVec;
     type Options = ();
 
-    fn new(universe_size: u32) -> Self {
+    fn new(universe_size: u32, options: Self::Options) -> Self {
         Self {
             universe_size,
             ones: HashSet::new(),

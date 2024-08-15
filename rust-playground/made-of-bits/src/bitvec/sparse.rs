@@ -44,32 +44,39 @@ impl SparseBitVec {
         // unary coding; 1 denotes values and 0 denotes separators, since that way
         // encoding becomes more efficient and we have a chance of saving space due to runs of
         // zeros at either end, if the values are clustered away from the domain edges.
+        // NOTE: ^ The above comment is only true if we use a padded dense bitvector, which we currently do not.
         // By default, values are never more than 50% of the bits due to the way the split point is chosen.
         // Note that this expression automatically adapts to non-power-of-two universe sizes.
         let high_len = num_ones + (universe_size >> low_bit_width);
+        dbg!((universe_size >> low_bit_width));
+        dbg!(low_bit_width);
+        dbg!((universe_size >> low_bit_width).saturating_sub(1));
+        dbg!(high_len, universe_size, num_ones);
         let mut high = BitBuf::new(high_len);
         let mut low = IntBuf::new(num_ones, low_bit_width);
         let low_mask = one_mask(low_bit_width);
 
+        // this check assumes sorted order, which is verified in the loop using debug_assert.
+        assert!(
+            ones.last().map(|&i| i < universe_size).unwrap_or(true),
+            "1-bit indices cannot exceed universeSize ({})",
+            universe_size
+        );
+
         let mut num_unique_ones = 0;
         let mut prev = None;
-        for (i, &cur) in ones.iter().enumerate() {
+        for (i, cur) in ones.iter().copied().enumerate() {
             let same = prev == Some(cur);
             num_unique_ones += if same { 0 } else { 1 };
             if let Some(prev) = prev {
                 debug_assert!(prev <= cur, "ones must be in ascending order")
             }
-            assert!(
-                cur < universe_size,
-                "expected 1-bit index ({}) to not exceed the universeSize ({})",
-                cur,
-                universe_size
-            );
             debug_assert!(prev.is_none() || prev.unwrap() <= cur); // expected monotonically nondecreasing sequence
             prev = Some(cur);
 
             // Encode element
             let quotient = cur >> low_bit_width;
+            dbg!(i, quotient);
             high.set_one(i as u32 + quotient);
             let remainder = cur & low_mask;
             low.push(remainder);
@@ -184,17 +191,12 @@ impl MultiBitVecBuilder for SparseBitVecBuilder {
     type Target = SparseBitVec;
     type Options = SparseBitVecOptions;
 
-    fn new(universe_size: u32) -> Self {
+    fn new(universe_size: u32, options: Self::Options) -> Self {
         Self {
             universe_size,
             ones: Vec::new(),
-            options: Default::default(),
+            options,
         }
-    }
-
-    fn options(mut self, options: Self::Options) -> Self {
-        self.options = options;
-        self
     }
 
     fn ones(&mut self, bit_index: u32, count: u32) {

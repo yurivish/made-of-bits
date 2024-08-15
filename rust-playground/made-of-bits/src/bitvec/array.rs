@@ -68,7 +68,7 @@ impl MultiBitVecBuilder for ArrayBitVecBuilder {
     type Target = ArrayBitVec;
     type Options = ();
 
-    fn new(universe_size: u32) -> Self {
+    fn new(universe_size: u32, options: Self::Options) -> Self {
         Self {
             universe_size,
             ones: Vec::new(),

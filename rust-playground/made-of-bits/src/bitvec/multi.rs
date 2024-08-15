@@ -6,9 +6,6 @@ use crate::bitvec::MultiBitVec;
 use crate::bitvec::MultiBitVecBuilder;
 use std::collections::HashMap;
 
-// random idea: could we store `count - 1` in `multiplicity`, so we only explicitly
-// represent counts above zero (elements with count 1 appear only in `occupancy`)?
-
 #[derive(Clone)]
 pub struct Multi<T> {
     occupancy: T,
@@ -80,8 +77,8 @@ impl<T: BitVec> MultiBitVec for Multi<T> {
 }
 
 #[derive(Default, Clone)]
-pub struct MultiOptions<T: Default + Clone> {
-    occupancy: Option<T>,
+pub struct MultiOptions<B: Default + Clone> {
+    occupancy_options: B,
 }
 
 #[derive(Clone)]
@@ -90,24 +87,17 @@ pub struct MultiBuilder<B: BitVecBuilder> {
     occupancy: B,
     /// Map from 1-bit index to its multiplicity (count).
     multiplicity: HashMap<u32, u32>,
-    options: MultiOptions<B::Options>,
 }
 
 impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
     type Target = Multi<B::Target>;
     type Options = MultiOptions<B::Options>;
 
-    fn new(universe_size: u32) -> Self {
+    fn new(universe_size: u32, options: Self::Options) -> Self {
         Self {
-            occupancy: B::new(universe_size),
+            occupancy: B::new(universe_size, options.occupancy_options),
             multiplicity: HashMap::new(),
-            options: Default::default(),
         }
-    }
-
-    fn options(mut self, options: Self::Options) -> Self {
-        self.options = options;
-        self
     }
 
     fn ones(&mut self, bit_index: u32, count: u32) {
@@ -130,10 +120,6 @@ impl<B: BitVecBuilder> MultiBitVecBuilder for MultiBuilder<B> {
             *x = acc;
         }
 
-        // apply any provided options to the occupancy BitVec
-        if let Some(options) = self.options.occupancy {
-            self.occupancy = self.occupancy.options(options)
-        }
         let occupancy = self.occupancy.build();
 
         let universe_size = if acc > 0 { acc + 1 } else { 0 };

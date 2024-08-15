@@ -6,6 +6,7 @@ pub mod rle;
 pub mod sparse;
 #[cfg(test)]
 mod test;
+mod zeropadded;
 
 use crate::{bitbuf::BitBuf, bits::partition_point};
 
@@ -115,24 +116,20 @@ pub trait BitVecBuilder: Clone {
 
     /// Universe size must be strictly less than u32::MAX for most BitVec types.
     /// The exception is RLEBitVec, for which the maximum universe size is 2^32-2.
-    fn new(universe_size: u32) -> Self;
-    fn options(self, options: Self::Options) -> Self
+    fn new(universe_size: u32, options: Self::Options) -> Self
     where
-        Self: Sized,
-    {
-        self
-    }
+        Self: Sized;
 
     /// Set a 1-bit in this bit vector.
     /// Idempotent; the same bit may be set more than once without effect.
     /// 1-bits may be added in any order.
     fn one(&mut self, bit_index: u32);
     fn build(self) -> Self::Target;
-    fn from_ones(universe_size: u32, ones: &[u32]) -> Self::Target
+    fn from_ones(universe_size: u32, ones: &[u32], options: Self::Options) -> Self::Target
     where
         Self: Sized,
     {
-        let mut b = Self::new(universe_size);
+        let mut b = Self::new(universe_size, options);
         for one in ones.iter().copied() {
             b.one(one)
         }
@@ -145,13 +142,9 @@ pub trait MultiBitVecBuilder: Clone {
     type Options: Default + Clone;
 
     /// Universe size must be strictly less than u32::MAX.
-    fn new(universe_size: u32) -> Self;
-    fn options(self, options: Self::Options) -> Self
+    fn new(universe_size: u32, options: Self::Options) -> Self
     where
-        Self: Sized,
-    {
-        self
-    }
+        Self: Sized;
 
     fn ones(&mut self, bit_index: u32, count: u32);
     fn build(self) -> Self::Target;
