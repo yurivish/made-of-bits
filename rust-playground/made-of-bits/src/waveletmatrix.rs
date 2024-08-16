@@ -376,8 +376,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
             }),
         );
 
-        let mut bit_indices = vec![]; // batch rank input
-        let mut batch_ranks = vec![]; // batch rank output
+        let mut bit_indices = vec![]; // batch rank input (and output, storing ranks)
 
         for level in self.levels.iter() {
             traversal.traverse(|xs, go| {
@@ -388,11 +387,9 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                     bit_indices.push(x.v.start);
                     bit_indices.push(x.v.end);
                 }
-                batch_ranks.clear();
-                batch_ranks.reserve(bit_indices.len());
-                level.bv.rank1_batch(&mut batch_ranks, &bit_indices);
+                level.bv.rank1_batch(&mut bit_indices);
 
-                for (x, r) in xs.iter().zip(batch_ranks.chunks_exact(2)) {
+                for (x, r) in xs.iter().zip(bit_indices.chunks_exact(2)) {
                     let (start, end) = {
                         let start1 = r[0];
                         let end1 = r[1];

@@ -190,10 +190,11 @@ pub(crate) fn spot_test_bitvec_builder<T: BitVecBuilder>() {
             b.one(i);
         }
         let v = b.build();
-        let bit_indices = [1, 4, 6, 10, 40, 50, 51, 100, 500, 5000];
-        let mut result = vec![];
-        v.rank1_batch(&mut result, &bit_indices);
-        assert_eq!(result, naive_rank1_batch(v, &bit_indices),);
+        let mut bit_indices = [1, 4, 6, 10, 40, 50, 51, 100, 500, 5000];
+        let _bit_indices = bit_indices.clone();
+        v.rank1_batch(&mut bit_indices);
+        let out = naive_rank1_batch(v, &_bit_indices);
+        assert_eq!(bit_indices, *out);
     }
 
     {
@@ -283,12 +284,11 @@ pub(crate) fn test_bitvec<T: BitVecBuilder>(
         assert_eq!(a.select0(i), b.select0(i));
     }
 
-    let bit_indices: Vec<_> = (0..universe_size).step_by(3).collect();
+    let mut bit_indices: Vec<_> = (0..universe_size).step_by(3).collect();
     let a_out = naive_rank1_batch(a, &bit_indices);
     let naive_out = naive_rank1_batch(b.clone(), &bit_indices);
-    let mut b_out = vec![];
-    b.rank1_batch(&mut b_out, &bit_indices);
-    assert_eq!(a_out, b_out);
+    b.rank1_batch(&mut bit_indices);
+    assert_eq!(a_out, bit_indices);
     assert_eq!(a_out, naive_out);
 }
 
