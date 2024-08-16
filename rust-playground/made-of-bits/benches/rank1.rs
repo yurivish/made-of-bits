@@ -15,18 +15,20 @@ fn criterion_benchmark(c: &mut Criterion) {
     let denominator = 1000; // density denominator
     for numerator in [1, 100, 700] {
         // 0.1%, 10%, 70% fill rate
-        let mut b = made_of_bits::DenseBitVecBuilder::new(universe_size);
+        let mut b = made_of_bits::SparseBitVecBuilder::new(universe_size, Default::default());
         for i in 0..universe_size {
             if rng.gen_ratio(numerator, denominator) {
-                b.one(i)
+                b.ones(i, 1);
+                // b.one(i);
             }
         }
         let v = b.build();
 
-        // for now, generate a query vector that is 5% full
+        // for now, generate a query vector that is x% full
+        let x = 5;
         let mut queries = vec![];
         for i in 0..universe_size {
-            if rng.gen_ratio(5, 100) {
+            if rng.gen_ratio(x, 100) {
                 queries.push(i)
             }
         }
@@ -42,13 +44,18 @@ fn criterion_benchmark(c: &mut Criterion) {
         });
 
         g.bench_function(BenchmarkId::new("rank1_batch", numerator), |b| {
-            b.iter(|| {
-                let mut ret: u32 = 0;
-                for result in v.rank1_batch(&queries).into_iter() {
-                    ret = ret.wrapping_add(result);
-                }
-                ret
-            });
+            b.iter_batched(
+                || queries.clone(),
+                |mut inputs| {
+                    let mut ret: u32 = 0;
+                    v.rank1_batch(&mut inputs);
+                    for &result in inputs.iter() {
+                        ret = ret.wrapping_add(result);
+                    }
+                    ret
+                },
+                criterion::BatchSize::SmallInput,
+            );
         });
     }
     g.finish();

@@ -122,14 +122,18 @@ impl MultiBitVec for SparseBitVec {
             // We're searching for the i-th separator.
             // When we find it, we subtract the number of separators preceding it
             // in order to get the index of the element in the low bits.
-            let i = quotient - 1;
-            let n = self.high.select0(i).map(|x| x - i);
-            lower_bound = n.unwrap_or(self.num_ones());
+            lower_bound = {
+                let i = quotient - 1;
+                let n = self.high.select0(i).map(|x| x - i);
+                n.unwrap_or(self.num_ones())
+            };
 
             // Same thing, but we're searching for the next separator after that.
-            let i = quotient;
-            let n = self.high.select0(i).map(|x| x - i);
-            upper_bound = n.unwrap_or(self.num_ones());
+            upper_bound = {
+                let i = quotient;
+                let n = self.high.select0(i).map(|x| x - i);
+                n.unwrap_or(self.num_ones())
+            };
         }
 
         // Count the number of elements in this bucket that are strictly below `bit_index`
@@ -168,6 +172,7 @@ impl MultiBitVec for SparseBitVec {
         // chunks with identical high bits
         let chunks =
             bit_indices.chunk_by_mut(|a, b| a >> self.low_bit_width == b >> self.low_bit_width);
+
         for chunk in chunks {
             let first_bit_index = chunk.first().copied().unwrap();
 
@@ -189,13 +194,16 @@ impl MultiBitVec for SparseBitVec {
                 lower_bound = 0;
                 upper_bound = self.high.select0(0).unwrap_or(self.num_ones());
             } else {
-                let i = quotient - 1;
-                let n = self.high.select0(i).map(|x| x - i);
-                lower_bound = n.unwrap_or(self.num_ones());
-
-                let i = quotient;
-                let n = self.high.select0(i).map(|x| x - i);
-                upper_bound = n.unwrap_or(self.num_ones());
+                lower_bound = {
+                    let i = quotient - 1;
+                    let n = self.high.select0(i).map(|x| x - i);
+                    n.unwrap_or(self.num_ones())
+                };
+                upper_bound = {
+                    let i = quotient;
+                    let n = self.high.select0(i).map(|x| x - i);
+                    n.unwrap_or(self.num_ones())
+                };
             }
 
             for i in chunk {
@@ -206,7 +214,6 @@ impl MultiBitVec for SparseBitVec {
                     let value = self.low.get(index);
                     value < remainder
                 }) as u32;
-
                 // narrow the search range for the next iteration using
                 // the result from this one
                 lower_bound += bucket_count;

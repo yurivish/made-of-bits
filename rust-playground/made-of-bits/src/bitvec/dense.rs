@@ -303,6 +303,8 @@ impl BitVec for DenseBitVec {
         Some(buf_block_bit_index + bit_offset)
     }
 
+    // todo: could we provide hinted selects? could be useful eg. in the sparse vector where
+    // we want to call select0 with n and n+1.
     fn select0(&self, n: u32) -> Option<u32> {
         // This implementation is adapted from select1.
         if n >= self.num_zeros() {
