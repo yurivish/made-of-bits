@@ -76,7 +76,7 @@ impl<T: BitVec> BitVec for ZeroPadded<T> {
     /// to adjust all bit indices for bv.
     /// Should we change the interface to require ownership of bit_indices
     /// so that we can mutate them (or require mutable access, or change them back?)
-    fn rank1_batch(&self, bit_indices: &[u32], f: impl FnMut(u32, u32) -> ()) {
+    fn rank1_batch(&self, out: &mut Vec<u32>, bit_indices: &[u32]) {
         let bit_indices: Vec<_> = bit_indices
             .iter()
             .copied()
@@ -90,7 +90,7 @@ impl<T: BitVec> BitVec for ZeroPadded<T> {
                 }
             })
             .collect();
-        self.bv.rank1_batch(&bit_indices, f);
+        self.bv.rank1_batch(out, &bit_indices);
     }
 
     fn rank1(&self, bit_index: u32) -> u32 {
