@@ -1,6 +1,6 @@
 use crate::bitvec::BitVec;
 use crate::bitvec::BitVecBuilder;
-use crate::waveletmatrix_support::CanMerge;
+use crate::waveletmatrix_support::MaybeMergeable;
 use crate::waveletmatrix_support::Val;
 use crate::waveletmatrix_support::{
     accumulate_mask, mask_range, mask_range_inclusive, union_masks, RangeOverlaps,
@@ -376,41 +376,39 @@ impl<BV: BitVec> WaveletMatrix<BV> {
             }),
         );
 
-        let mut bit_indices = vec![]; // batch rank input (and output, storing ranks)
+        let mut ranks = vec![]; // batch rank input and output
 
         for level in self.levels.iter() {
             traversal.traverse(|xs, go| {
                 // prepare the input for the batch rank operation
-                bit_indices.clear();
-                bit_indices.reserve(xs.len());
+                ranks.clear();
+                ranks.reserve(xs.len());
                 for x in xs {
-                    bit_indices.push(x.v.start);
-                    bit_indices.push(x.v.end);
+                    ranks.push(x.v.start);
+                    ranks.push(x.v.end);
                 }
-                level.bv.rank1_batch(&mut bit_indices);
+                level.bv.rank1_batch(&mut ranks);
 
-                for (x, r) in xs.iter().zip(bit_indices.chunks_exact(2)) {
-                    let (start, end) = {
-                        let start1 = r[0];
-                        let end1 = r[1];
-                        let start0 = x.v.start - start1;
-                        let end0 = x.v.end - end1;
-                        ((start0, start1), (end0, end1))
-                    };
+                for (x, r) in xs.iter().zip(ranks.chunks_exact(2)) {
+                    let v = x.v;
+                    let [start1, end1] = r else { unreachable!() };
+                    let start0 = v.start - start1;
+                    let end0 = v.end - end1;
+
                     // if there are any left children, go left
-                    if start.0 != end.0 {
+                    if start0 != end0 {
                         go.left(x.val(Counts {
-                            symbol: x.v.symbol,
-                            start: start.0,
-                            end: end.0,
+                            symbol: v.symbol,
+                            start: start0,
+                            end: end0,
                         }));
                     }
                     // if there are any right children, go right
-                    if start.1 != end.1 {
+                    if start1 != end1 {
                         go.right(x.val(Counts {
-                            symbol: x.v.symbol | level.bit,
-                            start: level.nz + start.1,
-                            end: level.nz + end.1,
+                            symbol: v.symbol | level.bit,
+                            start: level.nz + start1,
+                            end: level.nz + end1,
                         }));
                     }
                 }
@@ -959,8 +957,8 @@ struct CountSymbolRange {
     end: u32,    // index range end
 }
 
-impl CanMerge for CountSymbolRange {
-    fn can_merge(&self, other: &Self) -> bool {
+impl MaybeMergeable for CountSymbolRange {
+    fn mergeable(&self, other: &Self) -> bool {
         self.symbol == other.symbol && self.end == other.start
     }
 
@@ -987,8 +985,8 @@ struct MortonCountSymbolRange {
     end: u32,    // index range end
 }
 
-impl CanMerge for MortonCountSymbolRange {
-    fn can_merge(&self, other: &Self) -> bool {
+impl MaybeMergeable for MortonCountSymbolRange {
+    fn mergeable(&self, other: &Self) -> bool {
         if self.symbol == other.symbol {
             debug_assert!(self.accumulated_masks == other.accumulated_masks);
         }
@@ -1019,8 +1017,8 @@ pub struct LocateBatch {
     pub end: u32,             // index range end
 }
 
-impl CanMerge for LocateBatch {
-    fn can_merge(&self, other: &Self) -> bool {
+impl MaybeMergeable for LocateBatch {
+    fn mergeable(&self, other: &Self) -> bool {
         if self.symbol == other.symbol {
             debug_assert!(self.preceding_count == other.preceding_count);
         }
@@ -1039,8 +1037,8 @@ pub struct Counts {
     pub end: u32,    // index range end
 }
 
-impl CanMerge for Counts {
-    fn can_merge(&self, other: &Self) -> bool {
+impl MaybeMergeable for Counts {
+    fn mergeable(&self, other: &Self) -> bool {
         self.symbol == other.symbol && self.end == other.start
     }
 

@@ -61,10 +61,14 @@ impl<K, V> From<(K, V)> for KeyVal<K, V> {
     }
 }
 
-// we will merge if the keys are the same and can_merge is true
+/// This trait is implemented for KeyVal values and is used
+/// when traversing a level to merge adjacent KeyVals when
+/// their keys are the same and the values are deemed to be
+/// mergeable by the `mergeable` function in this trait.
+// we will merge if the keys are the same and mergeable is true
 // later we can figure out if a thing is even Possibly mergeable and if it isn't, skip the mergy logic entirely
-pub(crate) trait CanMerge {
-    fn can_merge(&self, other: &Self) -> bool {
+pub(crate) trait MaybeMergeable {
+    fn mergeable(&self, other: &Self) -> bool {
         false
     }
 
@@ -72,14 +76,14 @@ pub(crate) trait CanMerge {
     where
         Self: Sized,
     {
-        unimplemented!("must implement merge if can_merge is true")
+        unimplemented!("must implement `merge` if `mergeable` returns true")
     }
 }
 
 // Associate a usize key to an arbitrary value; used for propagating the metadata
 // of which original query element a partial query result is associated with as we
 // traverse the wavelet tree
-impl<K, V: CanMerge> KeyVal<K, V> {
+impl<K, V: MaybeMergeable> KeyVal<K, V> {
     pub(crate) fn new(key: K, value: V) -> KeyVal<K, V> {
         KeyVal { k: key, v: value }
     }
@@ -109,7 +113,7 @@ pub(crate) struct Traversal<K, V> {
 
 // Traverse a wavelet matrix levelwise, at each level maintaining tree nodes
 // in order they appear in the wavelet matrix (left children preceding right).
-impl<K: PartialEq, V: CanMerge> Traversal<K, V> {
+impl<K: PartialEq, V: MaybeMergeable> Traversal<K, V> {
     pub(crate) fn new(
         keys: impl IntoIterator<Item = K>,
         vals: impl IntoIterator<Item = V>,
@@ -222,9 +226,6 @@ impl<T> Goer<'_, T> {
 
     pub(crate) fn done(&mut self) {
         if let Some(prev_left) = self.prev_left.take() {
-            // left children are appended to the front of the queue,
-            // which causes them to be in reverse order, so they get reversed
-            // back to the right way round in `traverse` (this is why we track num_left).
             self.push_left(prev_left);
         }
         if let Some(prev_right) = self.prev_right.take() {
@@ -234,11 +235,12 @@ impl<T> Goer<'_, T> {
     }
 }
 
-impl<K: PartialEq, V: CanMerge> Goer<'_, KeyVal<K, V>> {
+impl<K: PartialEq, V: MaybeMergeable> Goer<'_, KeyVal<K, V>> {
     pub(crate) fn left(&mut self, x: KeyVal<K, V>) {
         match &mut self.prev_left {
             Some(prev_left) => {
-                if prev_left.k == x.k && V::can_merge(&prev_left.v, &x.v) {
+                // merge into the previous left entry if the key is the same and the values are mergeable
+                if prev_left.k == x.k && V::mergeable(&prev_left.v, &x.v) {
                     prev_left.v.merge(x.v);
                 } else {
                     let value = self.prev_left.replace(x).unwrap();
@@ -252,7 +254,8 @@ impl<K: PartialEq, V: CanMerge> Goer<'_, KeyVal<K, V>> {
     pub(crate) fn right(&mut self, x: KeyVal<K, V>) {
         match &mut self.prev_right {
             Some(prev_right) => {
-                if prev_right.k == x.k && V::can_merge(&prev_right.v, &x.v) {
+                // merge into the previous right entry if the key is the same and the values are mergeable
+                if prev_right.k == x.k && V::mergeable(&prev_right.v, &x.v) {
                     prev_right.v.merge(x.v);
                 } else {
                     let value = self.prev_right.replace(x).unwrap();
