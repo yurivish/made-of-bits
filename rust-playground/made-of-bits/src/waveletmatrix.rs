@@ -367,6 +367,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
             assert!(range.end <= self.len());
         }
 
+        let mut ranks = vec![];
         let mut traversal = Traversal::new(
             repeat(()),
             ranges.iter().map(|range| Counts {
@@ -376,11 +377,9 @@ impl<BV: BitVec> WaveletMatrix<BV> {
             }),
         );
 
-        let mut ranks = vec![]; // batch rank input and output
-
         for level in self.levels.iter() {
             traversal.traverse(|xs, go| {
-                // prepare the input for the batch rank operation
+                // compute all rank1s in a batch
                 ranks.clear();
                 ranks.reserve(xs.len());
                 for x in xs {
@@ -389,16 +388,17 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                 }
                 level.bv.rank1_batch(&mut ranks);
 
-                for (x, r) in xs.iter().zip(ranks.chunks_exact(2)) {
-                    let v = x.v;
-                    let [start1, end1] = r else { unreachable!() };
-                    let start0 = v.start - start1;
-                    let end0 = v.end - end1;
+                let mut ranks = ranks.iter().copied();
+                for x in xs {
+                    let start1 = ranks.next().unwrap();
+                    let end1 = ranks.next().unwrap();
+                    let start0 = x.v.start - start1;
+                    let end0 = x.v.end - end1;
 
                     // if there are any left children, go left
                     if start0 != end0 {
                         go.left(x.val(Counts {
-                            symbol: v.symbol,
+                            symbol: x.v.symbol,
                             start: start0,
                             end: end0,
                         }));
@@ -406,7 +406,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                     // if there are any right children, go right
                     if start1 != end1 {
                         go.right(x.val(Counts {
-                            symbol: v.symbol | level.bit,
+                            symbol: x.v.symbol | level.bit,
                             start: level.nz + start1,
                             end: level.nz + end1,
                         }));
