@@ -266,7 +266,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
     /// of the wavelet matrix, where symbols are sorted in ascending bit-reversed order.
     // TODO: Is there a way to do ~half the number of rank queries for contiguous
     // ranges that share a midpoint, ie. [a..b, b..c, c..d]?
-    // NOTE: This is slower mainly due to
+    // NOTE: This is slower than counts_faster_maybe mainly due to
     // - a usize key rather than ()
     // - individual rank calls rather than batched
     pub fn counts(
@@ -383,11 +383,13 @@ impl<BV: BitVec> WaveletMatrix<BV> {
             traversal.traverse(|xs, go| {
                 // prepare the input for the batch rank operation
                 bit_indices.clear();
+                bit_indices.reserve(xs.len());
                 for x in xs {
                     bit_indices.push(x.v.start);
                     bit_indices.push(x.v.end);
                 }
                 batch_ranks.clear();
+                batch_ranks.reserve(bit_indices.len());
                 level.bv.rank1_batch(&mut batch_ranks, &bit_indices);
 
                 for (x, r) in xs.iter().zip(batch_ranks.chunks_exact(2)) {
