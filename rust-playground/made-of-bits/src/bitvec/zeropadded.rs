@@ -164,7 +164,9 @@ mod tests {
         // we test 10 and 94, which are the first
         // and last elements allowed to be nonzero
         // under the provided padding and universe size
-        // (universe size 100, padding left 10, padding right 5).
+        let universe_size = 100;
+        let pad_left = 10;
+        let pad_right = 5;
         let oneses = [
             vec![],
             vec![10, 15, 19, 80, 94],
@@ -176,8 +178,8 @@ mod tests {
             let options = test_bitvec::<ZeroPaddedBuilder<DenseBitVecBuilder>>(
                 100,
                 ZeroPaddedOptions {
-                    pad_left: 10,
-                    pad_right: 5,
+                    pad_left,
+                    pad_right,
                     options: Default::default(),
                 },
                 ones.clone(),
@@ -185,8 +187,8 @@ mod tests {
             test_bitvec::<ZeroPaddedBuilder<BitVecBuilderOf<ArrayBitVecBuilder>>>(
                 100,
                 ZeroPaddedOptions {
-                    pad_left: 10,
-                    pad_right: 5,
+                    pad_left,
+                    pad_right,
                     options: Default::default(),
                 },
                 ones.clone(),
