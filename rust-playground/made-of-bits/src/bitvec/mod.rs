@@ -83,7 +83,7 @@ pub trait BitVec: Clone {
         self.universe_size() - self.num_ones()
     }
 
-    // Given a slice of sorted bit indices, mutates it to contain the ranks at those indices.
+    /// Given a slice of sorted bit indices, mutates it to contain the ranks at those indices.
     fn rank1_batch(&self, bit_indices: &mut [u32]) {
         for i in bit_indices {
             *i = self.rank1(*i)
@@ -109,6 +109,13 @@ pub trait MultiBitVec: Clone {
         self.universe_size() - self.num_unique_ones()
     }
     fn num_unique_ones(&self) -> u32;
+
+    /// Given a slice of sorted bit indices, mutates it to contain the ranks at those indices.
+    fn rank1_batch(&self, bit_indices: &mut [u32]) {
+        for i in bit_indices {
+            *i = self.rank1(*i)
+        }
+    }
 }
 
 pub trait BitVecBuilder: Clone {

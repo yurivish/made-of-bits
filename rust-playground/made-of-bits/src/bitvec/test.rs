@@ -57,8 +57,11 @@ fn arbitrary_ones(
     }
 }
 
-/// Note: Copied from the default BitVec impl.
 fn naive_rank1_batch(v: impl BitVec, bit_indices: &[u32]) -> Vec<u32> {
+    bit_indices.iter().copied().map(|i| v.rank1(i)).collect()
+}
+
+fn naive_multi_rank1_batch(v: impl MultiBitVec, bit_indices: &[u32]) -> Vec<u32> {
     bit_indices.iter().copied().map(|i| v.rank1(i)).collect()
 }
 
@@ -184,7 +187,6 @@ pub(crate) fn spot_test_bitvec_builder<T: BitVecBuilder>() {
 
     {
         // check rank1_batch
-
         let mut b = T::new(1000, Default::default());
         for i in [1, 10, 11, 50, 72, 205] {
             b.one(i);
@@ -277,7 +279,6 @@ pub(crate) fn test_bitvec<T: BitVecBuilder>(
     // test with some extra values on the top of the array to ensure that out-of-bounds
     // queries are treated identically between the two options
     for i in 0..universe_size.saturating_add(10) {
-        dbg!(i);
         assert_eq!(a.rank1(i), b.rank1(i));
         assert_eq!(a.rank0(i), b.rank0(i));
         assert_eq!(a.select1(i), b.select1(i));
@@ -301,6 +302,20 @@ pub(crate) fn spot_test_multibitvec_builder<T: MultiBitVecBuilder>() {
         // empty bitvec
         let bv = T::new(0, Default::default()).build();
         assert_eq!(bv.num_unique_ones(), 0);
+    }
+
+    {
+        // check rank1_batch
+        let mut b = T::new(1000, Default::default());
+        for i in [1, 10, 11, 50, 72, 205] {
+            b.ones(i, 2);
+        }
+        let v = b.build();
+        let mut bit_indices = [1, 4, 6, 10, 40, 50, 51, 100, 500, 5000];
+        let _bit_indices = bit_indices.clone();
+        v.rank1_batch(&mut bit_indices);
+        let out = naive_multi_rank1_batch(v, &_bit_indices);
+        assert_eq!(bit_indices, *out);
     }
 }
 
@@ -343,6 +358,14 @@ pub(crate) fn test_multibitvec<T: MultiBitVecBuilder>(
     // test with some extra values on the top of the array to ensure that out-of-bounds
     // queries are treated identically between the two options
     for i in 0..a.num_ones().saturating_add(10) {
+        assert_eq!(a.rank1(i), b.rank1(i));
+        assert_eq!(a.select1(i), b.select1(i));
+        assert_eq!(a.rank1(i), b.rank1(i));
+        assert_eq!(a.select1(i), b.select1(i));
+    }
+
+    // test with some extremely large values
+    for i in universe_size * 1000..universe_size * 1001 {
         assert_eq!(a.rank1(i), b.rank1(i));
         assert_eq!(a.select1(i), b.select1(i));
         assert_eq!(a.rank1(i), b.rank1(i));

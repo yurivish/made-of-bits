@@ -51,22 +51,12 @@ impl SparseBitVec {
         let mut low = IntBuf::new(num_ones, low_bit_width);
         let low_mask = one_mask(low_bit_width);
 
-        // this check assumes sorted order, which is verified in the loop using debug_assert.
-        assert!(
-            ones.last().map(|&i| i < universe_size).unwrap_or(true),
-            "1-bit indices cannot exceed universeSize ({})",
-            universe_size
-        );
-
         let mut num_unique_ones = 0;
         let mut prev = None;
         for (i, cur) in ones.iter().copied().enumerate() {
             let same = prev == Some(cur);
             num_unique_ones += if same { 0 } else { 1 };
-            if let Some(prev) = prev {
-                debug_assert!(prev <= cur, "ones must be in ascending order")
-            }
-            debug_assert!(prev.is_none() || prev.unwrap() <= cur); // expected monotonically nondecreasing sequence
+            assert!(prev.unwrap_or(0) <= cur, "ones must be in ascending order");
             prev = Some(cur);
 
             // Encode element
@@ -74,6 +64,15 @@ impl SparseBitVec {
             high.one(i as u32 + quotient);
             let remainder = cur & low_mask;
             low.push(remainder);
+        }
+
+        if let Some(i) = prev {
+            assert!(
+                i < universe_size,
+                "1-bit index {} cannot exceed universe_size {}",
+                i,
+                universe_size
+            );
         }
 
         Self {
@@ -125,7 +124,7 @@ impl MultiBitVec for SparseBitVec {
             // in order to get the index of the element in the low bits.
             let i = quotient - 1;
             let n = self.high.select0(i).map(|x| x - i);
-            lower_bound = n.unwrap_or(0);
+            lower_bound = n.unwrap_or(self.num_ones());
 
             // Same thing, but we're searching for the next separator after that.
             let i = quotient;
@@ -164,6 +163,58 @@ impl MultiBitVec for SparseBitVec {
     fn num_unique_ones(&self) -> u32 {
         self.num_unique_ones
     }
+
+    fn rank1_batch(&self, bit_indices: &mut [u32]) {
+        // chunks with identical high bits
+        let chunks =
+            bit_indices.chunk_by_mut(|a, b| a >> self.low_bit_width == b >> self.low_bit_width);
+        for chunk in chunks {
+            let first_bit_index = chunk.first().copied().unwrap();
+
+            // handle chunks that are entirely beyond the end of the universe
+            if first_bit_index >= self.universe_size() {
+                chunk.fill(self.num_ones);
+                continue;
+            }
+
+            // the quotient for the group we're in
+            let quotient = self.quotient(first_bit_index);
+
+            // note: as a further optimization to save on select calls,
+            // we could detect contiguous groups and use the upper_bound
+            // of the previous group as the lower_bound of this one.
+            let mut lower_bound;
+            let upper_bound;
+            if quotient == 0 {
+                lower_bound = 0;
+                upper_bound = self.high.select0(0).unwrap_or(self.num_ones());
+            } else {
+                let i = quotient - 1;
+                let n = self.high.select0(i).map(|x| x - i);
+                lower_bound = n.unwrap_or(self.num_ones());
+
+                let i = quotient;
+                let n = self.high.select0(i).map(|x| x - i);
+                upper_bound = n.unwrap_or(self.num_ones());
+            }
+
+            for i in chunk {
+                let remainder = self.remainder(*i);
+                let len = (upper_bound - lower_bound) as usize;
+                let bucket_count = partition_point(len, |n| {
+                    let index = lower_bound + n as u32;
+                    let value = self.low.get(index);
+                    value < remainder
+                }) as u32;
+
+                // for more efficient searches, we narrow the
+                // search range for the next iteration using
+                // the result from this one.
+                lower_bound += bucket_count;
+                *i = lower_bound;
+            }
+        }
+    }
 }
 
 #[derive(Default, Clone)]
@@ -172,7 +223,7 @@ pub struct SparseBitVecOptions {
     /// If this is None, then the number will be computed from the universe
     /// size to minimize the total size of the data representation.
     low_bit_width: Option<u32>,
-    /// Options for the bit vector storing the high bits
+    /// Options for the dense bit vector storing the high bits
     high_bits_options: DenseBitVecOptions,
 }
 
