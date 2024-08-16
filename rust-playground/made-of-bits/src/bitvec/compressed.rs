@@ -1,8 +1,9 @@
 use crate::bitvec::BitVec;
 use crate::bitvec::BitVecBuilder;
 
-// The goal is to implement the compressed bit vector as
-// described in "Fast, Small, Simple Rank/Select on Bitmaps":
+// Future work:
+// Implement the compressed bit vector as described in
+// "Fast, Small, Simple Rank/Select on Bitmaps":
 // https://users.dcc.uchile.cl/~gnavarro/ps/sea12.1.pdf
 // See also: https://observablehq.com/d/5370347688e58b4d
 
