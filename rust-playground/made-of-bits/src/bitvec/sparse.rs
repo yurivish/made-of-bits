@@ -207,9 +207,8 @@ impl MultiBitVec for SparseBitVec {
                     value < remainder
                 }) as u32;
 
-                // for more efficient searches, we narrow the
-                // search range for the next iteration using
-                // the result from this one.
+                // narrow the search range for the next iteration using
+                // the result from this one
                 lower_bound += bucket_count;
                 *i = lower_bound;
             }
