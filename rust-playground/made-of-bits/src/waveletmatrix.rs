@@ -13,6 +13,7 @@ use crate::{
     bitvec::dense::{DenseBitVec, DenseBitVecBuilder},
 };
 use std::collections::VecDeque;
+use std::iter::from_fn;
 use std::iter::repeat;
 use std::marker::PhantomData;
 use std::ops::Range;
@@ -388,7 +389,12 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                     bit_indices.push(x.v.end);
                 }
                 batch_ranks.clear();
-                level.bv.rank1_batch(&mut batch_ranks, &bit_indices);
+                // todo: can we iterate over this stuff directly? might still need to do every other iteration
+                // since we have to collect the two guy
+
+                level
+                    .bv
+                    .rank1_batch(&bit_indices, |i, x| batch_ranks.push(x));
 
                 for (x, r) in xs.iter().zip(batch_ranks.chunks_exact(2)) {
                     let (start, end) = {
@@ -398,6 +404,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                         let end0 = x.v.end - end1;
                         ((start0, start1), (end0, end1))
                     };
+
                     // if there are any left children, go left
                     if start.0 != end.0 {
                         go.left(x.val(Counts {
@@ -406,6 +413,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                             end: end.0,
                         }));
                     }
+
                     // if there are any right children, go right
                     if start.1 != end.1 {
                         go.right(x.val(Counts {
