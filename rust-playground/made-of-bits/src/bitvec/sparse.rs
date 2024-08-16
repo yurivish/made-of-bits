@@ -1,5 +1,8 @@
 use crate::bitvec::MultiBitVec;
 use crate::bitvec::MultiBitVecBuilder;
+use crate::BitVecBuilder;
+use crate::DenseBitVecBuilder;
+use crate::DenseBitVecOptions;
 use crate::{
     bitbuf::BitBuf,
     bits::{one_mask, partition_point},
@@ -20,7 +23,7 @@ pub struct SparseBitVec {
 }
 
 impl SparseBitVec {
-    pub fn new(ones: Box<[u32]>, universe_size: u32, low_bit_width: Option<u32>) -> Self {
+    pub fn new(ones: Box<[u32]>, universe_size: u32, options: SparseBitVecOptions) -> Self {
         let num_ones: u32 = ones
             .len()
             .try_into()
@@ -31,9 +34,8 @@ impl SparseBitVec {
         // sometimes theirs suggests slightly worse choices, e.g. when numOnes === 25 and universeSize === 51.
         // https://observablehq.com/@yurivish/ef-split-points
         // This approach chooses the split point by noting that the trade-off effectively is between having numOnes
-        // low bits, or the next power of two of the universe size separators in the high bits. Hopefully this will
-        // be explained clearly in the accompanying design & background documentation.
-        let low_bit_width = low_bit_width.unwrap_or_else(|| {
+        // low bits, or doubling the number of separators in the high bits.
+        let low_bit_width = options.low_bit_width.unwrap_or_else(|| {
             if num_ones == 0 {
                 0
             } else {
@@ -41,18 +43,11 @@ impl SparseBitVec {
             }
         });
 
-        // unary coding; 1 denotes values and 0 denotes separators, since that way
-        // encoding becomes more efficient and we have a chance of saving space due to runs of
-        // zeros at either end, if the values are clustered away from the domain edges.
-        // NOTE: ^ The above comment is only true if we use a padded dense bitvector, which we currently do not.
-        // By default, values are never more than 50% of the bits due to the way the split point is chosen.
+        // Encode the high bits in unary: 1 denotes values and 0 denotes separators.
+        // By default, 1-bits are never more than 50% of the bits due to the way the split point is chosen.
         // Note that this expression automatically adapts to non-power-of-two universe sizes.
         let high_len = num_ones + (universe_size >> low_bit_width);
-        dbg!((universe_size >> low_bit_width));
-        dbg!(low_bit_width);
-        dbg!((universe_size >> low_bit_width).saturating_sub(1));
-        dbg!(high_len, universe_size, num_ones);
-        let mut high = BitBuf::new(high_len);
+        let mut high = DenseBitVecBuilder::new(high_len, options.high_bits_options);
         let mut low = IntBuf::new(num_ones, low_bit_width);
         let low_mask = one_mask(low_bit_width);
 
@@ -76,14 +71,13 @@ impl SparseBitVec {
 
             // Encode element
             let quotient = cur >> low_bit_width;
-            dbg!(i, quotient);
-            high.set_one(i as u32 + quotient);
+            high.one(i as u32 + quotient);
             let remainder = cur & low_mask;
             low.push(remainder);
         }
 
         Self {
-            high: DenseBitVec::new(high, 10, 10),
+            high: high.build(),
             low,
             low_mask,
             low_bit_width,
@@ -178,6 +172,8 @@ pub struct SparseBitVecOptions {
     /// If this is None, then the number will be computed from the universe
     /// size to minimize the total size of the data representation.
     low_bit_width: Option<u32>,
+    /// Options for the bit vector storing the high bits
+    high_bits_options: DenseBitVecOptions,
 }
 
 #[derive(Clone)]
@@ -208,11 +204,7 @@ impl MultiBitVecBuilder for SparseBitVecBuilder {
 
     fn build(mut self) -> SparseBitVec {
         self.ones.sort();
-        SparseBitVec::new(
-            self.ones.into(),
-            self.universe_size,
-            self.options.low_bit_width,
-        )
+        SparseBitVec::new(self.ones.into(), self.universe_size, self.options)
     }
 }
 
