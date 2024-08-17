@@ -1,12 +1,11 @@
 pub mod array;
-mod compressed;
 pub mod dense;
 pub mod multi;
 pub mod rle;
 pub mod sparse;
 #[cfg(test)]
 mod test;
-mod zeropadded;
+pub mod zeropadded;
 
 use crate::{bitbuf::BitBuf, bits::partition_point};
 
@@ -15,10 +14,10 @@ use self::multi::MultiBuilder;
 pub trait BitVec: Clone {
     type Builder: BitVecBuilder<Target = Self>;
 
-    /// Return the number of 1-bits below `bit_index`
+    /// The number of 1-bits below `bit_index`
     fn rank1(&self, bit_index: u32) -> u32;
 
-    /// Return the number of 0-bits below `bit_index`
+    /// The number of 0-bits below `bit_index`
     fn rank0(&self, bit_index: u32) -> u32 {
         // The implementation below is valid for bit vectors without multiplicity,
         // since otherwise the subtraction in the second branch can go negative.
@@ -29,7 +28,7 @@ pub trait BitVec: Clone {
         }
     }
 
-    /// Return `(rank0(bit_index), rank1(bit_index))`
+    /// `(rank0(bit_index), rank1(bit_index))`
     /// This means that if x = ranks(index), x.0 is rank0 and x.1 is rank1.
     fn ranks(&self, bit_index: u32) -> (u32, u32) {
         if bit_index >= self.universe_size() {
@@ -40,7 +39,7 @@ pub trait BitVec: Clone {
         return (num_zeros, num_ones);
     }
 
-    // Return the bit index of the k-th occurrence of a 1-bit
+    /// The bit index of the k-th occurrence of a 1-bit
     fn select1(&self, n: u32) -> Option<u32> {
         if n >= self.num_ones() {
             return None;
@@ -51,7 +50,7 @@ pub trait BitVec: Clone {
         Some(bit_index as u32)
     }
 
-    // Return the bit index of the k-th occurrence of a 0-bit
+    /// The bit index of the k-th occurrence of a 0-bit
     fn select0(&self, n: u32) -> Option<u32> {
         if n >= self.num_zeros() {
             return None;
@@ -64,7 +63,7 @@ pub trait BitVec: Clone {
 
     /// Get the value of the bit at the specified index (0 or 1).
     /// The comparable method on MultiBitVec the presence of multiplicity,
-    /// returns the count of the bit.
+    ///  the count of the bit.
     /// Note: This is rather inefficient since it does two rank calls,
     /// each of which may take O(log(n)) time, depending on the BitVec.
     fn get(&self, bit_index: u32) -> u32 {
@@ -77,8 +76,13 @@ pub trait BitVec: Clone {
         self.rank1(bit_index + 1) - self.rank1(bit_index)
     }
 
+    /// The size of the universe, ie. total number of bits in this vector.
     fn universe_size(&self) -> u32;
+
+    /// The number of 1-bits in this vector.
     fn num_ones(&self) -> u32;
+
+    /// The number of 0-bits in this vector.
     fn num_zeros(&self) -> u32 {
         self.universe_size() - self.num_ones()
     }
@@ -95,19 +99,31 @@ pub trait BitVec: Clone {
 pub trait MultiBitVec: Clone {
     type Builder: MultiBitVecBuilder<Target = Self>;
 
+    /// Get the multiplicity (count) of the bit at the specified index.
     fn get(&self, bit_index: u32) -> u32 {
         assert!(bit_index < self.universe_size());
         self.rank1(bit_index + 1) - self.rank1(bit_index)
     }
 
+    /// The number of 1-bits below `bit_index`
     fn rank1(&self, bit_index: u32) -> u32;
+
+    // Return the bit index of the k-th occurrence of a 1-bit
     fn select1(&self, n: u32) -> Option<u32>;
 
+    /// The size of the universe, ie. total number of bits in this vector.
     fn universe_size(&self) -> u32;
+
+    /// The number of 1-bits in this vector.
+    /// Due to multiplicity, this may exceed the universe size.
     fn num_ones(&self) -> u32;
+
+    /// The number of 0-bits in this vector.
     fn num_zeros(&self) -> u32 {
         self.universe_size() - self.num_unique_ones()
     }
+
+    /// The number of unique 1-bits in this vector.
     fn num_unique_ones(&self) -> u32;
 
     /// Given a slice of sorted bit indices, mutates it to contain the ranks at those indices.
@@ -132,7 +148,11 @@ pub trait BitVecBuilder: Clone {
     /// Idempotent; the same bit may be set more than once without effect.
     /// 1-bits may be added in any order.
     fn one(&mut self, bit_index: u32);
+
+    /// Build the bit vector
     fn build(self) -> Self::Target;
+
+    /// Convenience method to directly construct a bit vector with the given bits.
     fn from_ones(universe_size: u32, options: Self::Options, ones: &[u32]) -> Self::Target
     where
         Self: Sized,
@@ -149,13 +169,20 @@ pub trait MultiBitVecBuilder: Clone {
     type Target: MultiBitVec;
     type Options: Default + Clone;
 
+    /// Construct a new builder from a universe size and type-specific options.
     /// Universe size must be strictly less than u32::MAX.
     fn new(universe_size: u32, options: Self::Options) -> Self
     where
         Self: Sized;
 
+    /// Add `count` 1-bits at index `bit_index`.
+    /// 1-bits may be added in any order.
     fn ones(&mut self, bit_index: u32, count: u32);
+
+    /// Build the bit vector
     fn build(self) -> Self::Target;
+
+    /// Convenience method to directly construct a bit vector with the given 1-bit positions and counts.
     fn from_ones_counts(
         universe_size: u32,
         options: Self::Options,

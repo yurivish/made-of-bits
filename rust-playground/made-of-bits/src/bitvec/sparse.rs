@@ -214,10 +214,13 @@ impl MultiBitVec for SparseBitVec {
                     let value = self.low.get(index);
                     value < remainder
                 }) as u32;
-                // narrow the search range for the next iteration using
-                // the result from this one
-                lower_bound += bucket_count;
-                *i = lower_bound;
+                // we could narrow the search range for the next iteration using
+                // the result from this one but it's not clear this improves
+                // perf.
+                // it means the sequence of .get calls differs from element to element.
+                // lower_bound += bucket_count;
+                // *i = lower_bound;
+                *i = lower_bound + bucket_count;
             }
         }
     }
