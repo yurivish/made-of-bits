@@ -6,3 +6,11 @@
   - Paper: Faster wavelet trees with quad vectors: https://www.kurpicz.org/assets/publications/qwm_preprint.pdf
   - Paper: Faster Wavelet Tree Queries: https://arxiv.org/abs/2302.09239
   - Code: https://github.com/rossanoventurini/qwt
+
+### More tests
+
+- more comprehensive testing for rank1_batch
+- Perform individualized tests for this particular patterns that the specific bit vector types are good for, and the options of each type
+  - runs for rle
+  - large universes and varying split points for sparse
+  - varied densities and sampling options for dense

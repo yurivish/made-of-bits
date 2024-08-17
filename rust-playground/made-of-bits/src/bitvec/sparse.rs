@@ -173,6 +173,12 @@ impl MultiBitVec for SparseBitVec {
         let chunks =
             bit_indices.chunk_by_mut(|a, b| a >> self.low_bit_width == b >> self.low_bit_width);
 
+        // lower and upper index bounds for the low bits
+        let mut lower_bound = 0;
+        let mut upper_bound = 0;
+
+        // we track this to save work when querying contiguous chunks
+        let mut prev_quotient = 0;
         for chunk in chunks {
             let first_bit_index = chunk.first().copied().unwrap();
 
@@ -184,17 +190,15 @@ impl MultiBitVec for SparseBitVec {
 
             // the quotient for the group we're in
             let quotient = self.quotient(first_bit_index);
-
-            // note: as a further optimization to save on select calls,
-            // we could detect contiguous groups and use the upper_bound
-            // of the previous group as the lower_bound of this one.
-            let mut lower_bound;
-            let upper_bound;
             if quotient == 0 {
                 lower_bound = 0;
                 upper_bound = self.high.select0(0).unwrap_or(self.num_ones());
             } else {
-                lower_bound = {
+                // if this group is contiguous with the previous,
+                // use the previous upper_bound as this group's lower_bound
+                lower_bound = if prev_quotient == quotient - 1 {
+                    upper_bound
+                } else {
                     let i = quotient - 1;
                     let n = self.high.select0(i).map(|x| x - i);
                     n.unwrap_or(self.num_ones())
@@ -205,6 +209,7 @@ impl MultiBitVec for SparseBitVec {
                     n.unwrap_or(self.num_ones())
                 };
             }
+            prev_quotient = quotient;
 
             for i in chunk {
                 let remainder = self.remainder(*i);
@@ -216,10 +221,7 @@ impl MultiBitVec for SparseBitVec {
                 }) as u32;
                 // we could narrow the search range for the next iteration using
                 // the result from this one but it's not clear this improves
-                // perf.
-                // it means the sequence of .get calls differs from element to element.
-                // lower_bound += bucket_count;
-                // *i = lower_bound;
+                // perf since it means the sequence of .get calls differs from element to element.
                 *i = lower_bound + bucket_count;
             }
         }
