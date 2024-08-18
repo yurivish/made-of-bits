@@ -36,6 +36,7 @@ pub fn catch_unwind<F: FnOnce() -> R, R>(f: F) -> std::thread::Result<R> {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(f))
 }
 
+/// Returns `true` if the passed-in function panics and `false` if it does not.
 pub fn panics<F: FnOnce() -> R, R>(f: F) -> bool {
     catch_unwind(f).is_err()
 }
