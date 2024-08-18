@@ -57,10 +57,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         morton_masks: Option<&[u32]>,
     ) -> WaveletMatrix<BV> {
         let max_level = levels.len() - 1;
-        let len = levels
-            .first()
-            .map(|level| level.universe_size())
-            .unwrap_or(0);
+        let len = levels.first().map_or(0, |level| level.universe_size());
         let levels: Vec<Level<BV>> = levels
             .into_iter()
             .enumerate()
@@ -68,7 +65,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                 nz: bits.rank0(bits.universe_size()),
                 bit: 1 << (max_level - index),
                 bv: bits,
-                mask: morton_masks.map(|masks| masks[index]).unwrap_or(u32::MAX),
+                mask: morton_masks.map_or(u32::MAX, |masks| masks[index]),
             })
             .collect();
         let num_levels = levels.len();

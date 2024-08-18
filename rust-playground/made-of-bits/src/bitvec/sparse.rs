@@ -124,15 +124,13 @@ impl MultiBitVec for SparseBitVec {
             // in order to get the index of the element in the low bits.
             lower_bound = {
                 let i = quotient - 1;
-                let n = self.high.select0(i).map(|x| x - i);
-                n.unwrap_or(self.num_ones())
+                self.high.select0(i).map_or(self.num_ones(), |x| x - i)
             };
 
             // Same thing, but we're searching for the next separator after that.
             upper_bound = {
                 let i = quotient;
-                let n = self.high.select0(i).map(|x| x - i);
-                n.unwrap_or(self.num_ones())
+                self.high.select0(i).map_or(self.num_ones(), |x| x - i)
             };
         }
 
@@ -202,14 +200,12 @@ impl MultiBitVec for SparseBitVec {
                     lower_bound = upper_bound
                 } else {
                     let i = quotient - 1;
-                    let n = self.high.select0(i).map(|x| x - i);
-                    lower_bound = n.unwrap_or(self.num_ones())
+                    lower_bound = self.high.select0(i).map_or(self.num_ones(), |x| x - i);
                 };
 
                 upper_bound = {
                     let i = quotient;
-                    let n = self.high.select0(i).map(|x| x - i);
-                    n.unwrap_or(self.num_ones())
+                    self.high.select0(i).map_or(self.num_ones(), |x| x - i)
                 };
             }
             prev_quotient = quotient;
