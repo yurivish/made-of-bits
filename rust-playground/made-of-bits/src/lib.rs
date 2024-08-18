@@ -16,7 +16,6 @@ mod bits;
 mod bitvec;
 mod intbuf;
 mod js;
-mod thingy;
 mod waveletmatrix;
 mod waveletmatrix_support;
 mod zorder;

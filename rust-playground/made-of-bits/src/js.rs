@@ -1,4 +1,3 @@
-use crate::thingy::Thingy;
 use crate::zorder;
 use crate::zorder::decode2x;
 use std::collections::BTreeMap;
