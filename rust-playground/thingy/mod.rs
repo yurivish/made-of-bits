@@ -1,3 +1,66 @@
+// This was transplanted from made-of-bits; it implements a test idea for
+// spatial queries in 2D for (x, y, id) data with a separate array storing element IDs.
+// The idea is to store the scatterplot data in bit-reversed ID order, and store the ids
+// based on the XY coordinates in Morton order. Then you can do a spatial query over the 
+// IDs using the old-school Tropf method for decomposing a query rectangle into xy-ranges,
+// or do spatial count queries on the xy data directly for visualizing bin counts.
+
+/*
+
+#[js]
+fn thingy_new(xs: *mut Box<[u32]>, ys: *mut Box<[u32]>, ids: *mut Box<[u32]>) -> *mut Thingy {
+    // consume the data arguments
+    let xs = *to_owned(xs);
+    let ys = *to_owned(ys);
+    let ids = *to_owned(ids);
+    allocate(Thingy::new(&xs, &ys, &ids))
+}
+
+#[js]
+fn thingy_counts(t: &Thingy) -> Dynamic {
+    let mut xs = vec![];
+    let mut ys = vec![];
+    let mut counts = vec![];
+    for (&k, &v) in t.counts().iter() {
+        xs.push(zorder::decode2x(k));
+        ys.push(zorder::decode2y(k));
+        counts.push(v);
+    }
+    [Dynamic::new(xs), Dynamic::new(ys), Dynamic::new(counts)].into()
+}
+
+#[js]
+fn thingy_counts_for_ids(t: &Thingy, ids: &Box<[u32]>) -> Dynamic {
+    let mut xs = vec![];
+    let mut ys = vec![];
+    let mut counts = vec![];
+    for (&k, &v) in t.counts_for_ids(ids).iter() {
+        xs.push(zorder::decode2x(k));
+        ys.push(zorder::decode2y(k));
+        counts.push(v);
+    }
+    [Dynamic::new(xs), Dynamic::new(ys), Dynamic::new(counts)].into()
+}
+
+// todo: (x0, y0), (x1, y1)?
+#[js]
+fn thingy_ids_for_bbox(t: &Thingy, x_lo: u32, x_hi: u32, y_lo: u32, y_hi: u32) -> Stash<Vec<u32>> {
+    let mut ids = vec![];
+    let mut _counts = vec![];
+    for (&k, &v) in t.ids_for_bbox(x_lo..=x_hi, y_lo..=y_hi).iter() {
+        ids.push(k);
+        _counts.push(v);
+    }
+    Stash::new(ids)
+}
+
+#[js]
+fn thingy_num_levels(t: &Thingy) -> U32Pair {
+    U32Pair([t.codes.num_levels() as u32, t.ids.num_levels() as u32])
+}
+
+*/
+
 use crate::DenseBitVecOptions;
 use crate::{
     bitvec::{
@@ -206,6 +269,7 @@ mod tests {
 
     #[test]
     fn test_json() {
+
         let file = File::open("/Users/yurivish/Downloads/data (3).json").unwrap();
         let reader = BufReader::new(file);
 

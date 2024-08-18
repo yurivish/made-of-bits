@@ -33,15 +33,10 @@ pub(crate) fn select1<T: BitBlock>(x: T, k: u32) -> Option<u32> {
     }
 }
 
-// todo: this doctest fails because this function is not exported!
-//
-// /// Reverse the lowest `num_bits` bits of `x`.
-// ///
-// /// ```
-// /// assert_eq!(reverse_low_bits(0b0000100100, 6), 0b0000001001)
-// /// //                                ^^^^^^            ^^^^^^
-// /// ```
-// ///
+/// Reverse the lowest `num_bits` bits of `x`.
+///
+/// For example, `reverse_low_bits(0b0000100100, 6)` is `0b0000001001`.
+///                                      ^^^^^^                ^^^^^^
 pub(crate) const fn reverse_low_bits(x: usize, num_bits: usize) -> usize {
     x.reverse_bits() >> (usize::BITS as usize - num_bits)
 }
