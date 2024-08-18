@@ -179,6 +179,7 @@ impl MultiBitVec for SparseBitVec {
 
         // we track this to save work when querying contiguous chunks
         let mut prev_quotient = 0;
+
         for chunk in chunks {
             let first_bit_index = chunk.first().copied().unwrap();
 
@@ -190,19 +191,21 @@ impl MultiBitVec for SparseBitVec {
 
             // the quotient for the group we're in
             let quotient = self.quotient(first_bit_index);
+
             if quotient == 0 {
                 lower_bound = 0;
                 upper_bound = self.high.select0(0).unwrap_or(self.num_ones());
             } else {
                 // if this group is contiguous with the previous,
                 // use the previous upper_bound as this group's lower_bound
-                lower_bound = if prev_quotient == quotient - 1 {
-                    upper_bound
+                if prev_quotient == quotient - 1 {
+                    lower_bound = upper_bound
                 } else {
                     let i = quotient - 1;
                     let n = self.high.select0(i).map(|x| x - i);
-                    n.unwrap_or(self.num_ones())
+                    lower_bound = n.unwrap_or(self.num_ones())
                 };
+
                 upper_bound = {
                     let i = quotient;
                     let n = self.high.select0(i).map(|x| x - i);
