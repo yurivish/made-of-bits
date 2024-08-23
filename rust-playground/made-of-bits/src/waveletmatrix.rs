@@ -586,108 +586,6 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         counts
     }
 
-    // Count the number of occurences of symbols in each of the symbol ranges,
-    // returning a parallel array of counts.
-    // Range is an index range.
-    // Masks is a slice of bitmasks, one per level, indicating the bitmask operational
-    // at that level, to enable multidimensional queries.
-    // To search in 1d, pass std::iter::repeat(u32::MAX).take(wm.num_levels()).collect().
-    pub fn xmorton_count_batch(&self, range: Range<u32>, symbol_ranges: &[Range<u32>]) -> Vec<u32> {
-        // Union all bitmasks so we can tell when we the symbol range is fully contained within
-        // the query range at a particular wavelet tree node, in order to avoid needless recursion.
-        let all_masks = union_masks(self.levels.iter().map(|x| x.mask));
-
-        // The return vector of counts
-        let mut counts = vec![0; symbol_ranges.len()];
-
-        // Initialize a wavelet matrix traversal with one entry per symbol range we're searching.
-        let init = MortonCountSymbolRange::new(0, 0, range.start, range.end);
-        let mut traversal = Traversal::new(0.., std::iter::repeat(init).take(symbol_ranges.len()));
-
-        for level in &self.levels {
-            traversal.traverse(|xs, go| {
-                // Cache rank queries when the start of the current range is the same as the end of the previous range
-                let mut rank_cache = RangedRankCache::new();
-                for x in xs {
-                    // The symbol range corresponding to the current query, masked to the relevant dimensions at this level
-                    let symbol_range = mask_range(symbol_ranges[x.k].clone(), level.mask);
-
-                    // Left, middle, and right symbol indices for the children of this node.
-                    let (left, mid, right) = level.splits(x.v.symbol);
-
-                    // Tuples representing the rank0/1 of start and rank0/1 of end.
-                    let (start, end) = rank_cache.get(x.v.start, x.v.end, &level.bv);
-
-                    // Check the left child if there are any elements there
-                    if start.0 != end.0 {
-                        // q: why can't we just count this on a per level basis?
-                        // a:
-
-                        // Determine whether we can short-circuit the recursion because the symbols
-                        // represented by the left child are fully contained in symbol_range in all
-                        // dimensions (ie. for all distinct dimension masks). For example, if the masks represent
-                        // a two-dimensional query, we need to check that (effectively) the quadtree
-                        // node, represented by two contiguous dimensions, is contained. It's a bit subtle
-                        // since we can early-out not only if a contiguous 'xy' range is detected, but also
-                        // a contiguous 'yx' range – so long as the symbol range is contained in the most
-                        // recent branching in all dimensions, we can stop the recursion early and count the
-                        // node's children, since that means all children are contained within the query range.
-                        //
-                        // Each "dimension" is indicated by a different mask. So far, use cases have meant that
-                        // each bit of the symbol is assigned to at most one mask.
-                        //
-                        // To accumulate a new mask to the accumulator, we will either set or un-set all the bits
-                        // corresponding to this mask. We will set them if the symbol range represented by this node
-                        // is fully contained in the query range, and un-set them otherwise.
-                        //
-                        // If the node is contained in all dimensions, then the accumulator will be equal to all_masks,
-                        // and we can stop the recursion early.
-                        let acc = accumulate_mask(
-                            left..mid,
-                            level.mask,
-                            &symbol_range,
-                            x.v.accumulated_masks,
-                        );
-                        if acc == all_masks {
-                            counts[x.k] += end.0 - start.0;
-                        } else if symbol_range.overlaps(&mask_range(left..mid, level.mask)) {
-                            // We need to recurse into the left child. Do so with the new acc value.
-                            go.left(x.val(MortonCountSymbolRange::new(acc, left, start.0, end.0)));
-                        }
-                    }
-
-                    // right child
-                    if start.1 != end.1 {
-                        // See the comments for the left node; the logical structure here is identical.
-                        let acc = accumulate_mask(
-                            mid..right,
-                            level.mask,
-                            &symbol_range,
-                            x.v.accumulated_masks,
-                        );
-                        if acc == all_masks {
-                            counts[x.k] += end.1 - start.1;
-                        } else if symbol_range.overlaps(&mask_range(mid..right, level.mask)) {
-                            go.right(x.val(MortonCountSymbolRange::new(
-                                acc,
-                                mid,
-                                level.nz + start.1,
-                                level.nz + end.1,
-                            )));
-                        }
-                    }
-                }
-            });
-        }
-
-        // The last iteration of the levels loop recurses all the way down
-        // to the virtual bottom level of the wavelet tree, where each node
-        // represents an individual symbol, so there should be no uncounted nodes.
-        debug_assert!(traversal.is_empty());
-
-        counts
-    }
-
     // Returns the index of the first symbol less than or equal to `p` in the index range `range`.
     // todo: could we just do less than and use .. rather than ..=? doing ..=u32::max is kinda useless for this function...
     // ("First" here is based on sequence order; we will return the leftmost such index).
@@ -697,6 +595,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
     //   return i === -1 ? undefined : lo + i;
     // }
     // note: since the left extent of the target is always zero, we could optimize the containment checks.
+    // note: as far as I know, this is a new idea that I haven't seen implemented anywhere else.
     //
     pub fn select_first_less_than(&self, p: u32, range: Range<u32>) -> Option<u32> {
         let mut range = range; // index range
