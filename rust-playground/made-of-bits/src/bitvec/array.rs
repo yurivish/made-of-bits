@@ -1,6 +1,8 @@
 use crate::bitvec::MultiBitVec;
 use crate::bitvec::MultiBitVecBuilder;
 
+/// Implements a MultiBitVec backed by an array of 1-bits.
+/// Takes 32 bits per 1-bit.
 #[derive(Clone)]
 pub struct ArrayBitVec {
     ones: Box<[u32]>,

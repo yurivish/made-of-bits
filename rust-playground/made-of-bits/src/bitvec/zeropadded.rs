@@ -7,6 +7,8 @@ use crate::bitvec::MultiBitVec;
 use crate::bitvec::MultiBitVecBuilder;
 use std::collections::HashMap;
 
+/// Implements a zero-padded bit vector, which is useful to reduce storage requirements for
+/// bit vectors whose "active" range is a narrow band in the middle of a larger universe of zeros.
 #[derive(Clone)]
 pub struct ZeroPadded<T> {
     bv: T,
@@ -72,10 +74,6 @@ impl<T: BitVec> BitVec for ZeroPadded<T> {
         self.bv.num_zeros() + padding_zeros
     }
 
-    /// An extremely silly way to implement this: clone the input vector
-    /// to adjust all bit indices for bv.
-    /// Should we change the interface to require ownership of bit_indices
-    /// so that we can mutate them (or require mutable access, or change them back?)
     fn rank1_batch(&self, bit_indices: &mut [u32]) {
         for i in bit_indices.iter_mut() {
             let v = *i;

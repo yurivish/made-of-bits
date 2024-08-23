@@ -53,15 +53,10 @@ impl BitBuf {
         self.blocks[block_index] & bit != 0
     }
 
-    // We give access to blocks individually since lending out the
-    // blocks themselves would run into issues with the PaddedBitBuf,
-    // which does not have materialized representations for all valid slices.
     pub(crate) fn block(&self, block_index: u32) -> Block {
         self.blocks[block_index as usize]
     }
 
-    // Though... This is a more performant interface for this specific sort of buf,
-    // eg. for rank blocks.
     pub(crate) fn blocks(&self) -> &[Block] {
         &self.blocks
     }
@@ -81,13 +76,12 @@ impl BitBuf {
     }
 }
 
-/// Co
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::panics;
 
-    /// Run a number of checks on `buf` and a PaddedBuf
+    /// Run a number of checks on `buf`
     /// constructed from it after each modification.
     fn check(mut buf: BitBuf, offset: u32) {
         // should be initialized to

@@ -1,14 +1,8 @@
-use std::cmp::PartialEq;
-use std::ops::{Range, RangeInclusive};
-// The traversal order means that outputs do not appear in the same order as inputs and
-// there may be multiple outputs per input (e.g. symbols found within a given index range)
-// so associating each batch with an index allows us to track the association between inputs
-// and outputs.
-// The Key is (currently) the input index associated with this query, so we can track it through
-// the tree.
 use crate::bitvec::BitVec;
 use core::marker::PhantomData;
+use std::cmp::PartialEq;
 use std::collections::VecDeque;
+use std::ops::{Range, RangeInclusive};
 
 #[derive(Debug)]
 pub(crate) struct Level<V: BitVec> {
@@ -113,6 +107,13 @@ pub(crate) struct Traversal<K, V> {
 
 // Traverse a wavelet matrix levelwise, at each level maintaining tree nodes
 // in order they appear in the wavelet matrix (left children preceding right).
+//
+// The traversal order means that outputs do not appear in the same order as inputs and
+// there may be multiple outputs per input (e.g. symbols found within a given index range)
+// so associating each batch with an index allows us to track the association between inputs
+// and outputs.
+// The Key is usually the input index associated with this query, so we can track it through
+// the tree.
 impl<K: PartialEq, V: MaybeMergeable> Traversal<K, V> {
     pub(crate) fn new(
         keys: impl IntoIterator<Item = K>,
@@ -286,8 +287,6 @@ impl<V: BitVec> RangedRankCache<V> {
         Self {
             end_index: None,
             end_ranks: (0, 0),
-            // num_hits: 0,
-            // num_misses: 0,
             _v: PhantomData,
         }
     }
@@ -309,16 +308,6 @@ impl<V: BitVec> RangedRankCache<V> {
         self.end_ranks = bv.ranks(end_index);
         (start_ranks, self.end_ranks)
     }
-
-    // pub(crate) fn log_stats(&self) {
-    //     println!(
-    //         "cached {:.1}%: {:?} / {:?}",
-    //         // note: can be nan
-    //         100.0 * self.num_hits as f64 / (self.num_hits + self.num_misses) as f64,
-    //         self.num_hits,
-    //         self.num_hits + self.num_misses,
-    //     );
-    // }
 }
 
 // Mask stuff

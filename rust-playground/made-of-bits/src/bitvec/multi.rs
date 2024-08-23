@@ -6,6 +6,9 @@ use crate::bitvec::MultiBitVec;
 use crate::bitvec::MultiBitVecBuilder;
 use std::collections::HashMap;
 
+/// Implements a wrapper around a BitVec to turn it into a MultIBitVec.
+/// Internally represented by the wrapped BitVec, together with a sparse
+/// bit vector to store the multiplicity (count) of each 1-bit.
 #[derive(Clone)]
 pub struct Multi<T> {
     occupancy: T,

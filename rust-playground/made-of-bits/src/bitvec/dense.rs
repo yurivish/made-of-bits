@@ -7,10 +7,13 @@ use crate::{
     bitvec::{BitVec, BitVecBuilder},
 };
 
-// todo
-// - figure out how to optionally use a PaddedBitBuf – Buf trait + type parameter?
-// - do a pass over the code and convert it to a more Rust-like style: the current impls are fairly direct ports from JavaScript.
-
+/// Implements a BitVec based on a dense bit buffer.
+/// Takes 1 bit per 1-bit, plus overhead based on rank
+/// and select samples which are used to accelerate queries.
+/// The anount of overhead depends on the rank and select sampling
+/// rate. By default, rank1 samples take ~3% of the space of the
+/// data in the bit buffer, and select samples add another ~3% since
+/// together the select0 and select1 samples are taken once every 2^10 1-bits.
 #[derive(Clone)]
 pub struct DenseBitVec {
     buf: BitBuf,
@@ -73,7 +76,6 @@ impl DenseBitVec {
         // is 64, then the select1 samples will tell us about the basic blocks containing the 1st
         // A select sample `select1_samples[i]` tells us about the basic block that contains the
         // `selectSamplingRate * i + 1`-th 1-bit.
-
         let mut cumulative_ones = 0; // 1-bits preceding the current raw block
         let mut cumulative_bits = 0; // bits preceding the current raw block
         let mut zeros_threshold = 0; // take a select0 sample at the (zerosThreshold+1)th 1-bit

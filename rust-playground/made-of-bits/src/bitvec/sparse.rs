@@ -11,6 +11,12 @@ use crate::{
     intbuf::IntBuf,
 };
 
+/// Stores a sparse bit vector in Elias-Fano encoding. Space usage
+/// depends on the number of elements and the universe size.
+/// Implements MultiBitVec. Multiplicity is encoded via repetition, ie.
+/// each additional repetition of a 1-bit takes additional space,
+/// as it does in the case of the ArrayBitVec but not Multi<T>,
+/// which represents counts explicitly.
 #[derive(Clone)]
 pub struct SparseBitVec {
     high: DenseBitVec,
@@ -272,7 +278,14 @@ impl MultiBitVecBuilder for SparseBitVecBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bitvec::test::*;
+    use crate::{bitvec::test::*, panics};
+
+    #[test]
+    fn test_max() {
+        let mut b = SparseBitVecBuilder::new(u32::MAX, Default::default());
+        assert!(panics(|| b.ones(u32::MAX, 1)));
+        let v = b.build();
+    }
 
     #[test]
     fn multibitvec_interface() {

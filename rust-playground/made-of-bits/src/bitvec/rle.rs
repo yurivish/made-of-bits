@@ -5,6 +5,9 @@ use crate::{
 };
 use std::collections::HashSet;
 
+/// Implements a BitVec encoded as a set of runs (repeated occurrences of the same bit).
+/// Space usage scales with the number of runs, rather than the universe size or number
+/// of bits. Internally represented by two sparse bit vectors.
 #[derive(Clone)]
 pub struct RLEBitVec {
     /// z[i]: cumulative number of zeros before the start of the i-th 1-run;
