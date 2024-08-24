@@ -201,7 +201,7 @@ pub trait MultiBitVecBuilder: Clone {
 }
 
 /// Adapter to allow MultiBitVecs to serve as BitVecs.
-/// The blanket impl below provides an impl that uses the
+/// The blanket impl below provides an implementation that uses the
 /// default BitVec methods to provide implementations of rank0/select0
 /// which rely on the absence of multiplicity.
 #[derive(Clone)]
