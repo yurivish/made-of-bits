@@ -22,11 +22,11 @@ There are several traits defined by this crate:
 - [BitVec](https://github.com/yurivish/made-of-bits/blob/03b66e2ce37c9a1252670991726048156303a28f/rust-playground/made-of-bits/src/bitvec/mod.rs#L14) is implemented by plain bit vectors (which are functionally integer sets)
 -  [MultiBitVec](https://github.com/yurivish/made-of-bits/blob/03b66e2ce37c9a1252670991726048156303a28f/rust-playground/made-of-bits/src/bitvec/mod.rs#L99C11-L99C21) is implemented by bit vector types that support storing the same integer multiple times.  `ArrayBitVec` and `SparseBitVec` store repetitions explicitly (each copy takes more space), while `Multi<T>` encodes multiplicities in a bit vector, so it can store large counts efficiently.
 - [BitVecBuilder](https://github.com/yurivish/made-of-bits/blob/03b66e2ce37c9a1252670991726048156303a28f/rust-playground/made-of-bits/src/bitvec/mod.rs#L137) and [MultiBitVecBuilder](https://github.com/yurivish/made-of-bits/blob/03b66e2ce37c9a1252670991726048156303a28f/rust-playground/made-of-bits/src/bitvec/mod.rs#L168) are builder traits corresponding to the two traits above.
-These traits enable writing code that is parametric over any particular bit vector type. For additional convenience, the builders have access to their target bit vector type as an [associated type](https://doc.rust-lang.org/rust-by-example/generics/assoc_items/types.html), and the bit vectors similarly have access to their builder type. This helped greatly when writing parametric test functions and enabled reusing test code across all concrete implementations of these traits.
+
+Taken together, these traits enable writing code that is parametric over any particular bit vector type. For additional convenience, the builders have access to their target bit vector type as an [associated type](https://doc.rust-lang.org/rust-by-example/generics/assoc_items/types.html), and the bit vectors similarly have access to their builder type. This helped greatly when writing parametric test functions and enabled reusing test code across all concrete implementations of these traits.
 
 ## WebAssembly bindings
 This package provides experimental work-in-progress WebAssembly bindings, implemented in `js.rs`. The bindings use another package of mine, [`to_js`](https://github.com/iopsystems/to_js), which allows easy Rust–JS bindings for basic datatypes in under 750 lines of Rust.
-
 
 ## Future work
 
