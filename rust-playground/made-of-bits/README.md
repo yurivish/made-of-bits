@@ -33,16 +33,20 @@ Each builder type also contains an associated type describing the valid configur
 ## WebAssembly bindings
 This package provides experimental work-in-progress WebAssembly bindings to all of its bit vectors as well as the wavelet matrix, implemented in `js.rs`. The bindings use another package I wrote, [to_js](https://github.com/iopsystems/to_js), which implements basic Rust–JS bindings in around 750 lines of Rust. I didn't have a concrete use for the WebAssembly bindings when I was implementing this package so they're in a bit a proof of concept phase at the moment (but they do work!)
 
+## Testing
+
+The library currently contains a collection of spot tests, as well as exhaustive tests for small universes using [Exhaustigen](https://github.com/graydon/exhaustigen-rs) and some basic property tests using [arbtest](https://github.com/matklad/arbtest).
+
 ## Future work
 
-- Add support for Huffman-compressed wavelet matrix construction and queries. (Tht top-level JS library in this repository implements this)
-- Add support for compressed bit vectors as described in [Fast, Small, Simple Rank/Select on Bitmaps](https://users.dcc.uchile.cl/~gnavarro/ps/sea12.1.pdf)
+- Add Huffman-compressed wavelet matrix construction and processing. (The top-level JS library in this repository [implements](https://github.com/yurivish/made-of-bits/blob/main/src/huffman.js) some of this)
+- Add compressed bit vectors as described in [Fast, Small, Simple Rank/Select on Bitmaps](https://users.dcc.uchile.cl/~gnavarro/ps/sea12.1.pdf)
   - See also: https://observablehq.com/d/5370347688e58b4d
-- Add support for quad vectors and the quad wavelet matrix. Explore its use for two-dimensional range queries without the need for Morton masks.
+- Add quad vectors and the quad wavelet matrix. Explore its use for two-dimensional range queries without the need for Morton masks.
   - Paper: [Faster wavelet trees with quad vectors](https://www.kurpicz.org/assets/publications/qwm_preprint.pdf) 
   - Paper: [Faster Wavelet Tree Queries](https://arxiv.org/abs/2302.09239)
   - Code for an existing [QWT implementation](https://github.com/rossanoventurini/qwt)
-- Testing
+- More testing
   - Add more tests for rank1_batch, which is currently only spot-tested
   - Add tests for the individual bit vectors that capture the particular patterns each type is specialized for, and also test their configuration options.
     - various numbers of runs and run-lengths for rle, verifying the space savings
