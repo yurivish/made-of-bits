@@ -48,7 +48,7 @@ The library currently contains a collection of tests for the core traits (and th
   - Paper: [Faster Wavelet Tree Queries](https://arxiv.org/abs/2302.09239)
   - Code for an existing [QWT implementation](https://github.com/rossanoventurini/qwt)
 - More testing
-  - Add more tests for rank1_batch, which is currently only spot-tested, and for the wavelet matrix, whose functionality is not covered by the existing spot tests 
+  - Add more tests for rank1_batch, which is currently only spot-tested, and for the wavelet matrix, whose full functionality is not covered by the existing spot tests 
   - Add tests for the individual bit vectors that test the particular patterns each type is specialized for, and test each bit vector's range of configuration options.
     - various numbers of runs and run-lengths for rle, verifying the space savings
     - large universes and varying split points for sparse
