@@ -23,26 +23,28 @@ Storing [Morton codes](https://en.wikipedia.org/wiki/Z-order_curve) in the wavel
 ## Traits
 This crate defines several traits:
 - [BitVec](https://github.com/yurivish/made-of-bits/blob/03b66e2ce37c9a1252670991726048156303a28f/rust-playground/made-of-bits/src/bitvec/mod.rs#L14) is implemented by plain bit vectors (which are functionally integer sets)
--  [MultiBitVec](https://github.com/yurivish/made-of-bits/blob/03b66e2ce37c9a1252670991726048156303a28f/rust-playground/made-of-bits/src/bitvec/mod.rs#L99C11-L99C21) is implemented by bit vector types that support storing the same integer multiple times.  `ArrayBitVec` and `SparseBitVec` store repetitions explicitly (each copy takes more space), while `Multi<T>` encodes multiplicities in a bit vector, so it can store large counts efficiently.
+- [MultiBitVec](https://github.com/yurivish/made-of-bits/blob/03b66e2ce37c9a1252670991726048156303a28f/rust-playground/made-of-bits/src/bitvec/mod.rs#L99C11-L99C21) is implemented by bit vector types that support storing the same integer multiple times.  `ArrayBitVec` and `SparseBitVec` store repetitions explicitly (each copy takes more space), while `Multi<T>` encodes multiplicities in a bit vector, so it can store large counts efficiently.
 - [BitVecBuilder](https://github.com/yurivish/made-of-bits/blob/03b66e2ce37c9a1252670991726048156303a28f/rust-playground/made-of-bits/src/bitvec/mod.rs#L137) and [MultiBitVecBuilder](https://github.com/yurivish/made-of-bits/blob/03b66e2ce37c9a1252670991726048156303a28f/rust-playground/made-of-bits/src/bitvec/mod.rs#L168) are builder traits corresponding to the two traits above.
 
 These traits enable writing code that is parametric over any particular bit vector type. For convenience, the builders have access to their target bit vector type as an [associated type](https://doc.rust-lang.org/rust-by-example/generics/assoc_items/types.html), and the bit vectors similarly have access to their builder type, which helped greatly when writing parametric test functions and enabled reusing test code across all concrete implementations of these traits.
 
+Each builder type also contains an associated type describing the valid configuration options for its associated bit vector type, which turned out to be a nice way to enable customizability while maintaining a coherent interface.
+
 ## WebAssembly bindings
-This package provides experimental work-in-progress WebAssembly bindings to all of its bit vectors as well as the wavelet matrix, implemented in `js.rs`. The bindings use another package I wrote, [to_js](https://github.com/iopsystems/to_js), which implements basic Rust–JS bindings in under 750 lines of Rust. I didn't have a concrete use for WebAssembly bindings when I was implementing this package so they're in a bit a proof of concept phase at the moment (but they do work!)
+This package provides experimental work-in-progress WebAssembly bindings to all of its bit vectors as well as the wavelet matrix, implemented in `js.rs`. The bindings use another package I wrote, [to_js](https://github.com/iopsystems/to_js), which implements basic Rust–JS bindings in under 750 lines of Rust. I didn't have a concrete use for the WebAssembly bindings when I was implementing this package so they're in a bit a proof of concept phase at the moment (but they do work!)
 
 ## Future work
 
 - Add support for Huffman-compressed wavelet matrix construction and queries. (Tht top-level JS library in this repository implements this)
-- Add support for compressed bit vectors as described in "Fast, Small, Simple Rank/Select on Bitmaps": https://users.dcc.uchile.cl/~gnavarro/ps/sea12.1.pdf
+- Add support for compressed bit vectors as described in [Fast, Small, Simple Rank/Select on Bitmaps](https://users.dcc.uchile.cl/~gnavarro/ps/sea12.1.pdf)
   - See also: https://observablehq.com/d/5370347688e58b4d
 - Add support for quad vectors and the quad wavelet matrix. Explore its use for two-dimensional range queries without the need for Morton masks.
-  - Paper: Faster wavelet trees with quad vectors: https://www.kurpicz.org/assets/publications/qwm_preprint.pdf
-  - Paper: Faster Wavelet Tree Queries: https://arxiv.org/abs/2302.09239
-  - Code: https://github.com/rossanoventurini/qwt
-- testing
-  - More comprehensive testing for rank1_batch
-  - Add individualized tests for the individual bit vectors to capture the particular patterns each type is specialized for (and test their configuration options).
+  - Paper: [Faster wavelet trees with quad vectors](https://www.kurpicz.org/assets/publications/qwm_preprint.pdf) 
+  - Paper: [Faster Wavelet Tree Queries](https://arxiv.org/abs/2302.09239)
+  - Code for an existing [QWT implementation](https://github.com/rossanoventurini/qwt)
+- Testing
+  - Add more tests for rank1_batch, which is currently only spot-tested
+  - Add tests for the individual bit vectors that capture the particular patterns each type is specialized for, and also test their configuration options.
     - various numbers of runs and run-lengths for rle, verifying the space savings
     - large universes and varying split points for sparse
     - varied densities and sampling options for dense
