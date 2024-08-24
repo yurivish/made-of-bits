@@ -30,6 +30,8 @@ These traits enable writing code that is parametric over any particular bit vect
 
 Each builder type also contains an associated type describing the valid configuration options for its bit vector type, which turned out to be a nice way to enable customizability while maintaining a coherent interface.
 
+To turn a MultiBitVec into a BitVec, see [BitVecOf](https://github.com/yurivish/made-of-bits/blob/03b66e2ce37c9a1252670991726048156303a28f/rust-playground/made-of-bits/src/bitvec/mod.rs#L208).
+
 ## WebAssembly bindings
 This package provides experimental work-in-progress WebAssembly bindings to all of its bit vectors as well as the wavelet matrix, implemented in `js.rs`. The bindings use another package I wrote, [to_js](https://github.com/iopsystems/to_js), which implements basic Rust–JS bindings in around 750 lines of Rust. I didn't have a concrete use for the WebAssembly bindings when I was implementing this package so they're in a bit a proof of concept phase at the moment (but they do work!)
 
