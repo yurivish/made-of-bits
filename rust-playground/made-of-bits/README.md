@@ -37,7 +37,7 @@ This package provides experimental work-in-progress WebAssembly bindings to all 
 
 ## Testing
 
-The library currently contains a collection of regular tests, as well as exhaustive tests for small universes using [Exhaustigen](https://github.com/graydon/exhaustigen-rs), and some basic property tests using [arbtest](https://github.com/matklad/arbtest).
+The library currently contains a collection of tests for the core traits (and through them for all of the concrete bit vector types), as well as exhaustive tests for small universes using [Exhaustigen](https://github.com/graydon/exhaustigen-rs), and some basic property tests using [arbtest](https://github.com/matklad/arbtest).
 
 ## Future work
 
@@ -48,8 +48,8 @@ The library currently contains a collection of regular tests, as well as exhaust
   - Paper: [Faster Wavelet Tree Queries](https://arxiv.org/abs/2302.09239)
   - Code for an existing [QWT implementation](https://github.com/rossanoventurini/qwt)
 - More testing
-  - Add more tests for rank1_batch, which is currently only spot-tested
-  - Add tests for the individual bit vectors that capture the particular patterns each type is specialized for, and also test their configuration options.
+  - Add more tests for rank1_batch, which is currently only spot-tested, and for the wavelet matrix, whose functionality is not covered by the existing spot tests 
+  - Add tests for the individual bit vectors that test the particular patterns each type is specialized for, and test each bit vector's range of configuration options.
     - various numbers of runs and run-lengths for rle, verifying the space savings
     - large universes and varying split points for sparse
     - varied densities and sampling options for dense
