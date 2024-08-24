@@ -35,7 +35,7 @@ This package provides experimental work-in-progress WebAssembly bindings to all 
 
 ## Testing
 
-The library currently contains a collection of spot tests, as well as exhaustive tests for small universes using [Exhaustigen](https://github.com/graydon/exhaustigen-rs) and some basic property tests using [arbtest](https://github.com/matklad/arbtest).
+The library currently contains a collection of regular tests, as well as exhaustive tests for small universes using [Exhaustigen](https://github.com/graydon/exhaustigen-rs), and some basic property tests using [arbtest](https://github.com/matklad/arbtest).
 
 ## Future work
 
