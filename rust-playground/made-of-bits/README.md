@@ -41,7 +41,6 @@ The library currently contains a collection of regular tests, as well as exhaust
 
 - Add Huffman-compressed wavelet matrix construction and processing. (The top-level JS library in this repository [implements](https://github.com/yurivish/made-of-bits/blob/main/src/huffman.js) some of this)
 - Add compressed bit vectors as described in [Fast, Small, Simple Rank/Select on Bitmaps](https://users.dcc.uchile.cl/~gnavarro/ps/sea12.1.pdf)
-  - See also: https://observablehq.com/d/5370347688e58b4d
 - Add quad vectors and the quad wavelet matrix. Explore its use for two-dimensional range queries without the need for Morton masks.
   - Paper: [Faster wavelet trees with quad vectors](https://www.kurpicz.org/assets/publications/qwm_preprint.pdf) 
   - Paper: [Faster Wavelet Tree Queries](https://arxiv.org/abs/2302.09239)
