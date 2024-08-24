@@ -18,12 +18,12 @@ The crown jewel of this crate is the [wavelet matrix](https://github.com/yurivis
 
 This crate provides wavelet matrix rank and select, as well as a few other useful operations like range count and [range quantile](https://arxiv.org/abs/0903.4726).
 
-Storing [Morton codes](https://en.wikipedia.org/wiki/Z-order_curve) in the wavelet matrix enables multi-dimensional range queries, which is great fun for zoomable density scatterplots with adaptive level-of-detail. This data representation is sometimes called an "[interleaved wavelet tree](https://diegocaro.cl/thesis/thesis.pdf)" and can be used for other spatial operations, though I've only implemented range count queries here.
+Storing [Morton codes](https://en.wikipedia.org/wiki/Z-order_curve) in the wavelet matrix enables multi-dimensional range count queries, which is great fun for zoomable density scatterplots with adaptive level-of-detail. 
 
 ## Traits
 This crate defines several traits:
 - [BitVec](https://github.com/yurivish/made-of-bits/blob/03b66e2ce37c9a1252670991726048156303a28f/rust-playground/made-of-bits/src/bitvec/mod.rs#L14) is implemented by plain bit vectors (which are functionally integer sets)
-- [MultiBitVec](https://github.com/yurivish/made-of-bits/blob/03b66e2ce37c9a1252670991726048156303a28f/rust-playground/made-of-bits/src/bitvec/mod.rs#L99C11-L99C21) is implemented by bit vector types that support storing the same integer multiple times.  `ArrayBitVec` and `SparseBitVec` store repetitions explicitly (each copy takes more space), while `Multi<T>` encodes multiplicities in a bit vector, so it can store large counts efficiently.
+- [MultiBitVec](https://github.com/yurivish/made-of-bits/blob/03b66e2ce37c9a1252670991726048156303a28f/rust-playground/made-of-bits/src/bitvec/mod.rs#L99C11-L99C21) is implemented by bit vector types that support storing the same integer multiple times.  `ArrayBitVec` and `SparseBitVec` store repetitions explicitly (each copy takes more space), while `Multi<T>` encodes multiplicities in a separate bit vector of counts, so it can store large counts efficiently.
 - [BitVecBuilder](https://github.com/yurivish/made-of-bits/blob/03b66e2ce37c9a1252670991726048156303a28f/rust-playground/made-of-bits/src/bitvec/mod.rs#L137) and [MultiBitVecBuilder](https://github.com/yurivish/made-of-bits/blob/03b66e2ce37c9a1252670991726048156303a28f/rust-playground/made-of-bits/src/bitvec/mod.rs#L168) are builder traits corresponding to the two traits above.
 
 These traits enable writing code that is parametric over any particular bit vector type. For convenience, the builders have access to their target bit vector type as an [associated type](https://doc.rust-lang.org/rust-by-example/generics/assoc_items/types.html), and the bit vectors similarly have access to their builder type, which helped greatly when writing parametric test functions and enabled reusing test code across all concrete implementations of these traits.
