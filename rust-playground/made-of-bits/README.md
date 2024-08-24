@@ -1,7 +1,8 @@
 # Made of Bits
 
 This library is the product of my explorations into [succinct data structures](https://en.wikipedia.org/wiki/Succinct_data_structure) for data visualization.
-It implements several bit vector types with [rank and select operations](https://en.wikipedia.org/wiki/Succinct_data_structure#Succinct_indexable_dictionaries), each specialized to a particular data pattern (dense, sparse, run-length-encoded).
+It implements several bit vector types with [rank and select operations](https://en.wikipedia.org/wiki/Succinct_data_structure#Succinct_indexable_dictionaries), each specialized to a particular data pattern:
+
 - The [dense](https://github.com/yurivish/made-of-bits/blob/main/rust-playground/made-of-bits/src/bitvec/dense.rs) bit vector is based on the approach proposed in [Fast, Small, Simple Rank/Select on Bitmaps](https://www.dcc.uchile.cl/~gnavarro/ps/sea12.1.pdf).
 - The [sparse](https://github.com/yurivish/made-of-bits/blob/main/rust-playground/made-of-bits/src/bitvec/sparse.rs) bit vector is implemented using [Elias-Fano encoding](https://www.antoniomallia.it/sorted-integers-compression-with-elias-fano-encoding.html).
 - The [run-length-encoded](https://github.com/yurivish/made-of-bits/blob/main/rust-playground/made-of-bits/src/bitvec/rle.rs) bit vector uses an idea I developed together with [Gonzalo Navarro](https://users.dcc.uchile.cl/~gnavarro/), which is a tweak to a RLE bit vector described in his [book](https://www.amazon.com/Compact-Data-Structures-Practical-Approach/dp/1107152380) to improve the efficiency of rank queries. We wrote a [technical note](https://yuri.is/pdfing/weighted_range_quantile_queries.pdf) about it.
@@ -13,14 +14,14 @@ In addition, there are also a few wrapper types that grant new powers to an exis
 - [ZeroPadded\<T\>](https://github.com/yurivish/made-of-bits/blob/main/rust-playground/made-of-bits/src/bitvec/zeropadded.rs) embeds a bit vector into a larger universe by padding it on the left and right with 0-bits. These extra bits take no space as they are represented implicitly.
 
 ## Wavelet matrix
-The crown jewel data structure in this crate is the [wavelet matrix](https://github.com/yurivish/made-of-bits/blob/main/rust-playground/made-of-bits/src/waveletmatrix.rs), which generalizes rank/select bit vectors to larger integer alphabets than (_0_, _1_) The wavelet matrix is a variant of the [wavelet tree](https://www.sciencedirect.com/science/article/pii/S1570866713000610) that improves space efficiency, particularly for large alphabets.
+The crown jewel of this crate is the [wavelet matrix](https://github.com/yurivish/made-of-bits/blob/main/rust-playground/made-of-bits/src/waveletmatrix.rs) data structure, which generalizes rank/select bit vectors to larger integer alphabets than (_0_, _1_). (The [wavelet matrix](https://users.dcc.uchile.cl/~gnavarro/ps/spire12.4.pdf) is a variant of the [wavelet tree](https://www.sciencedirect.com/science/article/pii/S1570866713000610) that improves space efficiency and runtime performance, particularly for large alphabets.)
 
-This crate provides basic rank and select functionality, along with some other useful operations like range count, which allows for constant-time aggregation with respect to sequence length, and a quantile function, which allows you to access any contiguous range of the array in sorted order (also in constant time with respect to sequence length).
+This crate provides wavelet matrix rank and select, as well as a few other useful operations like range count and [range quantile](https://arxiv.org/abs/0903.4726).
 
-In addition, storing [Morton codes](https://en.wikipedia.org/wiki/Z-order_curve) in the wavelet matrix enables multi-dimensional range queries, which is great fun for zoomable scatterplots with adaptive level-of-detail and in constant time with respect to the size of the data. This data representation is sometimes called an "[interleaved wavelet tree](https://diegocaro.cl/thesis/thesis.pdf)" and is useful for other spatial operations too, though I've only implemented range count queries here.
+Storing [Morton codes](https://en.wikipedia.org/wiki/Z-order_curve) in the wavelet matrix enables multi-dimensional range queries, which is great fun for zoomable density scatterplots with adaptive level-of-detail. This data representation is sometimes called an "[interleaved wavelet tree](https://diegocaro.cl/thesis/thesis.pdf)" and can be used for other spatial operations, though I've only implemented range count queries here.
 
 ## Traits
-There are several traits defined by this crate:
+This crate defines several traits:
 - [BitVec](https://github.com/yurivish/made-of-bits/blob/03b66e2ce37c9a1252670991726048156303a28f/rust-playground/made-of-bits/src/bitvec/mod.rs#L14) is implemented by plain bit vectors (which are functionally integer sets)
 -  [MultiBitVec](https://github.com/yurivish/made-of-bits/blob/03b66e2ce37c9a1252670991726048156303a28f/rust-playground/made-of-bits/src/bitvec/mod.rs#L99C11-L99C21) is implemented by bit vector types that support storing the same integer multiple times.  `ArrayBitVec` and `SparseBitVec` store repetitions explicitly (each copy takes more space), while `Multi<T>` encodes multiplicities in a bit vector, so it can store large counts efficiently.
 - [BitVecBuilder](https://github.com/yurivish/made-of-bits/blob/03b66e2ce37c9a1252670991726048156303a28f/rust-playground/made-of-bits/src/bitvec/mod.rs#L137) and [MultiBitVecBuilder](https://github.com/yurivish/made-of-bits/blob/03b66e2ce37c9a1252670991726048156303a28f/rust-playground/made-of-bits/src/bitvec/mod.rs#L168) are builder traits corresponding to the two traits above.
