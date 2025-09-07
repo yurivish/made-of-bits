@@ -642,7 +642,7 @@ function buildBitVecsLargeAlphabet(data, numLevels) {
 
   // For each level, stably sort the datapoints by their bit value at that level.
   // Elements with a zero bit get sorted left, and elements with a one bits
-  // get sorted right, which is effectvely a bucket sort with two buckets.
+  // get sorted right, which is effectively a bucket sort with two buckets.
   const right = [];
 
   for (let l = 0; l < maxLevel; l++) {

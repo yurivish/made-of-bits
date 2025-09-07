@@ -806,7 +806,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
 
         // For each level, stably sort the datapoints by their bit value at that level.
         // Elements with a zero bit get sorted left, and elements with a one bits
-        // get sorted right, which is effectvely a bucket sort with two buckets.
+        // get sorted right, which is effectively a bucket sort with two buckets.
         let mut right = Vec::new();
 
         for l in 0..max_level {
