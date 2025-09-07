@@ -14,7 +14,7 @@ In addition, there are also a few wrapper types that grant new powers to an exis
 - [ZeroPadded\<T\>](https://github.com/yurivish/made-of-bits/blob/main/rust-playground/made-of-bits/src/bitvec/zeropadded.rs) embeds a bit vector into a larger universe by padding it on the left and right with 0-bits. These extra bits take no space as they are represented implicitly.
 
 ## Wavelet matrix
-The crown jewel of this crate is the [wavelet matrix](https://github.com/yurivish/made-of-bits/blob/main/rust-playground/made-of-bits/src/waveletmatrix.rs) data structure, which generalizes rank/select bit vectors to larger integer alphabets than (_0_, _1_). (The [wavelet matrix](https://users.dcc.uchile.cl/~gnavarro/ps/spire12.4.pdf) is a variant of the [wavelet tree](https://www.sciencedirect.com/science/article/pii/S1570866713000610) that improves space efficiency and runtime performance, particularly for large alphabets.)
+The crown jewel of this crate is the [wavelet matrix](https://github.com/yurivish/made-of-bits/blob/main/src/waveletmatrix.rs) data structure, which generalizes rank/select bit vectors to larger integer alphabets than (_0_, _1_). (The [wavelet matrix](https://users.dcc.uchile.cl/~gnavarro/ps/spire12.4.pdf) is a variant of the [wavelet tree](https://www.sciencedirect.com/science/article/pii/S1570866713000610) that improves space efficiency and runtime performance, particularly for large alphabets.)
 
 This crate provides wavelet matrix rank and select, as well as a few other useful operations like range count and [range quantile](https://arxiv.org/abs/0903.4726).
 
