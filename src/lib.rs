@@ -15,6 +15,7 @@ mod bitbuf;
 mod bits;
 mod bitvec;
 mod intbuf;
+#[cfg(feature = "js")]
 mod js;
 mod waveletmatrix;
 mod waveletmatrix_support;
