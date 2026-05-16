@@ -1,6 +1,6 @@
-//! `SymbolSequence` — the common query contract shared by `WaveletMatrix` and (eventually)
-//! `HuffmanWaveletMatrix`. Property tests against this trait validate both implementations
-//! with one body of code, mirroring `madeofbits/symbolsequence_test.go`.
+//! `SymbolSequence` — the common query contract shared by `WaveletMatrix` and
+//! `HuffmanWaveletMatrix`. Property tests against this trait validate both
+//! implementations with one body of code, mirroring `madeofbits/symbolsequence_test.go`.
 //!
 //! The trait is intentionally a *subset* of `WaveletMatrix`'s public API — the methods
 //! both structures support and that are meaningful to cross-validate. Implementations
@@ -65,7 +65,7 @@ impl<BV: crate::bitvec::BitVec> SymbolSequence for crate::waveletmatrix::Wavelet
 // =========================================================================
 // Property test helpers — exercise any `SymbolSequence` impl against naive
 // references that operate directly on the source data. Used in both the
-// `WaveletMatrix` and (eventually) `HuffmanWaveletMatrix` test modules.
+// `WaveletMatrix` and `HuffmanWaveletMatrix` test modules.
 // =========================================================================
 
 #[cfg(test)]
