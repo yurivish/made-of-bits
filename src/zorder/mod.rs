@@ -14,6 +14,131 @@ use std::{ffi::CStr, ops::RangeInclusive};
 const X_MASK_2D: u32 = 0b01010101010101010101010101010101;
 const Y_MASK_2D: u32 = !X_MASK_2D;
 
+// 3D dimension masks. In a 3D Morton code each dimension's bits occupy every 3rd
+// position; the masks below pick those bits out. Matches madeofbits/zorder.go.
+const X_MASK_3D: u32 = 0b01001001001001001001001001001001;
+const Y_MASK_3D: u32 = 0b10010010010010010010010010010010;
+const Z_MASK_3D: u32 = 0b00100100100100100100100100100100;
+
+const DIM_MASKS_2D: [u32; 2] = [X_MASK_2D, Y_MASK_2D];
+const DIM_MASKS_3D: [u32; 3] = [X_MASK_3D, Y_MASK_3D, Z_MASK_3D];
+
+/// Mask selecting every bit position belonging to dimension `dim` (0-indexed) in an
+/// `ndims`-dimensional Morton code.
+///
+/// Fast path for 2D and 3D (the only widths Morton encoding currently supports); for
+/// other widths, computes the mask via a loop. Ported from `madeofbits/zorder.go`.
+pub fn dim_mask(dim: usize, ndims: usize) -> u32 {
+    if ndims == 2 {
+        return DIM_MASKS_2D[dim];
+    }
+    if ndims == 3 {
+        return DIM_MASKS_3D[dim];
+    }
+    let mut mask = 0u32;
+    let mut i = dim as u32;
+    while i < 32 {
+        mask |= 1u32 << i;
+        i += ndims as u32;
+    }
+    mask
+}
+
+/// Set `bit` in `val` and clear every lower bit belonging to the same dimension
+/// (identified by `dm`). Tropf's `LOAD_xxx10000` for interleaved Morton codes.
+#[inline]
+fn load_xxx_10000(mut val: u32, bit: u32, dm: u32) -> u32 {
+    val |= bit;
+    val &= !((bit - 1) & dm);
+    val
+}
+
+/// Clear `bit` in `val` and set every lower bit belonging to the same dimension.
+/// Tropf's `LOAD_xxx01111`.
+#[inline]
+fn load_xxx_01111(mut val: u32, bit: u32, dm: u32) -> u32 {
+    val &= !bit;
+    val |= (bit - 1) & dm;
+    val
+}
+
+/// Largest Morton code in the search rectangle `[min, max]` whose Z-value is strictly
+/// less than `div`. Precondition: `Z(min) < Z(div) < Z(max)`.
+///
+/// Implements Tropf's LITMAX algorithm for pre-interleaved Morton codes (Tropf & Herzog,
+/// "Multidimensional Range Search in Dynamically Balanced Trees", Angewandte Informatik,
+/// Feb 1981). Useful as a primitive for N-dimensional range queries on Morton-encoded
+/// data — e.g., the future `morton_count_batch` operation.
+pub fn litmax(min: u32, max: u32, div: u32, ndims: usize) -> u32 {
+    let mut litmax = max;
+    let mut min = min;
+    let mut max = max;
+    let mut masks = [0u32; 8];
+    for d in 0..ndims {
+        masks[d] = dim_mask(d, ndims);
+    }
+    for pos in (0..32).rev() {
+        let bit = 1u32 << pos;
+        let dm = masks[(pos as usize) % ndims];
+
+        let div_bit = (div & bit) != 0;
+        let min_bit = (min & bit) != 0;
+        let max_bit = (max & bit) != 0;
+
+        match (div_bit, min_bit, max_bit) {
+            (false, false, false) => {}                      // same section, continue
+            (false, false, true) => max = load_xxx_01111(max, bit, dm), // shrink max to lower section
+            (false, true, true) => return litmax,            // div below range, done
+            (true, false, false) => return max,              // div above range, litmax is max
+            (true, false, true) => {
+                litmax = load_xxx_01111(max, bit, dm);
+                min = load_xxx_10000(min, bit, dm);
+            }
+            (true, true, true) => {}                         // same section, continue
+            // (false, true, false): max precedes min in Morton order — invalid precondition.
+            // (true, true, false): same. Treat as no-op to match Go.
+            _ => {}
+        }
+    }
+    litmax
+}
+
+/// Smallest Morton code in the search rectangle `[min, max]` whose Z-value is strictly
+/// greater than `div`. Precondition: `Z(min) < Z(div) < Z(max)`.
+///
+/// Tropf's BIGMIN algorithm. See [`litmax`] for details.
+pub fn bigmin(min: u32, max: u32, div: u32, ndims: usize) -> u32 {
+    let mut bigmin = min;
+    let mut min = min;
+    let mut max = max;
+    let mut masks = [0u32; 8];
+    for d in 0..ndims {
+        masks[d] = dim_mask(d, ndims);
+    }
+    for pos in (0..32).rev() {
+        let bit = 1u32 << pos;
+        let dm = masks[(pos as usize) % ndims];
+
+        let div_bit = (div & bit) != 0;
+        let min_bit = (min & bit) != 0;
+        let max_bit = (max & bit) != 0;
+
+        match (div_bit, min_bit, max_bit) {
+            (false, false, false) => {}                       // continue
+            (false, false, true) => {
+                bigmin = load_xxx_10000(min, bit, dm);
+                max = load_xxx_01111(max, bit, dm);
+            }
+            (false, true, true) => return min,                // div below range, bigmin is min
+            (true, false, false) => return bigmin,            // div above range, done
+            (true, false, true) => min = load_xxx_10000(min, bit, dm), // advance min
+            (true, true, true) => {}                          // continue
+            _ => {}
+        }
+    }
+    bigmin
+}
+
 type CStringResult<T> = Result<T, &'static CStr>;
 
 fn well_formed_bbox(tl: u32, br: u32) -> CStringResult<()> {
@@ -252,5 +377,93 @@ mod tests {
 
         assert!(range_contained_in_bbox_2d(3, 4).is_err());
         assert_eq!(range_contained_in_bbox_2d(2, 3), Ok(true));
+    }
+
+    /// 3D masks are disjoint pairwise and union to all 32 bits.
+    #[test]
+    fn test_3d_masks_partition() {
+        assert_eq!(X_MASK_3D & Y_MASK_3D, 0);
+        assert_eq!(X_MASK_3D & Z_MASK_3D, 0);
+        assert_eq!(Y_MASK_3D & Z_MASK_3D, 0);
+        assert_eq!(X_MASK_3D | Y_MASK_3D | Z_MASK_3D, u32::MAX);
+    }
+
+    /// `dim_mask` agrees with the constants for 2D and 3D.
+    #[test]
+    fn test_dim_mask_consistency() {
+        assert_eq!(dim_mask(0, 2), X_MASK_2D);
+        assert_eq!(dim_mask(1, 2), Y_MASK_2D);
+        assert_eq!(dim_mask(0, 3), X_MASK_3D);
+        assert_eq!(dim_mask(1, 3), Y_MASK_3D);
+        assert_eq!(dim_mask(2, 3), Z_MASK_3D);
+        // Generic fallback for ndims = 4.
+        assert_eq!(dim_mask(0, 4), 0b00010001000100010001000100010001);
+    }
+
+    /// 2D encode/decode round-trip on small values.
+    #[test]
+    fn test_2d_encode_decode_roundtrip() {
+        for x in 0..16u32 {
+            for y in 0..16u32 {
+                let code = encode2(x, y);
+                assert_eq!(decode2x(code), x, "decode2x failed for ({x}, {y})");
+                assert_eq!(decode2y(code), y, "decode2y failed for ({x}, {y})");
+            }
+        }
+    }
+
+    /// 3D encode/decode round-trip on small values.
+    #[test]
+    fn test_3d_encode_decode_roundtrip() {
+        for x in 0..8u32 {
+            for y in 0..8u32 {
+                for z in 0..8u32 {
+                    let code = encode3(x, y, z);
+                    assert_eq!(decode3x(code), x, "decode3x failed for ({x},{y},{z})");
+                    assert_eq!(decode3y(code), y, "decode3y failed for ({x},{y},{z})");
+                    assert_eq!(decode3z(code), z, "decode3z failed for ({x},{y},{z})");
+                }
+            }
+        }
+    }
+
+    /// `litmax(min, max, div, 2)` agrees with `litmax_bigmin_2d(min, max).0` when
+    /// `Z(min) < Z(div) < Z(max)` and `div` is between min and max along the search.
+    /// The simpler `litmax_bigmin_2d` doesn't take a div but solves the related problem
+    /// of splitting at the most-significant-differing-bit; matching values fall out for
+    /// the exact-MSB-split case.
+    /// `litmax(min, max, div, 2)` returns a value strictly less than `div`,
+    /// given the Tropf precondition that `min` and `max` are corners of a valid 2D bbox
+    /// and `min < div < max`. (Outside that precondition the algorithm may produce
+    /// arbitrary values — Tropf's contract is conditional.)
+    #[test]
+    fn test_litmax_within_range() {
+        for min in 0u32..32 {
+            for max in (min + 2)..64 {
+                if !well_formed_bbox(min, max).is_ok() {
+                    continue;
+                }
+                for div in (min + 1)..max {
+                    let l = litmax(min, max, div, 2);
+                    assert!(l < div, "litmax({min},{max},{div}) = {l} not < div");
+                }
+            }
+        }
+    }
+
+    /// Symmetric check for `bigmin`.
+    #[test]
+    fn test_bigmin_within_range() {
+        for min in 0u32..32 {
+            for max in (min + 2)..64 {
+                if !well_formed_bbox(min, max).is_ok() {
+                    continue;
+                }
+                for div in (min + 1)..max {
+                    let b = bigmin(min, max, div, 2);
+                    assert!(b > div, "bigmin({min},{max},{div}) = {b} not > div");
+                }
+            }
+        }
     }
 }
