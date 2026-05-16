@@ -50,12 +50,24 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         Self::from_bitvecs(levels, max_symbol, morton_masks)
     }
 
-    /// Construct a wavelet matrix directly from an array of level bitvectors.
-    fn from_bitvecs(
+    /// Construct a wavelet matrix directly from an array of pre-built level bitvectors.
+    /// Used by both `WaveletMatrix::new` and by [`HuffmanWaveletMatrix`] (which wraps each
+    /// level in [`crate::bitvec::onepadded::OnePadded`] to make ragged Huffman trees
+    /// representable uniformly).
+    pub(crate) fn from_bitvecs(
         levels: Vec<BV>,
         max_symbol: u32,
         morton_masks: Option<&[u32]>,
     ) -> WaveletMatrix<BV> {
+        // Allow an empty WM (no levels). Used as a placeholder by HuffmanWaveletMatrix's
+        // empty / single-symbol cases.
+        if levels.is_empty() {
+            return Self {
+                levels: Vec::new(),
+                max_symbol,
+                len: 0,
+            };
+        }
         let max_level = levels.len() - 1;
         let len = levels.first().map_or(0, |level| level.universe_size());
         let levels: Vec<Level<BV>> = levels
@@ -68,7 +80,6 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                 mask: morton_masks.map_or(u32::MAX, |masks| masks[index]),
             })
             .collect();
-        let num_levels = levels.len();
         Self {
             levels,
             max_symbol,
