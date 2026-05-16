@@ -455,7 +455,7 @@ mod tests {
         expect![[r#"
             universe_size=70
             num_ones=4
-            blocks=[2147483649, 1, 16]
+            blocks=[6442450945, 16]
             rank1_samples=[0]
             select1_samples=[0]
             select0_samples=[0]"#]]
