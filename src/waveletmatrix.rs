@@ -711,7 +711,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
 
     /// Return an iterator over levels from the high bit downwards, ignoring the
     /// bottom `ignore_bits` levels.
-    fn levels(&self, ignore_bits: usize) -> std::slice::Iter<Level<BV>> {
+    fn levels(&self, ignore_bits: usize) -> std::slice::Iter<'_, Level<BV>> {
         self.levels[..self.levels.len() - ignore_bits].iter()
     }
 

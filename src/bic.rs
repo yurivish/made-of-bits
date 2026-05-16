@@ -9,33 +9,6 @@
 /// Value type for BIC encoding. Switch to `u64` if larger sums are needed.
 pub type BicUint = u32;
 
-/// BIC tree storage. Internal nodes (n-1 of them) and leaves (n of them) live in separate
-/// slices so the encoder reads leaves directly from the input and the decoder writes leaves
-/// directly into the output, avoiding an extra copy. Conceptual index `i` maps to
-/// `nodes[i]` if `i < n-1`, else `leaves[i - (n-1)]`.
-struct BicTree<'a> {
-    nodes: Vec<BicUint>,
-    leaves: &'a mut [BicUint],
-}
-
-impl BicTree<'_> {
-    fn at(&self, i: usize) -> BicUint {
-        if i < self.nodes.len() {
-            self.nodes[i]
-        } else {
-            self.leaves[i - self.nodes.len()]
-        }
-    }
-    fn put(&mut self, i: usize, v: BicUint) {
-        if i < self.nodes.len() {
-            self.nodes[i] = v;
-        } else {
-            let idx = i - self.nodes.len();
-            self.leaves[idx] = v;
-        }
-    }
-}
-
 /// Encode `values` (all > 0) into a self-describing BIC bitstream.
 pub fn encode(values: &[BicUint]) -> Vec<u8> {
     let n = values.len();
@@ -46,31 +19,20 @@ pub fn encode(values: &[BicUint]) -> Vec<u8> {
         assert_ne!(v, 0, "BIC encode: values[{i}] is zero; all values must be > 0");
     }
 
-    // Treat the input as the leaves slice. We need an owned copy because the tree needs
-    // mutable access to compute internal nodes.
-    let mut leaves: Vec<BicUint> = values.to_vec();
-    // First pass: build the tree in `nodes` from the bottom up.
-    let nodes = vec![0 as BicUint; n - 1];
-    let mut t = BicTree { nodes, leaves: &mut leaves };
-    if n >= 2 {
-        for p in (0..=n - 2).rev() {
-            let combined = bic_combine(t.at(2 * p + 1), t.at(2 * p + 2));
-            t.put(p, combined);
-        }
+    // Implicit tree in a single buffer of length 2n-1: `t[0..n-1]` are internal nodes,
+    // `t[n-1..2n-1]` are leaves. Build bottom-up so each internal node's value is
+    // available before its parent is computed.
+    let mut t = vec![0 as BicUint; 2 * n - 1];
+    t[n - 1..].copy_from_slice(values);
+    for p in (0..n - 1).rev() {
+        t[p] = bic_combine(t[2 * p + 1], t[2 * p + 2]);
     }
 
-    const BIC_UINT_BITS: u32 = (BicUint::BITS as u32) / 8;
-    let mut w = BitWriter::new(16 + n as u32 * BIC_UINT_BITS);
-
+    let mut w = BitWriter::new(16 + n as u32 * BicUint::BITS / 8);
     gamma_write(&mut w, n as BicUint);
-    gamma_write(&mut w, t.at(0));
-
-    if n >= 2 {
-        for p in 0..n - 1 {
-            let bound = bic_range(t.at(p));
-            let v = bic_mapping(t.at(2 * p + 1), t.at(2 * p + 2));
-            bsbin_write(&mut w, v, bound);
-        }
+    gamma_write(&mut w, t[0]);
+    for p in 0..n - 1 {
+        bsbin_write(&mut w, bic_mapping(t[2 * p + 1], t[2 * p + 2]), bic_range(t[p]));
     }
     w.finish()
 }
@@ -85,22 +47,16 @@ pub fn decode(data: &[u8]) -> Vec<BicUint> {
     if n == 0 {
         return Vec::new();
     }
-    let mut result = vec![0 as BicUint; n];
-    let nodes = vec![0 as BicUint; n.saturating_sub(1)];
-    let mut t = BicTree { nodes, leaves: &mut result };
-
-    t.put(0, gamma_read(&mut r));
-
-    if n >= 2 {
-        for p in 0..n - 1 {
-            let bound = bic_range(t.at(p));
-            let v = bsbin_read(&mut r, bound);
-            let (vl, vr) = bic_mapping_inv(v, t.at(p));
-            t.put(2 * p + 1, vl);
-            t.put(2 * p + 2, vr);
-        }
+    // Same single-buffer layout as encode; the leaves slice becomes the return value.
+    let mut t = vec![0 as BicUint; 2 * n - 1];
+    t[0] = gamma_read(&mut r);
+    for p in 0..n - 1 {
+        let v = bsbin_read(&mut r, bic_range(t[p]));
+        let (vl, vr) = bic_mapping_inv(v, t[p]);
+        t[2 * p + 1] = vl;
+        t[2 * p + 2] = vr;
     }
-    result
+    t.split_off(n - 1)
 }
 
 // =====================================================================

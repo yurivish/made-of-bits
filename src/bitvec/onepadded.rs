@@ -110,33 +110,22 @@ impl<T: BitVec> BitVec for OnePadded<T> {
         let inner_ones = self.bv.num_ones();
         let total_ones = self.num_ones();
 
-        // Most underlying BitVec impls (DenseBitVec, SparseBitVec) optimize for
-        // monotone non-decreasing input — interleaving fixup placeholders with real
-        // queries would underflow `b - a` chunking arithmetic. Instead: collect the
-        // inner queries into a side buffer (preserving order), batch them once, and
-        // copy results back. Padding-region answers are filled in directly.
-        let mut inner_buf: Vec<u32> = Vec::new();
-        let mut inner_positions: Vec<usize> = Vec::new();
-        for (i, &v) in bit_indices.iter().enumerate() {
-            if v <= il {
-                inner_buf.push(v);
-                inner_positions.push(i);
-            }
-        }
+        // DenseBitVec/SparseBitVec rank1_batch optimize for monotone non-decreasing
+        // input — we can't interleave fixup placeholders with real queries without
+        // breaking that contract. So: route inner queries through a side buffer,
+        // compute padding answers directly.
+        let mut inner_buf: Vec<u32> =
+            bit_indices.iter().copied().filter(|&v| v <= il).collect();
         self.bv.rank1_batch(&mut inner_buf);
-
-        for (slot, answer) in inner_positions.iter().zip(inner_buf.iter()) {
-            bit_indices[*slot] = *answer;
-        }
-        // Fill in padding-region answers.
+        let mut inner_iter = inner_buf.into_iter();
         for v in bit_indices.iter_mut() {
-            if *v > il {
-                *v = if *v >= self.universe_size {
-                    total_ones
-                } else {
-                    inner_ones + (*v - il)
-                };
-            }
+            *v = if *v <= il {
+                inner_iter.next().unwrap()
+            } else if *v >= self.universe_size {
+                total_ones
+            } else {
+                inner_ones + (*v - il)
+            };
         }
     }
 }

@@ -61,7 +61,7 @@ impl<K, V> From<(K, V)> for KeyVal<K, V> {
 /// mergeable by the `mergeable` function in this trait.
 // we will merge if the keys are the same and mergeable is true
 // later we can figure out if a thing is even Possibly mergeable and if it isn't, skip the mergy logic entirely
-pub(crate) trait MaybeMergeable {
+pub trait MaybeMergeable {
     fn mergeable(&self, other: &Self) -> bool {
         false
     }
@@ -99,7 +99,7 @@ impl<K, V: MaybeMergeable> KeyVal<K, V> {
 // nodes in the wavelet matrix (all left nodes precede all
 // right nodes).
 #[derive(Debug)]
-pub(crate) struct Traversal<K, V> {
+pub struct Traversal<K, V> {
     cur: VecDeque<KeyVal<K, V>>,
     next: VecDeque<KeyVal<K, V>>,
     num_left: usize,

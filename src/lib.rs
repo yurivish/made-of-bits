@@ -24,8 +24,9 @@ pub mod huffmanwaveletmatrix;
 pub mod symbol_sequence;
 #[cfg(test)]
 mod test_support;
-pub mod waveletmatrix;
+mod waveletmatrix;
 mod waveletmatrix_support;
+pub use waveletmatrix::WaveletMatrix;
 mod zorder;
 
 pub use bitvec::array::*;

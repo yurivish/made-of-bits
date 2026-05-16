@@ -5,8 +5,7 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use made_of_bits::huffmanwaveletmatrix::HuffmanWaveletMatrix;
-use made_of_bits::waveletmatrix::WaveletMatrix;
-use made_of_bits::DenseBitVec;
+use made_of_bits::{DenseBitVec, WaveletMatrix};
 use rand::{Rng, SeedableRng};
 
 /// Generate a Zipf-distributed symbol stream: symbol `s` appears with frequency ~ 1/(s+1).

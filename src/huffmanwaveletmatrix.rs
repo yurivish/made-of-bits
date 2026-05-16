@@ -1,10 +1,6 @@
-//! Huffman-shaped wavelet matrix. Variable-length Huffman codes per symbol; shorter codes
-//! sort to the end of each level via [`OnePadded`] wrapping, compressing the structure
-//! towards first-order entropy.
-//!
-//! Wraps an inner [`WaveletMatrix<OnePadded<DenseBitVec>>`]. Each level is built from only
-//! the data elements whose code length exceeds that level; trailing elements (with shorter
-//! codes) are represented implicitly via one-padding.
+//! Huffman-shaped wavelet matrix. Variable-length Huffman codes per symbol; shorter
+//! codes sort to the end of each level via [`OnePadded`] wrapping, compressing the
+//! structure towards first-order entropy.
 //!
 //! Ported from `madeofbits/huffmanwaveletmatrix.go`.
 
@@ -23,12 +19,9 @@ pub struct HuffmanWaveletMatrix {
     inner: Inner,
     length: u32,
     max_symbol: u32,
-    /// `symbol_to_code[sym]` → the 1-padded Huffman code for `sym`. Only present for
-    /// symbols that actually appeared in the input.
+    // Map (not flat 2^max_code_len array) because a single rare symbol can drag the
+    // max code length up arbitrarily; only num_distinct entries get stored.
     symbol_to_code: HashMap<u32, u32>,
-    /// `code_to_symbol[padded_code]` → the original symbol. Map (not flat array) to avoid
-    /// `2^max_code_len`-sized storage on skewed distributions where one rare symbol drags
-    /// the max code length up.
     code_to_symbol: HashMap<u32, u32>,
     max_code_len: u32,
 }
@@ -39,25 +32,17 @@ impl HuffmanWaveletMatrix {
         assert!(n <= u32::MAX as usize, "data length must not exceed 2^32 - 1");
 
         if n == 0 {
-            return Self {
-                inner: empty_inner(),
-                length: 0,
-                max_symbol: 0,
-                symbol_to_code: HashMap::new(),
-                code_to_symbol: HashMap::new(),
-                max_code_len: 0,
-            };
+            return Self::degenerate(0, 0, HashMap::new(), HashMap::new());
         }
 
-        // Count frequencies, find max symbol.
         let max_symbol = data.iter().copied().max().unwrap();
-        let mut freqs: Vec<u32> = vec![0; (max_symbol + 1) as usize];
+        let mut freqs = vec![0u32; (max_symbol + 1) as usize];
         for &d in data {
             freqs[d as usize] += 1;
         }
 
-        // Build (weight, symbol) pairs for symbols that actually appear; sort by descending
-        // weight then ascending symbol for deterministic tie-breaking (matches Go).
+        // (weight, symbol) pairs for symbols that appear, sorted by descending weight,
+        // ascending symbol for tie-breaking (matches Go).
         let mut pairs: Vec<(u32, u32)> = freqs
             .iter()
             .enumerate()
@@ -66,23 +51,15 @@ impl HuffmanWaveletMatrix {
             .collect();
         pairs.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
 
-        let num_distinct = pairs.len();
-
-        // Single-symbol corner case: no levels, no actual encoding.
-        if num_distinct == 1 {
+        // Single-symbol case bypasses Huffman entirely: code length 0, no levels.
+        if pairs.len() == 1 {
             let sym = pairs[0].1;
-            let mut sym_to_code = HashMap::new();
-            sym_to_code.insert(sym, 0u32);
-            let mut code_to_sym = HashMap::new();
-            code_to_sym.insert(0u32, sym);
-            return Self {
-                inner: empty_inner(),
-                length: n as u32,
+            return Self::degenerate(
+                n as u32,
                 max_symbol,
-                symbol_to_code: sym_to_code,
-                code_to_symbol: code_to_sym,
-                max_code_len: 0,
-            };
+                HashMap::from([(sym, 0)]),
+                HashMap::from([(0, sym)]),
+            );
         }
 
         let weights: Vec<u32> = pairs.iter().map(|p| p.0).collect();
@@ -90,50 +67,32 @@ impl HuffmanWaveletMatrix {
         let codes = wavelet_matrix_codes(&lengths);
         let max_code_len = *lengths.last().unwrap();
 
-        // Pad each code with trailing 1-bits to max_code_len: short codes occupy the END
-        // of each level via one-padding, which is the property [`OnePadded`] exploits.
-        let mut symbol_to_code: HashMap<u32, u32> = HashMap::with_capacity(num_distinct);
-        let mut code_to_symbol: HashMap<u32, u32> = HashMap::with_capacity(num_distinct);
-        let mut max_padded_code: u32 = 0;
+        // Pad each code with trailing 1-bits to max_code_len so short codes occupy the
+        // END of each level — the property OnePadded exploits.
+        let mut symbol_to_code = HashMap::with_capacity(pairs.len());
+        let mut code_to_symbol = HashMap::with_capacity(pairs.len());
+        let mut max_padded_code = 0u32;
         for (i, &(_, sym)) in pairs.iter().enumerate() {
-            let code = codes[i];
-            let code_len = lengths[i];
-            let shift = max_code_len - code_len;
-            let padded = (code << shift) | ((1u32 << shift) - 1);
+            let shift = max_code_len - lengths[i];
+            let padded = (codes[i] << shift) | ((1u32 << shift) - 1);
             symbol_to_code.insert(sym, padded);
             code_to_symbol.insert(padded, sym);
-            if padded > max_padded_code {
-                max_padded_code = padded;
-            }
+            max_padded_code = max_padded_code.max(padded);
         }
 
-        // level_lens[l] = number of data elements whose code length is > l. (These are the
-        // elements that still "exist" at level l before being short-circuited by the
-        // OnePadded padding region.)
-        let mut level_lens: Vec<u32> = vec![0; max_code_len as usize];
+        // level_lens[l] = number of data elements with code length > l (the elements
+        // still "alive" at level l, before being absorbed by OnePadded's padding).
+        let mut level_lens = vec![0u32; max_code_len as usize];
         for (i, &(weight, _)) in pairs.iter().enumerate() {
             for level in 0..lengths[i] {
                 level_lens[level as usize] += weight;
             }
         }
 
-        // Translate data into padded codes.
         let padded_data: Vec<u32> = data.iter().map(|&d| symbol_to_code[&d]).collect();
-
-        // Build the level bitvecs. Each level processes only its `level_lens[l]` prefix; the
-        // suffix is wrapped in OnePadded so all levels have universe_size == n externally.
-        let inner_levels = build_huffman_bitvecs(
-            &padded_data,
-            max_code_len as usize,
-            &level_lens,
-            bitvec_options,
-        );
-
-        let inner = WaveletMatrix::<OnePadded<DenseBitVec>>::from_bitvecs(
-            inner_levels,
-            max_padded_code,
-            None,
-        );
+        let inner_levels =
+            build_huffman_bitvecs(&padded_data, &level_lens, bitvec_options);
+        let inner = WaveletMatrix::from_bitvecs(inner_levels, max_padded_code, None);
 
         Self {
             inner,
@@ -145,15 +104,28 @@ impl HuffmanWaveletMatrix {
         }
     }
 
-    /// Symbol at index `i`.
+    fn degenerate(
+        length: u32,
+        max_symbol: u32,
+        symbol_to_code: HashMap<u32, u32>,
+        code_to_symbol: HashMap<u32, u32>,
+    ) -> Self {
+        Self {
+            inner: WaveletMatrix::from_bitvecs(Vec::new(), 0, None),
+            length,
+            max_symbol,
+            symbol_to_code,
+            code_to_symbol,
+            max_code_len: 0,
+        }
+    }
+
     pub fn get(&self, index: u32) -> u32 {
         assert!(index < self.length, "index out of bounds");
         if self.max_code_len == 0 {
-            // Single-symbol case.
             return self.code_to_symbol[&0];
         }
-        let code = self.inner.get(index);
-        self.code_to_symbol[&code]
+        self.code_to_symbol[&self.inner.get(index)]
     }
 
     pub fn count(&self, range: std::ops::Range<u32>, symbol: u32) -> u32 {
@@ -161,22 +133,16 @@ impl HuffmanWaveletMatrix {
             return 0;
         }
         if self.max_code_len == 0 {
-            return if self.code_to_symbol[&0] == symbol {
-                range.end - range.start
-            } else {
-                0
-            };
+            return if self.code_to_symbol[&0] == symbol { range.end - range.start } else { 0 };
         }
-        let Some(&code) = self.symbol_to_code.get(&symbol) else {
-            return 0;
-        };
-        self.inner.count(range, code)
+        match self.symbol_to_code.get(&symbol) {
+            Some(&code) => self.inner.count(range, code),
+            None => 0,
+        }
     }
 
-    /// `ignore_bits` must be 0; the contract exists only to mirror the
-    /// SymbolSequence trait. Variable-length codes don't have a meaningful concept of
-    /// "bottom k bits to ignore" — the bottom bits are padding for some symbols and
-    /// data for others.
+    /// `ignore_bits` must be 0 (variable-length codes have no meaningful "bottom k bits
+    /// to ignore"). Present only to mirror the SymbolSequence trait.
     pub fn select(
         &self,
         range: std::ops::Range<u32>,
@@ -189,11 +155,8 @@ impl HuffmanWaveletMatrix {
             return None;
         }
         if self.max_code_len == 0 {
-            return if self.code_to_symbol[&0] == symbol && k < range.end - range.start {
-                Some(range.start + k)
-            } else {
-                None
-            };
+            return (self.code_to_symbol[&0] == symbol && k < range.end - range.start)
+                .then(|| range.start + k);
         }
         let &code = self.symbol_to_code.get(&symbol)?;
         self.inner.select(range, code, k, 0)
@@ -211,11 +174,8 @@ impl HuffmanWaveletMatrix {
             return None;
         }
         if self.max_code_len == 0 {
-            return if self.code_to_symbol[&0] == symbol && k < range.end - range.start {
-                Some(range.end - 1 - k)
-            } else {
-                None
-            };
+            return (self.code_to_symbol[&0] == symbol && k < range.end - range.start)
+                .then(|| range.end - 1 - k);
         }
         let &code = self.symbol_to_code.get(&symbol)?;
         self.inner.select_last(range, code, k, 0)
@@ -228,72 +188,41 @@ impl HuffmanWaveletMatrix {
         if self.max_code_len == 0 {
             return Some(self.code_to_symbol[&0]);
         }
-        let length = range.end - range.start;
-        let half_len = length >> 1;
+        let half_len = (range.end - range.start) >> 1;
         let (code, count) = self.inner.quantile(range, half_len);
-        if count > half_len {
-            Some(self.code_to_symbol[&code])
-        } else {
-            None
-        }
+        (count > half_len).then(|| self.code_to_symbol[&code])
     }
 
-    pub fn len(&self) -> u32 {
-        self.length
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.length == 0
-    }
-
-    pub fn max_symbol(&self) -> u32 {
-        self.max_symbol
-    }
-
-    pub fn num_levels(&self) -> u32 {
-        self.max_code_len
-    }
-
-    pub fn num_symbols(&self) -> u32 {
-        self.code_to_symbol.len() as u32
-    }
+    pub fn len(&self) -> u32 { self.length }
+    pub fn is_empty(&self) -> bool { self.length == 0 }
+    pub fn max_symbol(&self) -> u32 { self.max_symbol }
+    pub fn num_levels(&self) -> u32 { self.max_code_len }
+    pub fn num_symbols(&self) -> u32 { self.code_to_symbol.len() as u32 }
 }
 
-/// Sentinel empty inner WM. Used for empty / single-symbol HuffmanWMs that bypass the
-/// actual wavelet-matrix machinery.
-fn empty_inner() -> Inner {
-    WaveletMatrix::<OnePadded<DenseBitVec>>::from_bitvecs(Vec::new(), 0, None)
-}
-
-/// Stable-partition Huffman bitvec builder.
-///
-/// At each level `l`, processes only the first `level_lens[l]` elements of `padded_data`
-/// (which have code length > l). The remaining elements are implicit 1-bits handled by
-/// the [`OnePadded`] wrapper around the resulting bitvec.
-///
-/// Mirrors `buildBitvecsPartition(..., huffmanLevelLens)` in `madeofbits/waveletmatrix.go`.
+/// Stable-partition Huffman bitvec builder. Each level processes only the
+/// `level_lens[l]` prefix (elements with code length > l); the rest is absorbed by the
+/// surrounding OnePadded wrapper. Mirrors `buildBitvecsPartition(..., huffmanLevelLens)`
+/// in `madeofbits/waveletmatrix.go`.
 fn build_huffman_bitvecs(
     padded_data: &[u32],
-    num_levels: usize,
     level_lens: &[u32],
     bitvec_options: DenseBitVecOptions,
 ) -> Vec<OnePadded<DenseBitVec>> {
     let n = padded_data.len() as u32;
-    let mut data: Vec<u32> = padded_data.to_vec();
-    let mut result: Vec<OnePadded<DenseBitVec>> = Vec::with_capacity(num_levels);
+    let num_levels = level_lens.len();
     let max_level = num_levels - 1;
-    let mut right: Vec<u32> = Vec::new();
+    let mut data = padded_data.to_vec();
+    let mut result = Vec::with_capacity(num_levels);
+    let mut right = Vec::new();
 
     for l in 0..num_levels {
         let active_len = level_lens[l];
         let level_bit = 1u32 << (max_level - l);
-
         let mut b = DenseBitVecBuilder::new(active_len, bitvec_options);
 
-        // Stable partition the first `active_len` elements: 0-bits stay in place,
-        // 1-bits move to `right` and are appended at the end.
         right.clear();
-        let mut write_idx = 0usize;
+        let mut write_idx = 0;
         for i in 0..active_len as usize {
             let d = data[i];
             if d & level_bit == 0 {
@@ -304,14 +233,10 @@ fn build_huffman_bitvecs(
                 right.push(d);
             }
         }
-        // Copy the right partition back into the slot just after the left partition.
-        for (j, &v) in right.iter().enumerate() {
-            data[write_idx + j] = v;
-        }
-        let bv = b.build();
-        // Always wrap in OnePadded, even when active_len == n, so the inner WM sees a
-        // homogeneous level type. Zero overhead when inner_len == universe.
-        result.push(OnePadded::new(bv, n));
+        data[write_idx..write_idx + right.len()].copy_from_slice(&right);
+        // Always wrap in OnePadded so the inner WM sees a homogeneous level type; zero
+        // overhead when active_len == n.
+        result.push(OnePadded::new(b.build(), n));
     }
     result
 }

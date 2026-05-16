@@ -23,9 +23,10 @@ crate-type = [
 [features]
 # The `js` feature gates the WebAssembly bindings (src/js.rs), currently disabled.
 # Re-enabling them requires restoring the `to_js` dependency (originally
-# { path = "/Users/yurivish/to_js" }) and adding `js = ["dep:to_js"]` here. WASM
-# bindings are out of scope for the current Go-port effort.
+# { path = "/Users/yurivish/to_js" }) and adding `to_js` to `js`'s deps below.
+# WASM bindings are out of scope for the current Go-port effort.
 default = []
+js = []
 
 [dependencies]
 
