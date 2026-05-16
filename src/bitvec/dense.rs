@@ -261,26 +261,35 @@ impl DenseBitVec {
         if n >= self.num_ones() {
             return None;
         }
+        Some(self.select1_hinted_unchecked(n, hint))
+    }
+
+    /// Core of [`select1_hinted`], assuming `n < num_ones`. Used inline by
+    /// [`select1_batch`] to avoid the per-query `Option` wrap.
+    ///
+    /// Uses the hint only when it points to a fresher position than the select sample
+    /// for `n` would (i.e. `hint.0 >= sample_lower_bound`); otherwise re-seeds from the
+    /// sample. After seeding, the rank-block fast-forward applies in both paths so a
+    /// stale hint never wastes time crawling one block at a time across a large gap.
+    fn select1_hinted_unchecked(&self, n: u32, hint: Option<(u32, u32)>) -> (u32, (u32, u32)) {
+        // Cheap lower bound on the count a fresh select-sample lookup would produce.
+        // If the hint is at least this fresh, it's at least as good as re-seeding.
+        let sample_lower = (n >> self.select1_samples_pow2) << self.select1_samples_pow2;
         let (mut count, mut buf_block_index) = match hint {
-            Some(h) if h.0 <= n => h,
-            _ => {
-                let (mut count, mut buf_block_index) =
-                    Self::select_sample(n, &self.select1_samples, self.select1_samples_pow2);
-                // Skip intervening rank blocks to jump past multiple basic blocks at once.
-                let mut rank_index =
-                    (buf_block_index >> self.buf_blocks_per_rank1_sample_pow2) + 1;
-                while rank_index < self.rank1_samples.len() as u32 {
-                    let next_count = self.rank1_samples[rank_index as usize];
-                    if next_count > n {
-                        break;
-                    }
-                    count = next_count;
-                    buf_block_index = rank_index << self.buf_blocks_per_rank1_sample_pow2;
-                    rank_index += 1;
-                }
-                (count, buf_block_index)
-            }
+            Some(h) if h.0 <= n && h.0 >= sample_lower => h,
+            _ => Self::select_sample(n, &self.select1_samples, self.select1_samples_pow2),
         };
+        // Fast-forward through whole rank-sample buckets when possible.
+        let mut rank_index = (buf_block_index >> self.buf_blocks_per_rank1_sample_pow2) + 1;
+        while rank_index < self.rank1_samples.len() as u32 {
+            let next_count = self.rank1_samples[rank_index as usize];
+            if next_count > n {
+                break;
+            }
+            count = next_count;
+            buf_block_index = rank_index << self.buf_blocks_per_rank1_sample_pow2;
+            rank_index += 1;
+        }
         // Find the basic block containing the n-th 1-bit.
         let mut buf_block = 0;
         while buf_block_index < self.buf.num_blocks() {
@@ -294,21 +303,22 @@ impl DenseBitVec {
         }
         let bit_offset = select64_checked(buf_block, n - count).unwrap_or(0);
         let pos = (buf_block_index << bitbuf::Block::BITS_LOG2) + bit_offset;
-        Some((pos, (count, buf_block_index)))
+        (pos, (count, buf_block_index))
     }
 
     /// Mutates `indices` (sorted non-decreasing) in-place with `select1` results,
     /// threading the hint through. Out-of-range indices become `u32::MAX`.
     pub fn select1_batch(&self, indices: &mut [u32]) {
+        let num_ones = self.num_ones();
         let mut hint = None;
         for i in indices {
-            match self.select1_hinted(*i, hint) {
-                Some((pos, h)) => {
-                    hint = Some(h);
-                    *i = pos;
-                }
-                None => *i = u32::MAX,
+            if *i >= num_ones {
+                *i = u32::MAX;
+                continue;
             }
+            let (pos, h) = self.select1_hinted_unchecked(*i, hint);
+            hint = Some(h);
+            *i = pos;
         }
     }
 
