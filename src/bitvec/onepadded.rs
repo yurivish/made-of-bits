@@ -94,8 +94,12 @@ impl<T: BitVec> BitVec for OnePadded<T> {
     }
 
     fn rank1_batch(&self, bit_indices: &mut [u32]) {
-        // The underlying rank1_batch wants monotone input. Route inner queries through
-        // a side buffer; compute padding-region answers directly.
+        // Inner queries (those at positions <= inner_len) get rank1_batch'd through a
+        // side buffer in order. This preserves the monotone-non-decreasing precondition
+        // that DenseBitVec/SparseBitVec's chunking arithmetic needs — interleaving
+        // padding-region answers in place would break it. Padding-region answers are
+        // then computed directly: rank in padding is inner_ones + (bit_index - il),
+        // since every padding bit is a 1.
         let il = self.inner_len();
         let inner_ones = self.bv.num_ones();
         let total_ones = self.num_ones();

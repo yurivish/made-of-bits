@@ -312,8 +312,14 @@ impl DenseBitVec {
         Some((pos, (count, buf_block_index)))
     }
 
-    /// Mutates `indices` (sorted non-decreasing) in-place with `select1` results,
-    /// threading the hint through. Out-of-range indices become `u32::MAX`.
+    /// Run `select1` for every value in `indices`, writing the positions back over
+    /// the inputs in place. Out-of-range indices (`>= num_ones()`) become `u32::MAX`.
+    ///
+    /// Threads a `(count, buf_block_idx)` hint through consecutive queries so a
+    /// nearby next query can resume the linear scan instead of re-seeding from the
+    /// select sample. The hint pays off when the input is monotone non-decreasing —
+    /// unsorted input still produces correct results, just without the speedup, as
+    /// the hint check (`hint.count <= n`) silently falls back to a sample lookup.
     pub fn select1_batch(&self, indices: &mut [u32]) {
         let mut hint = None;
         for i in indices {

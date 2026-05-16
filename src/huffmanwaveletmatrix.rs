@@ -195,8 +195,16 @@ impl HuffmanWaveletMatrix {
 
     pub fn len(&self) -> u32 { self.length }
     pub fn is_empty(&self) -> bool { self.length == 0 }
+
+    /// The largest input symbol seen during construction (not the largest *encoded*
+    /// symbol; padded Huffman codes can exceed this).
     pub fn max_symbol(&self) -> u32 { self.max_symbol }
+
+    /// Number of levels in the underlying wavelet matrix, equal to the maximum Huffman
+    /// code length. Zero for degenerate inputs (empty or single-symbol).
     pub fn num_levels(&self) -> u32 { self.max_code_len }
+
+    /// Number of distinct symbols that appear in the input.
     pub fn num_symbols(&self) -> u32 { self.code_to_symbol.len() as u32 }
 }
 

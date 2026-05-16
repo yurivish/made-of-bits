@@ -286,13 +286,19 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         }
     }
 
-    /// `quantile` for multiple ks in one traversal. `ks` must be sorted ascending and
-    /// is consumed in-place (each `ks[i]` ends up as the k used at the deepest level).
-    /// Returns `(symbol, count)` pairs in input order — symbols come out ascending.
+    /// Compute several quantiles of the same range in one wavelet-matrix traversal.
     ///
-    /// Groups queries by the node range they share; at each level a group splits at
-    /// the first k that exceeds the left subtree's count. Mirrors
-    /// `waveletmatrix.go:QuantileBatch`.
+    /// `ks` must be sorted in ascending order. Returns one `(symbol, count)` pair per
+    /// input k, in the same order — and because the algorithm partitions ks by symbol
+    /// at each level, the returned symbols come out ascending as well.
+    ///
+    /// `ks` is also used as scratch space: each slot is rewritten as the descent goes
+    /// (the final value is the k used at the deepest level). Callers who need to
+    /// retain the original ks should clone first.
+    ///
+    /// Faster than calling `quantile` once per k because queries that share the same
+    /// node range descend the tree together — one rank pair per level per group, not
+    /// per k. Mirrors `waveletmatrix.go:QuantileBatch`.
     pub fn quantile_batch(&self, range: Range<u32>, ks: &mut [u32]) -> Vec<(u32, u32)> {
         let n = ks.len();
         let mut symbols = vec![0u32; n];

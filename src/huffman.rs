@@ -7,11 +7,14 @@
 //!
 //! Ported from `madeofbits/huffman.go`.
 
-/// Generate canonical codewords from a non-decreasing array of Huffman code lengths.
-/// Each returned code is right-aligned to its code length; viewed as bit-prefixes of
-/// length `max_len`, consecutive codes are strictly increasing (the "lexicographic"
-/// property), but the raw u32 values are not necessarily monotone across different
-/// code lengths.
+/// Canonical Huffman codewords for a non-decreasing array of code lengths.
+///
+/// Each `codes[i]` is the codeword as a bit-pattern of length `lengths[i]`,
+/// right-aligned in the low bits of the u32. Within each length class the codewords
+/// are consecutive integers; the first codeword of length `l + 1` is twice (one past
+/// the last codeword of length `l`). This makes the codes prefix-free and uniquely
+/// decodable. Note that raw u32 values are not monotone across different lengths,
+/// because each code is right-aligned to its own length rather than to `max_len`.
 ///
 /// See Section 2.5 of Alistair Moffat, "Huffman Coding" (2019).
 pub fn canonical_huffman_codes(lengths: &[u32]) -> Vec<u32> {
