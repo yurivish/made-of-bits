@@ -1,3 +1,18 @@
+// Post-Phase-1 baseline (BitBuf widened to u64 blocks; Vigna broadword select64 in
+// place; byte-addressable IntBuf with 56-bit cap). Quick-mode numbers on this
+// machine, for reference when comparing future PRs:
+//
+//   group a/rank1/1            ~1.14 ms
+//   group a/rank1_batch/1      ~145 µs
+//   group a/rank1/100          ~2.14 ms
+//   group a/rank1_batch/100    ~2.16 ms
+//   group a/rank1/700          ~1.82 ms
+//   group a/rank1_batch/700    ~1.86 ms
+//
+// Re-capture before/after benchmarks across Phase-2 and Phase-5 perf changes:
+//   git stash && cargo bench --bench rank1 -- --quick > before.txt && git stash pop
+//   cargo bench --bench rank1 -- --quick > after.txt
+
 use std::time::Duration;
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};

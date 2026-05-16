@@ -58,6 +58,24 @@ impl MultiBitVec for ArrayBitVec {
     fn num_unique_ones(&self) -> u32 {
         self.num_unique_ones
     }
+
+    /// Two-pointer walk over sorted `ones` and (monotone non-decreasing) `bit_indices`.
+    /// O(n + m) instead of the default O(m log n).
+    ///
+    /// Preconditions:
+    /// - `self.ones` is sorted (invariant of `ArrayBitVec`).
+    /// - `bit_indices` is monotone non-decreasing.
+    fn rank1_batch(&self, bit_indices: &mut [u32]) {
+        let mut ones_idx = 0usize;
+        let ones = &*self.ones;
+        for idx in bit_indices.iter_mut() {
+            // Advance through `ones` while the current `*ones` is strictly below the query.
+            while ones_idx < ones.len() && ones[ones_idx] < *idx {
+                ones_idx += 1;
+            }
+            *idx = ones_idx as u32;
+        }
+    }
 }
 
 #[derive(Clone)]

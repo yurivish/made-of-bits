@@ -50,12 +50,24 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         Self::from_bitvecs(levels, max_symbol, morton_masks)
     }
 
-    /// Construct a wavelet matrix directly from an array of level bitvectors.
-    fn from_bitvecs(
+    /// Construct a wavelet matrix directly from an array of pre-built level bitvectors.
+    /// Used by both `WaveletMatrix::new` and by `HuffmanWaveletMatrix` (which wraps each
+    /// level in [`crate::bitvec::onepadded::OnePadded`] to make ragged Huffman trees
+    /// representable uniformly).
+    pub(crate) fn from_bitvecs(
         levels: Vec<BV>,
         max_symbol: u32,
         morton_masks: Option<&[u32]>,
     ) -> WaveletMatrix<BV> {
+        // Allow an empty WM (no levels). Used as a placeholder by HuffmanWaveletMatrix's
+        // empty / single-symbol cases.
+        if levels.is_empty() {
+            return Self {
+                levels: Vec::new(),
+                max_symbol,
+                len: 0,
+            };
+        }
         let max_level = levels.len() - 1;
         let len = levels.first().map_or(0, |level| level.universe_size());
         let levels: Vec<Level<BV>> = levels
@@ -64,11 +76,11 @@ impl<BV: BitVec> WaveletMatrix<BV> {
             .map(|(index, bits)| Level {
                 nz: bits.rank0(bits.universe_size()),
                 bit: 1 << (max_level - index),
-                bv: bits,
                 mask: morton_masks.map_or(u32::MAX, |masks| masks[index]),
+                all_ones_from: bits.all_ones_from(),
+                bv: bits,
             })
             .collect();
-        let num_levels = levels.len();
         Self {
             levels,
             max_symbol,
@@ -90,6 +102,12 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         let mut preceding_count = 0;
         let mut range = range;
         for level in self.levels(ignore_bits) {
+            // OnePadded short-circuit: once `range.start` lies in the trailing-1s region,
+            // every remaining level's bv reads as 1 across the range — positions and
+            // preceding_count are invariant from here.
+            if range.start >= level.all_ones_from && range.start < range.end {
+                break;
+            }
             let start = level.bv.ranks(range.start);
             let end = level.bv.ranks(range.end);
             // Check if the symbol's level bit is set to determine whether it should be mapped
@@ -124,6 +142,13 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         let mut range = range;
         let mut symbol = 0;
         for level in self.levels(0) {
+            // OnePadded short-circuit: in the trailing-1s region every bit is 1 — every
+            // step goes right with leftCount=0, so symbol gets all remaining bits set
+            // and positions are invariant. Set the remaining low bits and break.
+            if range.start >= level.all_ones_from {
+                symbol |= (level.bit << 1) - 1;
+                break;
+            }
             let start = level.bv.ranks(range.start);
             let end = level.bv.ranks(range.end);
             let left_count = end.0 - start.0;
@@ -225,9 +250,17 @@ impl<BV: BitVec> WaveletMatrix<BV> {
     }
 
     pub fn get(&self, index: u32) -> u32 {
+        assert!(index < self.len, "index {index} out of bounds (len {})", self.len);
         let mut index = index;
         let mut symbol = 0;
         for level in self.levels(0) {
+            // OnePadded short-circuit: the trailing-1s region reads as 1 on every bit;
+            // the remaining low bits of `symbol` all get set. Skip on un-padded levels
+            // where all_ones_from == universe_size — there's no padding to absorb.
+            if index >= level.all_ones_from && level.all_ones_from < level.bv.universe_size() {
+                symbol |= (level.bit << 1) - 1;
+                break;
+            }
             if level.bv.get(index) == 0 {
                 // go left
                 index = level.bv.rank0(index);
@@ -253,7 +286,91 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         }
     }
 
-    // todo: fn k_majority(&self, k, range) { ... }
+    /// Compute several quantiles of the same range in one traversal. `ks` must be
+    /// sorted ascending; the returned `(symbol, count)` pairs come out in input order
+    /// (which is also ascending by symbol, since groups split by symbol at each level).
+    ///
+    /// `ks` doubles as scratch space — slots are overwritten during the descent. Clone
+    /// first if the original is needed afterward.
+    ///
+    /// Faster than per-k `quantile` because queries sharing a node range descend
+    /// together: one rank pair per level per group, not per k.
+    pub fn quantile_batch(&self, range: Range<u32>, ks: &mut [u32]) -> Vec<(u32, u32)> {
+        let n = ks.len();
+        let mut symbols = vec![0u32; n];
+        let mut counts = vec![0u32; n];
+        struct Group {
+            range: Range<u32>,
+            from: usize,
+            to: usize,
+        }
+        let mut groups = vec![Group { range, from: 0, to: n }];
+
+        for level in self.levels(0) {
+            let mut next = Vec::with_capacity(groups.len() * 2);
+            for g in &groups {
+                if g.range.start >= level.all_ones_from {
+                    // Trailing-1s region: every step goes right; set the remaining bits.
+                    let mask = (level.bit << 1) - 1;
+                    for s in &mut symbols[g.from..g.to] {
+                        *s |= mask;
+                    }
+                    continue;
+                }
+                let start = level.bv.ranks(g.range.start);
+                let end = level.bv.ranks(g.range.end);
+                let left_count = end.0 - start.0;
+                let split = g.from + ks[g.from..g.to].partition_point(|&k| k < left_count);
+                if split > g.from {
+                    next.push(Group { range: start.0..end.0, from: g.from, to: split });
+                }
+                if split < g.to {
+                    for i in split..g.to {
+                        ks[i] -= left_count;
+                        symbols[i] += level.bit;
+                    }
+                    next.push(Group {
+                        range: level.nz + start.1..level.nz + end.1,
+                        from: split,
+                        to: g.to,
+                    });
+                }
+            }
+            groups = next;
+        }
+        for g in &groups {
+            let count = g.range.end - g.range.start;
+            for c in &mut counts[g.from..g.to] {
+                *c = count;
+            }
+        }
+        symbols.into_iter().zip(counts).collect()
+    }
+
+    /// Symbols whose frequency exceeds `range.len() / k`. `k=2` matches `simple_majority`.
+    /// Returns ascending `(symbol, count)` pairs.
+    pub fn majority(&self, range: Range<u32>, k: u32) -> Vec<(u32, u32)> {
+        assert!(k >= 1, "k must be at least 1");
+        let total = range.end - range.start;
+        if total == 0 {
+            return Vec::new();
+        }
+        let threshold = total / k;
+        let mut ks: Vec<u32> = (1..k).map(|i| total * i / k).filter(|&x| x < total).collect();
+        if ks.is_empty() {
+            return Vec::new();
+        }
+        let mut out: Vec<(u32, u32)> = Vec::new();
+        for (sym, count) in self.quantile_batch(range, &mut ks) {
+            if out.last().is_some_and(|&(s, _)| s == sym) {
+                continue;
+            }
+            if count > threshold {
+                out.push((sym, count));
+            }
+        }
+        out
+    }
 
     /// Count the number of occurrences of each symbol in the given index ranges.
     /// Returns a vec of (input_index, symbol, start, end) tuples. [todo: no longer true; now returns Counts]
@@ -270,6 +387,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         &self,
         ranges: &[Range<u32>],
         symbol_extent: RangeInclusive<u32>,
+        ignore_bits: usize,
     ) -> Traversal<usize, Counts> {
         for range in ranges {
             assert!(range.end <= self.len());
@@ -282,7 +400,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                 end: range.end,
             }),
         );
-        for level in &self.levels {
+        for level in self.levels(ignore_bits) {
             traversal.traverse(|xs, go| {
                 let mut rank_cache = RangedRankCache::new();
                 for x in xs {
@@ -359,7 +477,11 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         traversal
     }
 
-    pub fn counts_faster_maybe(&self, ranges: &[Range<u32>]) -> Traversal<(), Counts> {
+    pub fn counts_faster_maybe(
+        &self,
+        ranges: &[Range<u32>],
+        ignore_bits: usize,
+    ) -> Traversal<(), Counts> {
         for range in ranges {
             assert!(range.end <= self.len());
         }
@@ -374,7 +496,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
             }),
         );
 
-        for level in self.levels.iter() {
+        for level in self.levels(ignore_bits) {
             traversal.traverse(|xs, go| {
                 // compute all rank1s in a batch
                 ranks.clear();
@@ -659,6 +781,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         &self,
         ranges: &[Range<u32>],
         symbols: &[u32],
+        ignore_bits: usize,
     ) -> Traversal<usize, LocateBatch> {
         let mut traversal = Traversal::new(
             0..,
@@ -672,7 +795,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                 })
             }),
         );
-        for level in &self.levels {
+        for level in self.levels(ignore_bits) {
             traversal.traverse(|xs, go| {
                 for x in xs {
                     let (symbol, preceding_count) = (x.v.symbol, x.v.preceding_count);
@@ -700,7 +823,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
 
     /// Return an iterator over levels from the high bit downwards, ignoring the
     /// bottom `ignore_bits` levels.
-    fn levels(&self, ignore_bits: usize) -> std::slice::Iter<Level<BV>> {
+    fn levels(&self, ignore_bits: usize) -> std::slice::Iter<'_, Level<BV>> {
         self.levels[..self.levels.len() - ignore_bits].iter()
     }
 
@@ -1100,5 +1223,106 @@ mod tests {
                 vec![2, 2, 1]
             );
         }
+    }
+
+    /// `quantile_batch(range, ks)` must agree element-wise with repeated single-k
+    /// `quantile(range, k)` calls. Property-tests over arbitrary data + range + ks.
+    #[test]
+    fn quantile_batch_agrees_with_single_quantile() {
+        use arbtest::arbtest;
+        arbtest(|u| {
+            let len = u.int_in_range(1u32..=32)?;
+            let max_sym = u.int_in_range(1u32..=8)?;
+            let mut data: Vec<u32> = Vec::with_capacity(len as usize);
+            for _ in 0..len {
+                data.push(u.int_in_range(0u32..=max_sym)?);
+            }
+            let wm = WaveletMatrix::<DenseBitVec>::new(data, max_sym, Default::default(), None);
+
+            let a = u.int_in_range(0u32..=len)?;
+            let b = u.int_in_range(0u32..=len)?;
+            let range = a.min(b)..a.max(b);
+            if range.start == range.end {
+                return Ok(());
+            }
+            let span = range.end - range.start;
+            // Sorted ks within [0, span).
+            let mut ks: Vec<u32> = Vec::new();
+            for _ in 0..u.int_in_range(0u32..=8)? {
+                ks.push(u.int_in_range(0..=span - 1)?);
+            }
+            ks.sort_unstable();
+
+            let mut ks_for_batch = ks.clone();
+            let batched = wm.quantile_batch(range.clone(), &mut ks_for_batch);
+            for (i, &k) in ks.iter().enumerate() {
+                assert_eq!(batched[i], wm.quantile(range.clone(), k));
+            }
+            Ok(())
+        });
+    }
+
+    /// `majority(range, k)` returns elements with frequency > range.len()/k. Cross-check
+    /// against a naive count of every distinct symbol in the range.
+    #[test]
+    fn majority_vs_naive() {
+        use arbtest::arbtest;
+        arbtest(|u| {
+            let len = u.int_in_range(1u32..=32)?;
+            let max_sym = u.int_in_range(1u32..=6)?;
+            let mut data: Vec<u32> = Vec::with_capacity(len as usize);
+            for _ in 0..len {
+                data.push(u.int_in_range(0u32..=max_sym)?);
+            }
+            let wm = WaveletMatrix::<DenseBitVec>::new(
+                data.clone(),
+                max_sym,
+                Default::default(),
+                None,
+            );
+            let k = u.int_in_range(2u32..=5)?;
+            let a = u.int_in_range(0u32..=len)?;
+            let b = u.int_in_range(0u32..=len)?;
+            let range = a.min(b)..a.max(b);
+            if range.start == range.end {
+                return Ok(());
+            }
+            let total = range.end - range.start;
+            let threshold = total / k;
+
+            let mut naive: Vec<(u32, u32)> = (0..=max_sym)
+                .map(|s| {
+                    let c = data[range.start as usize..range.end as usize]
+                        .iter()
+                        .filter(|&&x| x == s)
+                        .count() as u32;
+                    (s, c)
+                })
+                .filter(|&(_, c)| c > threshold)
+                .collect();
+            naive.sort();
+
+            let computed = wm.majority(range, k);
+            assert_eq!(computed, naive);
+            Ok(())
+        });
+    }
+
+    /// `SymbolSequence` property suite against `WaveletMatrix`. Cross-validates
+    /// `get`, `count`, `select`, `select_last` against naive linear-scan references
+    /// for arbitrarily-generated short sequences with small alphabets. Lives in the
+    /// WaveletMatrix module (rather than a separate `tests/` integration test) so
+    /// that the harness has access to the `DenseBitVec` builder type.
+    #[test]
+    fn symbol_sequence_props() {
+        crate::symbol_sequence::run_symbol_sequence_props(|data: &[u32]| {
+            let max = data.iter().copied().max().unwrap_or(0).max(1);
+            WaveletMatrix::<DenseBitVec>::new(
+                data.to_vec(),
+                max,
+                Default::default(),
+                None,
+            )
+        });
     }
 }

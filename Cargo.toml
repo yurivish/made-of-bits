@@ -20,10 +20,23 @@ crate-type = [
   "rlib"
 ]
 
+[features]
+# The `js` feature gates the WebAssembly bindings (src/js.rs), currently disabled.
+# Re-enabling them requires restoring the `to_js` dependency (originally
+# { path = "/Users/yurivish/to_js" }) and adding `to_js` to `js`'s deps below.
+# WASM bindings are out of scope for the current Go-port effort.
+default = []
+js = []
+
 [dependencies]
-to_js = { path = "/Users/yurivish/to_js" }
 
 [dev-dependencies]
+# Property-testing toolkit:
+#   - exhaustigen — exhaustive enumeration over small parameter spaces.
+#   - arbtest      — quick fuzz-style probes with arbitrary inputs.
+#   - expect-test  — inline snapshot assertions (golden-test substitute).
+# (We may add `hegel` here in Stage A for heavyweight properties with sophisticated
+#  shrinking; deferred until we confirm dev-environment compatibility.)
 arbtest = "0.3"
 exhaustigen = "0.1"
 expect-test = "1.5"
@@ -32,9 +45,26 @@ serde = { version = "1.0.204",  features = ["derive"] }
 serde_json = "1.0"
 rand = "0.8.5"
 criterion = { version = "0.5.1", features = ["html_reports"] }
+hegeltest = "0.12.7"
 
 [[bench]]
 name = "rank1"
+harness = false
+
+[[bench]]
+name = "huffman_vs_wm"
+harness = false
+
+[[bench]]
+name = "bic"
+harness = false
+
+[[bench]]
+name = "bitvec"
+harness = false
+
+[[bench]]
+name = "wavelet_matrix"
 harness = false
 
 [profile.dev]

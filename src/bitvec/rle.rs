@@ -10,14 +10,14 @@ use std::collections::HashSet;
 /// of bits. Internally represented by two sparse bit vectors.
 #[derive(Clone)]
 pub struct RLEBitVec {
-    /// z[i]: cumulative number of zeros before the start of the i-th 1-run;
+    /// `z[i]`: cumulative number of zeros before the start of the i-th 1-run;
     /// can be thought of as pointing to the index of the first 1 in a 01-run.
     /// Since we coalesce runs there are no zero-length runs, and therefore we
     /// can use a bitvector type without multiplicity here and for `zo` (though
     /// this isn't strictly required and is done for clarity and to enforce the
     /// invariant with the quick runtime check in `BitVecOf` construction).
     z: BitVecOf<SparseBitVec>,
-    /// zo[i]: cumulative number of ones and zeros at the end of the i-th 01-run;
+    /// `zo[i]`: cumulative number of ones and zeros at the end of the i-th 01-run;
     /// can be thought of as pointing just beyond the index of the last 1 in a 01-run.
     zo: BitVecOf<SparseBitVec>,
     num_zeros: u32,
@@ -25,9 +25,17 @@ pub struct RLEBitVec {
 }
 
 impl RLEBitVec {
-    // TODO: Document (and debug_assert) the invariants of these functions.
-    // They are more efficient versions of rank0 and rank1 that take advantage of the fact
-    // that the queries happen precisely on run boundaries.
+    /// Fast-path `rank0` for queries that fall on a run boundary.
+    ///
+    /// Specifically, the caller must guarantee that `bit_index` is either the start of
+    /// the universe, or the position immediately after a complete `01`-run. Two
+    /// canonical sources of such queries:
+    /// 1. The wavelet matrix's level-by-level traversal, where ranges are partitioned
+    ///    at points that align with bitvec run starts.
+    /// 2. Internal `RLEBitVec` machinery that walks the `zo` / `z` sub-bitvecs.
+    ///
+    /// Calling on a non-boundary index returns an undefined value but does not panic.
+    /// Use the regular [`BitVec::rank0`] / [`BitVec::rank1`] for arbitrary queries.
     pub fn aligned_rank0(&self, bit_index: u32) -> u32 {
         if bit_index >= self.universe_size() {
             return self.num_zeros;

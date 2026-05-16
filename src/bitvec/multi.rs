@@ -77,6 +77,39 @@ impl<T: BitVec> MultiBitVec for Multi<T> {
     fn universe_size(&self) -> u32 {
         self.occupancy.universe_size()
     }
+
+    /// Batch rank that amortizes the multiplicity select across queries landing in the
+    /// same occupancy rank.
+    ///
+    /// One occupancy `rank1_batch` up front, then a single pass calling
+    /// `multiplicity.select1(n - 1)` only when the rank changes — adjacent equal ranks
+    /// share the same multiplicity answer.
+    ///
+    /// `bit_indices` must be monotone non-decreasing (the underlying occupancy
+    /// `rank1_batch` assumes this; DenseBitVec panics on inversions).
+    fn rank1_batch(&self, bit_indices: &mut [u32]) {
+        if bit_indices.is_empty() {
+            return;
+        }
+        self.occupancy.rank1_batch(bit_indices);
+
+        // Occupancy ranks are monotone too, so adjacent duplicates share the answer.
+        let mut prev_rank: Option<u32> = None;
+        let mut cached: u32 = 0;
+        for v in bit_indices.iter_mut() {
+            let rank = *v;
+            if Some(rank) == prev_rank {
+                *v = cached;
+                continue;
+            }
+            cached = match rank {
+                0 => 0,
+                n => self.multiplicity.select1(n - 1).unwrap(),
+            };
+            *v = cached;
+            prev_rank = Some(rank);
+        }
+    }
 }
 
 #[derive(Default, Clone)]

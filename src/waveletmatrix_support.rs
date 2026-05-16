@@ -15,6 +15,11 @@ pub(crate) struct Level<V: BitVec> {
     pub(crate) bit: u32,
     // morton mask for this level
     pub(crate) mask: u32,
+    // Index from which every bit is implicitly 1. For un-padded levels equals
+    // `bv.universe_size()`; for `OnePadded` levels equals `inner_len`. Used by
+    // wavelet-matrix traversals (locate, quantile, get, select_upwards) to break out
+    // of the loop once the active range falls entirely in the trailing-1s region.
+    pub(crate) all_ones_from: u32,
 }
 
 impl<V: BitVec> Level<V> {
@@ -61,7 +66,7 @@ impl<K, V> From<(K, V)> for KeyVal<K, V> {
 /// mergeable by the `mergeable` function in this trait.
 // we will merge if the keys are the same and mergeable is true
 // later we can figure out if a thing is even Possibly mergeable and if it isn't, skip the mergy logic entirely
-pub(crate) trait MaybeMergeable {
+pub trait MaybeMergeable {
     fn mergeable(&self, other: &Self) -> bool {
         false
     }
@@ -99,7 +104,7 @@ impl<K, V: MaybeMergeable> KeyVal<K, V> {
 // nodes in the wavelet matrix (all left nodes precede all
 // right nodes).
 #[derive(Debug)]
-pub(crate) struct Traversal<K, V> {
+pub struct Traversal<K, V> {
     cur: VecDeque<KeyVal<K, V>>,
     next: VecDeque<KeyVal<K, V>>,
     num_left: usize,

@@ -3,7 +3,7 @@ use crate::{
     bitbuf,
     bitbuf::BitBuf,
     bits,
-    bits::{one_mask, select1},
+    bits::{one_mask, select64_checked},
     bitvec::{BitVec, BitVecBuilder},
 };
 
@@ -249,6 +249,171 @@ impl DenseBitVec {
     //     start_index = select_buf_block_index;
     //     select_count += select_sample_rate;
     // }
+
+    /// `select1` with an optional `(count, buf_block_idx)` hint that lets nearby
+    /// sorted queries resume their linear scan instead of re-seeding from the select
+    /// sample table. Returns `Some((position, new_hint))` on success.
+    ///
+    /// Both the hint-taken and sample-seeded paths share the rank-block fast-forward
+    /// loop below; without it, a stale hint would crawl one block at a time across a
+    /// gap that the sample path leaps over in one rank-bucket step. (Benches showed
+    /// this fix as the difference between a hint-batch slowdown and a 1.4–1.9× win
+    /// on moderate-density sparse-query workloads.)
+    ///
+    /// Possible future refinements, *not implemented* — measure before adopting:
+    ///
+    /// - Skip the hint when no fresher than a fresh sample lookup, via the cheap
+    ///   `hint.count >= (n >> samples_pow2) << samples_pow2` check.
+    /// - Split into `_checked` / `_unchecked` cores so `select1_batch` skips the
+    ///   per-query `Option` match.
+    pub fn select1_hinted(
+        &self,
+        n: u32,
+        hint: Option<(u32, u32)>,
+    ) -> Option<(u32, (u32, u32))> {
+        if n >= self.num_ones() {
+            return None;
+        }
+        let (mut count, mut buf_block_index) = match hint {
+            Some(h) if h.0 <= n => h,
+            _ => Self::select_sample(n, &self.select1_samples, self.select1_samples_pow2),
+        };
+        // Fast-forward through whole rank-sample buckets when possible.
+        let mut rank_index = (buf_block_index >> self.buf_blocks_per_rank1_sample_pow2) + 1;
+        while rank_index < self.rank1_samples.len() as u32 {
+            let next_count = self.rank1_samples[rank_index as usize];
+            if next_count > n {
+                break;
+            }
+            count = next_count;
+            buf_block_index = rank_index << self.buf_blocks_per_rank1_sample_pow2;
+            rank_index += 1;
+        }
+        // Find the basic block containing the n-th 1-bit.
+        let mut buf_block = 0;
+        while buf_block_index < self.buf.num_blocks() {
+            buf_block = self.buf.block(buf_block_index);
+            let next_count = count + buf_block.count_ones();
+            if next_count > n {
+                break;
+            }
+            count = next_count;
+            buf_block_index += 1;
+        }
+        let bit_offset = select64_checked(buf_block, n - count).unwrap_or(0);
+        let pos = (buf_block_index << bitbuf::Block::BITS_LOG2) + bit_offset;
+        Some((pos, (count, buf_block_index)))
+    }
+
+    /// Run `select1` for every value in `indices`, writing the positions back in
+    /// place. Out-of-range indices (`>= num_ones()`) become `u32::MAX`.
+    ///
+    /// Threads a hint between queries so nearby ones can skip the sample lookup. The
+    /// hint pays off when input is monotone non-decreasing; unsorted input still
+    /// produces correct results (the `hint.count <= n` check falls back to a sample
+    /// lookup), just without the speedup.
+    pub fn select1_batch(&self, indices: &mut [u32]) {
+        let mut hint = None;
+        for i in indices {
+            match self.select1_hinted(*i, hint) {
+                Some((pos, h)) => {
+                    hint = Some(h);
+                    *i = pos;
+                }
+                None => *i = u32::MAX,
+            }
+        }
+    }
+
+    /// Ascending positions of every 1-bit.
+    pub fn ones(&self) -> Select1Range<'_> {
+        self.select1_range(0..self.universe_size())
+    }
+
+    /// Ascending positions of 1-bits in `[range.start, range.end)`. Walks blocks
+    /// sequentially, yielding the lowest set bit of each via `block &= block - 1`.
+    /// The shared per-block residual is why this is an iterator and not a slice.
+    pub fn select1_range(&self, range: std::ops::Range<u32>) -> Select1Range<'_> {
+        Select1Range::new(self, range)
+    }
+}
+
+/// Iterator over the 1-bit positions in a [`DenseBitVec`] range, ascending.
+pub struct Select1Range<'a> {
+    bv: &'a DenseBitVec,
+    /// Currently-masked block; the lowest set bit gets yielded next.
+    block: bitbuf::Block,
+    block_idx: u32,
+    end_block: u32,
+    /// Mask applied to the final block to clip bits at or after `range.end`.
+    end_mask: bitbuf::Block,
+}
+
+impl<'a> Select1Range<'a> {
+    fn new(bv: &'a DenseBitVec, range: std::ops::Range<u32>) -> Self {
+        let universe = bv.universe_size();
+        let start = range.start.min(universe);
+        let end = range.end.min(universe);
+        if start >= end || bv.buf.num_blocks() == 0 {
+            return Self {
+                bv,
+                block: 0,
+                block_idx: 1,
+                end_block: 0,
+                end_mask: 0,
+            };
+        }
+        let block_idx = bitbuf::Block::block_index(start) as u32;
+        let end_block = bitbuf::Block::block_index(end - 1) as u32;
+        let end_bit = bitbuf::Block::block_bit_index(end);
+        let end_mask = if end_bit == 0 {
+            bitbuf::Block::MAX
+        } else {
+            one_mask::<bitbuf::Block>(end_bit)
+        };
+        let mut iter = Self {
+            bv,
+            block: 0,
+            block_idx,
+            end_block,
+            end_mask,
+        };
+        // Pre-mask the first block: clip bits below `start`.
+        iter.block = iter.load_block(block_idx)
+            & !one_mask::<bitbuf::Block>(bitbuf::Block::block_bit_index(start));
+        iter
+    }
+
+    /// Apply the trailing-bits and end-block masks to `block_idx`'s bits.
+    fn load_block(&self, block_idx: u32) -> bitbuf::Block {
+        let mut block = self.bv.buf.block(block_idx);
+        if block_idx + 1 == self.bv.buf.num_blocks() && self.bv.buf.num_trailing_bits() > 0 {
+            let num_valid = bitbuf::Block::BITS - self.bv.buf.num_trailing_bits();
+            block &= one_mask::<bitbuf::Block>(num_valid);
+        }
+        if block_idx == self.end_block {
+            block &= self.end_mask;
+        }
+        block
+    }
+}
+
+impl Iterator for Select1Range<'_> {
+    type Item = u32;
+    fn next(&mut self) -> Option<u32> {
+        loop {
+            if self.block != 0 {
+                let tz = self.block.trailing_zeros();
+                self.block &= self.block - 1;
+                return Some((self.block_idx << bitbuf::Block::BITS_LOG2) + tz);
+            }
+            if self.block_idx >= self.end_block {
+                return None;
+            }
+            self.block_idx += 1;
+            self.block = self.load_block(self.block_idx);
+        }
+    }
 }
 
 impl BitVec for DenseBitVec {
@@ -259,50 +424,7 @@ impl BitVec for DenseBitVec {
     }
 
     fn select1(&self, n: u32) -> Option<u32> {
-        if n >= self.num_ones() {
-            return None;
-        }
-
-        // Grab the basic block and count information from the select sample
-        let (mut count, mut buf_block_index) =
-            DenseBitVec::select_sample(n, &self.select1_samples, self.select1_samples_pow2);
-        assert!(count <= n);
-        // assert the previous rank index is less than the number of rank samples
-        debug_assert!(
-            (buf_block_index >> self.buf_blocks_per_rank1_sample_pow2)
-                < self.rank1_samples.len() as u32
-        );
-
-        // Scan any intervening rank blocks to skip past multiple basic blocks at a time
-        let mut rank_index = (buf_block_index >> self.buf_blocks_per_rank1_sample_pow2) + 1;
-        let num_rank_samples = self.rank1_samples.len() as u32;
-        while rank_index < num_rank_samples {
-            let next_count = self.rank1_samples[rank_index as usize];
-            if next_count > n {
-                break;
-            }
-            count = next_count;
-            buf_block_index = rank_index << self.buf_blocks_per_rank1_sample_pow2;
-            rank_index += 1;
-        }
-
-        // Scan basic blocks until we find the one that contains the n-th 1-bit
-        let mut buf_block = 0;
-        assert!(buf_block_index < self.buf.num_blocks()); // the index is in-bounds for the first iteration
-        while buf_block_index < self.buf.num_blocks() {
-            buf_block = self.buf.block(buf_block_index);
-            let next_count = count + buf_block.count_ones();
-            if next_count > n {
-                break;
-            }
-            count = next_count;
-            buf_block_index += 1;
-        }
-
-        // Compute and return its bit index
-        let buf_block_bit_index = buf_block_index << bitbuf::Block::BITS_LOG2;
-        let bit_offset = select1(buf_block, n - count).unwrap_or(0);
-        Some(buf_block_bit_index + bit_offset)
+        self.select1_hinted(n, None).map(|(pos, _)| pos)
     }
 
     // todo: could we provide hinted selects? could be useful eg. in the sparse vector where
@@ -352,7 +474,7 @@ impl BitVec for DenseBitVec {
 
         // Compute and return its bit index
         let buf_block_bit_index = buf_block_index << bitbuf::Block::BITS_LOG2;
-        let bit_offset = select1(!buf_block, n - count).unwrap_or(0);
+        let bit_offset = select64_checked(!buf_block, n - count).unwrap_or(0);
         Some(buf_block_bit_index + bit_offset)
     }
 
@@ -425,9 +547,83 @@ impl BitVecBuilder for DenseBitVecBuilder {
 mod tests {
     use super::*;
     use crate::bitvec::test::*;
+    use expect_test::expect;
 
     #[test]
     fn bitvec_interface() {
         test_bitvec_builder::<DenseBitVecBuilder>();
+    }
+
+    /// `select1_batch`, `ones`, and `select1_range` must agree with repeated `select1`
+    /// across arbitrary (universe, ones) configurations.
+    #[test]
+    fn select1_iterators_and_batch() {
+        use arbtest::arbtest;
+        use crate::bitvec::BitVec;
+        arbtest(|u| {
+            let universe = u.int_in_range(0u32..=512)?;
+            let mut ones: Vec<u32> = Vec::new();
+            for _ in 0..u.int_in_range(0u32..=universe.max(1))? {
+                if universe == 0 {
+                    break;
+                }
+                ones.push(u.int_in_range(0..=universe - 1)?);
+            }
+            ones.sort_unstable();
+            ones.dedup();
+            let bv = DenseBitVecBuilder::from_ones(universe, Default::default(), &ones);
+
+            // ones() yields the same positions as select1(0..num_ones).
+            let from_iter: Vec<u32> = bv.ones().collect();
+            assert_eq!(from_iter, ones, "ones() mismatch");
+
+            // select1_range respects the bounds.
+            if !ones.is_empty() {
+                let a = u.int_in_range(0u32..=universe)?;
+                let b = u.int_in_range(0u32..=universe)?;
+                let range = a.min(b)..a.max(b);
+                let expected: Vec<u32> =
+                    ones.iter().copied().filter(|p| range.contains(p)).collect();
+                let got: Vec<u32> = bv.select1_range(range).collect();
+                assert_eq!(got, expected, "select1_range mismatch");
+            }
+
+            // select1_batch matches repeated select1.
+            let mut indices: Vec<u32> = (0..bv.num_ones()).collect();
+            let expected: Vec<u32> = indices.iter().map(|&i| bv.select1(i).unwrap()).collect();
+            bv.select1_batch(&mut indices);
+            assert_eq!(indices, expected, "select1_batch mismatch");
+            Ok(())
+        });
+    }
+
+    /// Snapshot the bit-pattern + sample-table layout of a small DenseBitVec.
+    /// Acts as a golden test for the on-disk-equivalent representation: any
+    /// change in the rank/select sample emission strategy or block layout shows
+    /// up here. Update with `UPDATE_EXPECT=1 cargo test snapshot_layout`.
+    #[test]
+    fn snapshot_layout() {
+        let mut b = DenseBitVecBuilder::new(70, Default::default());
+        for i in [0, 31, 32, 68] {
+            b.one(i);
+        }
+        let bv = b.build();
+        let snapshot = format!(
+            "universe_size={}\nnum_ones={}\nblocks={:?}\nrank1_samples={:?}\nselect1_samples={:?}\nselect0_samples={:?}",
+            bv.universe_size(),
+            bv.num_ones(),
+            bv.buf.blocks(),
+            bv.rank1_samples,
+            bv.select1_samples,
+            bv.select0_samples,
+        );
+        expect![[r#"
+            universe_size=70
+            num_ones=4
+            blocks=[6442450945, 16]
+            rank1_samples=[0]
+            select1_samples=[0]
+            select0_samples=[0]"#]]
+        .assert_eq(&snapshot);
     }
 }

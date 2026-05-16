@@ -15,7 +15,7 @@ use crate::{
 /// depends on the number of elements and the universe size.
 /// Implements MultiBitVec. Multiplicity is encoded via repetition, ie.
 /// each additional repetition of a 1-bit takes additional space,
-/// as it does in the case of the ArrayBitVec but not Multi<T>,
+/// as it does in the case of the ArrayBitVec but not `Multi<T>`,
 /// which represents counts explicitly.
 #[derive(Clone)]
 pub struct SparseBitVec {
@@ -26,6 +26,10 @@ pub struct SparseBitVec {
     universe_size: u32,
     num_ones: u32,
     num_unique_ones: u32,
+    /// Subtracted from every input before Elias-Fano encoding so the effective universe
+    /// is `[0, universe_size - offset)`. Shrinks high-bits storage and low-bits width
+    /// when the first 1-bit sits far from 0.
+    offset: u32,
 }
 
 impl SparseBitVec {
@@ -35,24 +39,29 @@ impl SparseBitVec {
             .try_into()
             .expect("number of 1-bits cannot exceed 2^32 - 1");
 
+        // Static offset = first 1-bit, used to shrink the effective universe.
+        let offset = ones.first().copied().unwrap_or(0);
+        let effective_universe = universe_size - offset;
+
         // The paper "On Elias-Fano for Rank Queries in FM-Indexes" recommends a formula to compute
         // the number of low bits that is mostly equivalent to the version used below, except that
         // sometimes theirs suggests slightly worse choices, e.g. when numOnes === 25 and universeSize === 51.
         // https://observablehq.com/@yurivish/ef-split-points
         // This approach chooses the split point by noting that the trade-off effectively is between having numOnes
-        // low bits, or doubling the number of separators in the high bits.
+        // low bits, or doubling the number of separators in the high bits. Capped at 56 to match
+        // IntBuf::MAX_BIT_WIDTH.
         let low_bit_width = options.low_bit_width.unwrap_or_else(|| {
             if num_ones == 0 {
                 0
             } else {
-                (universe_size / num_ones).max(1).ilog2()
+                (effective_universe / num_ones).max(1).ilog2().min(56)
             }
         });
 
         // Encode the high bits in unary: 1 denotes values and 0 denotes separators.
         // By default, 1-bits are never more than 50% of the bits due to the way the split point is chosen.
         // Note that this expression automatically adapts to non-power-of-two universe sizes.
-        let high_len = num_ones + (universe_size >> low_bit_width);
+        let high_len = num_ones + (effective_universe >> low_bit_width);
         let mut high = DenseBitVecBuilder::new(high_len, options.high_bits_options);
         let mut low = IntBuf::new(num_ones, low_bit_width);
         let low_mask = one_mask(low_bit_width);
@@ -65,10 +74,11 @@ impl SparseBitVec {
             assert!(prev.unwrap_or(0) <= cur, "ones must be in ascending order");
             prev = Some(cur);
 
-            // Encode element
-            let quotient = cur >> low_bit_width;
+            // Encode element relative to offset.
+            let shifted = cur - offset;
+            let quotient = shifted >> low_bit_width;
             high.one(i as u32 + quotient);
-            let remainder = cur & low_mask;
+            let remainder = shifted & low_mask;
             low.push(remainder);
         }
 
@@ -89,6 +99,7 @@ impl SparseBitVec {
             universe_size,
             num_ones,
             num_unique_ones,
+            offset,
         }
     }
 
@@ -110,6 +121,11 @@ impl MultiBitVec for SparseBitVec {
         if bit_index >= self.universe_size() {
             return self.num_ones;
         }
+        // Any index at or before the static offset has 0 preceding 1-bits.
+        if bit_index <= self.offset {
+            return 0;
+        }
+        let bit_index = bit_index - self.offset;
 
         let lower_bound;
         let upper_bound;
@@ -157,7 +173,7 @@ impl MultiBitVec for SparseBitVec {
         let pos = self.high.select1(n)?;
         let quotient = self.high.rank0(pos);
         let remainder = self.low.get(n);
-        Some((quotient << self.low_bit_width) + remainder)
+        Some(self.offset + (quotient << self.low_bit_width) + remainder)
     }
 
     fn universe_size(&self) -> u32 {
@@ -173,9 +189,13 @@ impl MultiBitVec for SparseBitVec {
     }
 
     fn rank1_batch(&self, bit_indices: &mut [u32]) {
-        // chunks with identical high bits
-        let chunks =
-            bit_indices.chunk_by_mut(|a, b| a >> self.low_bit_width == b >> self.low_bit_width);
+        // chunks with identical high bits (after accounting for offset). Two queries
+        // both <= offset land in the same "below offset" bucket and short-circuit to 0.
+        let chunks = bit_indices.chunk_by_mut(|a, b| {
+            let a_shifted = a.saturating_sub(self.offset);
+            let b_shifted = b.saturating_sub(self.offset);
+            a_shifted >> self.low_bit_width == b_shifted >> self.low_bit_width
+        });
 
         // lower and upper index bounds for the low bits
         let mut lower_bound = 0;
@@ -192,9 +212,28 @@ impl MultiBitVec for SparseBitVec {
                 chunk.fill(self.num_ones);
                 continue;
             }
+            // handle chunks that are entirely at or before the static offset
+            if first_bit_index <= self.offset {
+                // Every index in this chunk is <= offset, so rank1 is 0 for all of them.
+                // (The chunk_by predicate places all such queries together because their
+                // shifted quotients are all 0.)
+                let mut all_below = true;
+                for &i in chunk.iter() {
+                    if i > self.offset {
+                        all_below = false;
+                        break;
+                    }
+                }
+                if all_below {
+                    chunk.fill(0);
+                    continue;
+                }
+                // Mixed chunk (some <= offset, some >): fall through to per-element handling.
+            }
 
             // the quotient for the group we're in
-            let quotient = self.quotient(first_bit_index);
+            let first_shifted = first_bit_index.saturating_sub(self.offset);
+            let quotient = self.quotient(first_shifted);
 
             if quotient == 0 {
                 lower_bound = 0;
@@ -217,7 +256,12 @@ impl MultiBitVec for SparseBitVec {
             prev_quotient = quotient;
 
             for i in chunk {
-                let remainder = self.remainder(*i);
+                if *i <= self.offset {
+                    *i = 0;
+                    continue;
+                }
+                let shifted = *i - self.offset;
+                let remainder = self.remainder(shifted);
                 let len = (upper_bound - lower_bound) as usize;
                 let bucket_count = partition_point(len, |n| {
                     let index = lower_bound + n as u32;
@@ -290,5 +334,38 @@ mod tests {
     #[test]
     fn multibitvec_interface() {
         test_multibitvec_builder::<SparseBitVecBuilder>();
+    }
+
+    /// Adversarial: a sparse bitvec whose ones start far from 0. The static `offset`
+    /// optimization should shrink the effective universe drastically — verified by
+    /// observing that `low_bit_width` is computed against `universe - offset`, not
+    /// `universe`. Without the optimization, this bitvec would waste many high bits.
+    #[test]
+    fn test_large_offset_ones() {
+        let universe: u32 = 1_000_000;
+        let start: u32 = 999_990;
+        let ones: Vec<u32> = (start..universe).collect();
+        let v = SparseBitVec::new(ones.clone().into(), universe, Default::default());
+
+        // Confirm the offset captured the first 1-bit.
+        assert_eq!(v.offset, start);
+
+        // Sanity: every query still answers correctly.
+        for &p in &ones {
+            assert!(v.rank1(p) <= p - start);
+            // Position just after each 1-bit ⇒ rank1 incremented by 1.
+            assert_eq!(v.rank1(p + 1), v.rank1(p) + 1);
+        }
+        // Below offset is always 0.
+        assert_eq!(v.rank1(0), 0);
+        assert_eq!(v.rank1(start - 1), 0);
+        assert_eq!(v.rank1(start), 0);
+        assert_eq!(v.rank1(start + 1), 1);
+
+        // select round-trips.
+        for (i, &p) in ones.iter().enumerate() {
+            assert_eq!(v.select1(i as u32), Some(p));
+        }
+        assert_eq!(v.select1(ones.len() as u32), None);
     }
 }

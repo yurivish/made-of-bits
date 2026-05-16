@@ -2,8 +2,11 @@ use crate::bitblock::BitBlock;
 use crate::bits::one_mask;
 use std::ops::Range;
 
-/// Block type for BitBuf blocks
-pub(crate) type Block = u32;
+/// Block type for BitBuf blocks. u64 matches the native machine word, letting
+/// broadword `select64` operate at full register width. Block-level arithmetic
+/// throughout the crate is width-agnostic via `Block::BITS`, `block_index`, and
+/// `block_bit_index`.
+pub(crate) type Block = u64;
 
 #[derive(Clone)]
 pub(crate) struct BitBuf {
@@ -148,5 +151,26 @@ mod tests {
         check(BitBuf::new(5), 2);
         check(BitBuf::new(300), 0);
         check(BitBuf::new(300), 100);
+    }
+
+    /// Exercises bits at every u32 / u64 block boundary. Phase-1 block-widening
+    /// regression net: previously u32 blocks made index 32 land in block 1; with
+    /// u64 it lands in block 0. Either way, get must agree with set.
+    #[test]
+    fn block_boundary_bits() {
+        let positions: &[u32] = &[
+            0, 1, 30, 31, 32, 33, 62, 63, 64, 65, 94, 95, 96, 97, 126, 127, 128, 129,
+        ];
+        let universe = 200;
+        let mut buf = BitBuf::new(universe);
+        for &p in positions {
+            buf.set_one(p);
+        }
+        for i in 0..universe {
+            let expected = positions.contains(&i);
+            assert_eq!(buf.get(i), expected, "get({i})");
+        }
+        // num_blocks reflects the new block width.
+        assert_eq!(buf.num_blocks(), universe.div_ceil(Block::BITS));
     }
 }

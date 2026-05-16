@@ -24,6 +24,10 @@ use std::any::type_name;
 pub(crate) fn test_bitvec_builder<T: BitVecBuilder>() {
     // Spot tests (manually-written individual test cases for basic checking)
     spot_test_bitvec_builder::<T>();
+    // Boundary-size + density sweep at the universe-size powers-of-2 edges.
+    // (cheap, deterministic, runs before the random sweeps so the bisect target is clean
+    // when something breaks during a port.)
+    boundary_sweep_test_bitvec_builder::<T>();
     // Sweep tests (exhaustive sweeps of tractable parameter spaces, checking against ArrayBitVec)
     sweep_test_bitvec_builder::<T>();
     // Property tests (randomized tests of larger parameter spaces, checking against ArrayBitVec)
@@ -240,6 +244,61 @@ pub(crate) fn prop_test_bitvec_builder<T: BitVecBuilder>(
     })
 }
 
+/// Boundary-universe-size sweep: powers-of-2 boundaries and the values immediately
+/// adjacent, crossed with a small set of density patterns.
+pub(crate) fn boundary_sweep_test_bitvec_builder<T: BitVecBuilder>() {
+    // Sizes that exercise the block/sample-boundary arithmetic. Keep this list short —
+    // each (size, pattern) pair runs the full cross-check.
+    const SIZES: &[u32] = &[0, 1, 31, 32, 33, 63, 64, 65, 127, 128, 129, 1023, 1024, 1025];
+
+    for &size in SIZES {
+        for pattern in BoundaryPattern::ALL {
+            // RLEBitVecBuilder rejects universe size u32::MAX; everything else is fine here.
+            // Patterns that would put ones at out-of-range positions for size 0 are skipped.
+            let ones = pattern.ones(size);
+            test_bitvec::<T>(size, Default::default(), ones);
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+enum BoundaryPattern {
+    Empty,
+    SingleFirst,
+    SingleLast,
+    AllOnes,
+    Alternating,
+    Every8th,
+    Sparse, // every 7-th, just to drift off block boundaries
+}
+
+impl BoundaryPattern {
+    const ALL: [Self; 7] = [
+        Self::Empty,
+        Self::SingleFirst,
+        Self::SingleLast,
+        Self::AllOnes,
+        Self::Alternating,
+        Self::Every8th,
+        Self::Sparse,
+    ];
+
+    fn ones(self, size: u32) -> Vec<u32> {
+        if size == 0 {
+            return vec![];
+        }
+        match self {
+            Self::Empty => vec![],
+            Self::SingleFirst => vec![0],
+            Self::SingleLast => vec![size - 1],
+            Self::AllOnes => (0..size).collect(),
+            Self::Alternating => (0..size).step_by(2).collect(),
+            Self::Every8th => (0..size).step_by(8).collect(),
+            Self::Sparse => (0..size).step_by(7).collect(),
+        }
+    }
+}
+
 /// Sweep tests for BitVec
 pub(crate) fn sweep_test_bitvec_builder<T: BitVecBuilder>() {
     let mut gen = Gen::new();
@@ -291,6 +350,73 @@ pub(crate) fn test_bitvec<T: BitVecBuilder>(
     b.rank1_batch(&mut bit_indices);
     assert_eq!(a_out, bit_indices);
     assert_eq!(a_out, naive_out);
+
+    // Explicit invariants. The cross-check above already implies these (since the
+    // ArrayBitVec reference holds them), but asserting them directly gives a much
+    // sharper diagnostic when the underlying impl regresses.
+    assert_invariants(&b);
+}
+
+/// Explicit invariant assertions that any `BitVec` implementation must satisfy.
+/// Cheap O(universe_size) sweeps; safe to call from every `test_bitvec` invocation.
+pub(crate) fn assert_invariants<V: BitVec>(v: &V) {
+    let n = v.universe_size();
+
+    // num_ones + num_zeros == universe_size.
+    assert_eq!(
+        v.num_ones() + v.num_zeros(),
+        n,
+        "num_ones + num_zeros != universe_size for {}",
+        type_name::<V>(),
+    );
+
+    // rank1 + rank0 == bit_index, for every position.
+    // (Also implicitly: rank1 monotone non-decreasing, rank0 monotone non-decreasing.)
+    let mut prev_rank1 = 0u32;
+    let mut prev_rank0 = 0u32;
+    for i in 0..n {
+        let r1 = v.rank1(i);
+        let r0 = v.rank0(i);
+        assert_eq!(r0 + r1, i, "rank0+rank1 != i at i={i}");
+        assert!(r1 >= prev_rank1, "rank1 not monotone at i={i}");
+        assert!(r0 >= prev_rank0, "rank0 not monotone at i={i}");
+        prev_rank1 = r1;
+        prev_rank0 = r0;
+    }
+    // rank1(n) == num_ones, rank0(n) == num_zeros.
+    assert_eq!(v.rank1(n), v.num_ones());
+    assert_eq!(v.rank0(n), v.num_zeros());
+
+    // Select monotonicity + select/rank round-trip.
+    let mut prev_pos: Option<u32> = None;
+    for k in 0..v.num_ones() {
+        let pos = v.select1(k).unwrap_or_else(|| {
+            panic!("select1({k}) returned None but num_ones={}", v.num_ones())
+        });
+        if let Some(p) = prev_pos {
+            assert!(pos > p, "select1 not monotone at k={k}");
+        }
+        prev_pos = Some(pos);
+        // Round-trip: rank1(select1(k)+1) > k (the k-th 1-bit lies at this position).
+        assert_eq!(v.rank1(pos), k, "rank1(select1({k}))");
+        assert_eq!(v.get(pos), 1, "get(select1({k}))");
+    }
+    // Out-of-range select returns None.
+    assert_eq!(v.select1(v.num_ones()), None);
+
+    let mut prev_pos: Option<u32> = None;
+    for k in 0..v.num_zeros() {
+        let pos = v.select0(k).unwrap_or_else(|| {
+            panic!("select0({k}) returned None but num_zeros={}", v.num_zeros())
+        });
+        if let Some(p) = prev_pos {
+            assert!(pos > p, "select0 not monotone at k={k}");
+        }
+        prev_pos = Some(pos);
+        assert_eq!(v.rank0(pos), k, "rank0(select0({k}))");
+        assert_eq!(v.get(pos), 0, "get(select0({k}))");
+    }
+    assert_eq!(v.select0(v.num_zeros()), None);
 }
 
 // MultiBitVec

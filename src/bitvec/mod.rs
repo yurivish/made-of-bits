@@ -1,6 +1,7 @@
 pub mod array;
 pub mod dense;
 pub mod multi;
+pub mod onepadded;
 pub mod rle;
 pub mod sparse;
 #[cfg(test)]
@@ -92,6 +93,15 @@ pub trait BitVec: Clone {
         for i in bit_indices {
             *i = self.rank1(*i)
         }
+    }
+
+    /// Index from which every bit is implicitly 1. Equals
+    /// [`universe_size`](Self::universe_size) for ordinary bitvecs;
+    /// [`OnePadded`](onepadded::OnePadded) overrides it to return the inner-region
+    /// length. The wavelet matrix uses this to short-circuit traversals whose range
+    /// falls entirely in the padding region.
+    fn all_ones_from(&self) -> u32 {
+        self.universe_size()
     }
 }
 
@@ -208,7 +218,7 @@ pub trait MultiBitVecBuilder: Clone {
 pub struct BitVecOf<T: MultiBitVec>(T);
 
 /// This trait is used to provide a BitVec implementation for
-/// MultiBitVecs via a blanket impl for BitVecOf<T> where T: MultiBitVec.
+/// MultiBitVecs via a blanket impl for `BitVecOf<T>` where T: MultiBitVec.
 ///
 /// A BitVec is a specialization of a MultiBitVec where every
 /// bit is present 0 or 1 times. Constructing a BitVecOf performs
@@ -218,7 +228,7 @@ pub struct BitVecOf<T: MultiBitVec>(T);
 /// Some MultiBitVecs afford more efficient implementations
 /// in the case without multiplicity; in the future, we can introduce
 /// a new `DefaultBitVec` trait to allow them to provide their
-/// own BitVec implementations for BitVecOf<T>. (Example: Multi<T>
+/// own BitVec implementations for `BitVecOf<T>`. (Example: `Multi<T>`
 /// can provide more efficient rank1 and rank0 by looking only at
 /// its occupancy vector).
 ///
