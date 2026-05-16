@@ -253,6 +253,26 @@ impl DenseBitVec {
     /// `select1` with an optional `(count, buf_block_idx)` hint that lets nearby
     /// sorted queries resume their linear scan instead of re-seeding from the select
     /// sample table. Returns `Some((position, new_hint))` on success.
+    ///
+    /// Both the hint-taken and sample-seeded paths go through the same rank-block
+    /// fast-forward loop below — without that, a stale hint would crawl one basic
+    /// block at a time across a large gap, while the sample-seeded path leapt over
+    /// whole rank-sample buckets. (Confirmed by benches: at moderate density on the
+    /// "sparse sorted queries" workload, this fix was the difference between a
+    /// hint-batch slowdown and a 1.4–1.9× speedup.)
+    ///
+    /// Possible future refinements, *not implemented* — measure before adopting:
+    ///
+    /// - Skip the hint when it's no fresher than a sample lookup would be: cheap
+    ///   `hint.count >= (n >> samples_pow2) << samples_pow2` check. Helps when the
+    ///   hint is far behind the bucket containing n; pays an extra comparison on
+    ///   every call. Initial bench was promising on the sparse-queries case but
+    ///   noisy; not enough data to commit.
+    ///
+    /// - Split into a `_checked` Option-returning wrapper and a `_unchecked` core,
+    ///   so `select1_batch` can avoid the per-query `Option` match. Initial bench
+    ///   showed a marginal effect; not worth the API split until a workload shows
+    ///   it matters.
     pub fn select1_hinted(
         &self,
         n: u32,
@@ -261,22 +281,8 @@ impl DenseBitVec {
         if n >= self.num_ones() {
             return None;
         }
-        Some(self.select1_hinted_unchecked(n, hint))
-    }
-
-    /// Core of [`select1_hinted`], assuming `n < num_ones`. Used inline by
-    /// [`select1_batch`] to avoid the per-query `Option` wrap.
-    ///
-    /// Uses the hint only when it points to a fresher position than the select sample
-    /// for `n` would (i.e. `hint.0 >= sample_lower_bound`); otherwise re-seeds from the
-    /// sample. After seeding, the rank-block fast-forward applies in both paths so a
-    /// stale hint never wastes time crawling one block at a time across a large gap.
-    fn select1_hinted_unchecked(&self, n: u32, hint: Option<(u32, u32)>) -> (u32, (u32, u32)) {
-        // Cheap lower bound on the count a fresh select-sample lookup would produce.
-        // If the hint is at least this fresh, it's at least as good as re-seeding.
-        let sample_lower = (n >> self.select1_samples_pow2) << self.select1_samples_pow2;
         let (mut count, mut buf_block_index) = match hint {
-            Some(h) if h.0 <= n && h.0 >= sample_lower => h,
+            Some(h) if h.0 <= n => h,
             _ => Self::select_sample(n, &self.select1_samples, self.select1_samples_pow2),
         };
         // Fast-forward through whole rank-sample buckets when possible.
@@ -303,22 +309,21 @@ impl DenseBitVec {
         }
         let bit_offset = select64_checked(buf_block, n - count).unwrap_or(0);
         let pos = (buf_block_index << bitbuf::Block::BITS_LOG2) + bit_offset;
-        (pos, (count, buf_block_index))
+        Some((pos, (count, buf_block_index)))
     }
 
     /// Mutates `indices` (sorted non-decreasing) in-place with `select1` results,
     /// threading the hint through. Out-of-range indices become `u32::MAX`.
     pub fn select1_batch(&self, indices: &mut [u32]) {
-        let num_ones = self.num_ones();
         let mut hint = None;
         for i in indices {
-            if *i >= num_ones {
-                *i = u32::MAX;
-                continue;
+            match self.select1_hinted(*i, hint) {
+                Some((pos, h)) => {
+                    hint = Some(h);
+                    *i = pos;
+                }
+                None => *i = u32::MAX,
             }
-            let (pos, h) = self.select1_hinted_unchecked(*i, hint);
-            hint = Some(h);
-            *i = pos;
         }
     }
 
