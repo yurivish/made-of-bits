@@ -105,6 +105,11 @@ impl<T: BitVec> BitVec for OnePadded<T> {
         self.bv.num_zeros()
     }
 
+    fn all_ones_from(&self) -> u32 {
+        // Inner-region end == start of padding region == all-ones-from.
+        self.inner_len()
+    }
+
     fn rank1_batch(&self, bit_indices: &mut [u32]) {
         let il = self.inner_len();
         let inner_ones = self.bv.num_ones();

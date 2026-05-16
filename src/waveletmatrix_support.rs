@@ -15,6 +15,11 @@ pub(crate) struct Level<V: BitVec> {
     pub(crate) bit: u32,
     // morton mask for this level
     pub(crate) mask: u32,
+    // Index from which every bit is implicitly 1. For un-padded levels equals
+    // `bv.universe_size()`; for `OnePadded` levels equals `inner_len`. Used by
+    // wavelet-matrix traversals (locate, quantile, get, select_upwards) to break out
+    // of the loop once the active range falls entirely in the trailing-1s region.
+    pub(crate) all_ones_from: u32,
 }
 
 impl<V: BitVec> Level<V> {

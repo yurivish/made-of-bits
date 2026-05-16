@@ -76,8 +76,9 @@ impl<BV: BitVec> WaveletMatrix<BV> {
             .map(|(index, bits)| Level {
                 nz: bits.rank0(bits.universe_size()),
                 bit: 1 << (max_level - index),
-                bv: bits,
                 mask: morton_masks.map_or(u32::MAX, |masks| masks[index]),
+                all_ones_from: bits.all_ones_from(),
+                bv: bits,
             })
             .collect();
         Self {
@@ -101,6 +102,12 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         let mut preceding_count = 0;
         let mut range = range;
         for level in self.levels(ignore_bits) {
+            // OnePadded short-circuit: once `range.start` lies in the trailing-1s region,
+            // every remaining level's bv reads as 1 across the range — positions and
+            // preceding_count are invariant from here.
+            if range.start >= level.all_ones_from && range.start < range.end {
+                break;
+            }
             let start = level.bv.ranks(range.start);
             let end = level.bv.ranks(range.end);
             // Check if the symbol's level bit is set to determine whether it should be mapped
@@ -135,6 +142,13 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         let mut range = range;
         let mut symbol = 0;
         for level in self.levels(0) {
+            // OnePadded short-circuit: in the trailing-1s region every bit is 1 — every
+            // step goes right with leftCount=0, so symbol gets all remaining bits set
+            // and positions are invariant. Set the remaining low bits and break.
+            if range.start >= level.all_ones_from {
+                symbol |= (level.bit << 1) - 1;
+                break;
+            }
             let start = level.bv.ranks(range.start);
             let end = level.bv.ranks(range.end);
             let left_count = end.0 - start.0;
@@ -236,9 +250,17 @@ impl<BV: BitVec> WaveletMatrix<BV> {
     }
 
     pub fn get(&self, index: u32) -> u32 {
+        assert!(index < self.len, "index {index} out of bounds (len {})", self.len);
         let mut index = index;
         let mut symbol = 0;
         for level in self.levels(0) {
+            // OnePadded short-circuit: the trailing-1s region reads as 1 on every bit;
+            // the remaining low bits of `symbol` all get set. Skip on un-padded levels
+            // where all_ones_from == universe_size — there's no padding to absorb.
+            if index >= level.all_ones_from && level.all_ones_from < level.bv.universe_size() {
+                symbol |= (level.bit << 1) - 1;
+                break;
+            }
             if level.bv.get(index) == 0 {
                 // go left
                 index = level.bv.rank0(index);
