@@ -286,91 +286,67 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         }
     }
 
-    /// Like `quantile`, but for multiple ks in a single traversal.
+    /// `quantile` for multiple ks in one traversal. `ks` must be sorted ascending and
+    /// is consumed in-place (each `ks[i]` ends up as the k used at the deepest level).
+    /// Returns `(symbol, count)` pairs in input order — symbols come out ascending.
     ///
-    /// `ks` must be sorted ascending. Returns parallel `(symbol, count)` pairs in input
-    /// order; symbols come out in ascending order because the algorithm partitions ks
-    /// at each level (low ks go left, high ks go right). Modifies `ks` in place — at
-    /// the end, ks[i] is the k value used at the deepest level.
-    ///
-    /// Mirrors `waveletmatrix.go:QuantileBatch`. The algorithm groups queries by the
-    /// (start, end) range they share; at every level a group splits at the first
-    /// query whose k exceeds the left subtree's count, saving rank queries vs. running
-    /// `quantile` once per k.
+    /// Groups queries by the node range they share; at each level a group splits at
+    /// the first k that exceeds the left subtree's count. Mirrors
+    /// `waveletmatrix.go:QuantileBatch`.
     pub fn quantile_batch(&self, range: Range<u32>, ks: &mut [u32]) -> Vec<(u32, u32)> {
-        if ks.is_empty() {
-            return Vec::new();
-        }
-        let mut symbols = vec![0u32; ks.len()];
-        let mut counts = vec![0u32; ks.len()];
-
+        let n = ks.len();
+        let mut symbols = vec![0u32; n];
+        let mut counts = vec![0u32; n];
         struct Group {
             range: Range<u32>,
             from: usize,
             to: usize,
         }
-        let mut groups = vec![Group { range, from: 0, to: ks.len() }];
+        let mut groups = vec![Group { range, from: 0, to: n }];
 
         for level in self.levels(0) {
-            let mut next_groups = Vec::with_capacity(groups.len() * 2);
+            let mut next = Vec::with_capacity(groups.len() * 2);
             for g in &groups {
-                // OnePadded short-circuit: every remaining bit is 1, set them all and
-                // skip the rank queries.
                 if g.range.start >= level.all_ones_from {
+                    // Trailing-1s region: every step goes right; set the remaining bits.
                     let mask = (level.bit << 1) - 1;
-                    for i in g.from..g.to {
-                        symbols[i] |= mask;
+                    for s in &mut symbols[g.from..g.to] {
+                        *s |= mask;
                     }
                     continue;
                 }
                 let start = level.bv.ranks(g.range.start);
                 let end = level.bv.ranks(g.range.end);
                 let left_count = end.0 - start.0;
-
-                // Split queries: ks[..split] go left, ks[split..] go right.
-                let mut split = g.from;
-                while split < g.to && ks[split] < left_count {
-                    split += 1;
-                }
+                let split = g.from + ks[g.from..g.to].partition_point(|&k| k < left_count);
                 if split > g.from {
-                    next_groups.push(Group {
-                        range: start.0..end.0,
-                        from: g.from,
-                        to: split,
-                    });
+                    next.push(Group { range: start.0..end.0, from: g.from, to: split });
                 }
                 if split < g.to {
                     for i in split..g.to {
                         ks[i] -= left_count;
                         symbols[i] += level.bit;
                     }
-                    next_groups.push(Group {
+                    next.push(Group {
                         range: level.nz + start.1..level.nz + end.1,
                         from: split,
                         to: g.to,
                     });
                 }
             }
-            groups = next_groups;
+            groups = next;
         }
-
-        // Fill counts from each final group's range size.
         for g in &groups {
             let count = g.range.end - g.range.start;
-            for i in g.from..g.to {
-                counts[i] = count;
+            for c in &mut counts[g.from..g.to] {
+                *c = count;
             }
         }
-
         symbols.into_iter().zip(counts).collect()
     }
 
-    /// Symbols with frequency strictly greater than `range.len() / k` in `range`.
-    /// `k=2` is equivalent to `simple_majority` (>50% threshold). `k=4` finds elements
-    /// with >25% frequency, etc.
-    ///
-    /// Returns `(symbol, count)` pairs sorted by symbol. Driven by a single
-    /// `quantile_batch` over k-1 quantile indices.
+    /// Symbols whose frequency exceeds `range.len() / k`. `k=2` matches `simple_majority`.
+    /// Returns ascending `(symbol, count)` pairs.
     pub fn majority(&self, range: Range<u32>, k: u32) -> Vec<(u32, u32)> {
         assert!(k >= 1, "k must be at least 1");
         let total = range.end - range.start;
@@ -382,12 +358,8 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         if ks.is_empty() {
             return Vec::new();
         }
-        let results = self.quantile_batch(range, &mut ks);
-
-        // Dedup adjacent symbols and filter by threshold. Symbols are ascending out of
-        // quantile_batch, so simple "different from previous" dedup suffices.
         let mut out: Vec<(u32, u32)> = Vec::new();
-        for (sym, count) in results {
+        for (sym, count) in self.quantile_batch(range, &mut ks) {
             if out.last().is_some_and(|&(s, _)| s == sym) {
                 continue;
             }

@@ -250,12 +250,9 @@ impl DenseBitVec {
     //     select_count += select_sample_rate;
     // }
 
-    /// Compute `select1(n)` with an optional `(count, buf_block_idx)` hint from a
-    /// preceding query. When `hint.count <= n` we resume the linear scan from
-    /// `hint.buf_block_idx` instead of re-seeding from the select sample table —
-    /// significant speedup on sorted batches of nearby queries.
-    ///
-    /// Returns `Some((position, new_hint))` on success, `None` if `n >= num_ones`.
+    /// `select1` with an optional `(count, buf_block_idx)` hint that lets nearby
+    /// sorted queries resume their linear scan instead of re-seeding from the select
+    /// sample table. Returns `Some((position, new_hint))` on success.
     pub fn select1_hinted(
         &self,
         n: u32,
@@ -269,11 +266,10 @@ impl DenseBitVec {
             _ => {
                 let (mut count, mut buf_block_index) =
                     Self::select_sample(n, &self.select1_samples, self.select1_samples_pow2);
-                // Scan any intervening rank blocks to skip past multiple basic blocks at a time.
+                // Skip intervening rank blocks to jump past multiple basic blocks at once.
                 let mut rank_index =
                     (buf_block_index >> self.buf_blocks_per_rank1_sample_pow2) + 1;
-                let num_rank_samples = self.rank1_samples.len() as u32;
-                while rank_index < num_rank_samples {
+                while rank_index < self.rank1_samples.len() as u32 {
                     let next_count = self.rank1_samples[rank_index as usize];
                     if next_count > n {
                         break;
@@ -285,8 +281,7 @@ impl DenseBitVec {
                 (count, buf_block_index)
             }
         };
-
-        // Scan basic blocks until we find the one containing the n-th 1-bit.
+        // Find the basic block containing the n-th 1-bit.
         let mut buf_block = 0;
         while buf_block_index < self.buf.num_blocks() {
             buf_block = self.buf.block(buf_block_index);
@@ -302,9 +297,8 @@ impl DenseBitVec {
         Some((pos, (count, buf_block_index)))
     }
 
-    /// Batch `select1` over a non-decreasing slice of indices, mutating it in-place
-    /// with the corresponding positions. Each query reuses the previous query's hint
-    /// position. Out-of-range indices (≥ num_ones) get u32::MAX (sentinel "not found").
+    /// Mutates `indices` (sorted non-decreasing) in-place with `select1` results,
+    /// threading the hint through. Out-of-range indices become `u32::MAX`.
     pub fn select1_batch(&self, indices: &mut [u32]) {
         let mut hint = None;
         for i in indices {
@@ -318,30 +312,28 @@ impl DenseBitVec {
         }
     }
 
-    /// Iterate the positions of every 1-bit, ascending. Block-walking — each yielded
-    /// position reuses the current block's residual via `block &= block - 1`.
+    /// Ascending positions of every 1-bit.
     pub fn ones(&self) -> Select1Range<'_> {
         self.select1_range(0..self.universe_size())
     }
 
-    /// Iterate the positions of 1-bits in `[range.start, range.end)`, ascending.
-    /// Block-walking — significantly faster than `(start..end).filter_map(|i|
-    /// self.select1(rank1(i)))` because the per-block residual is reused across yields.
+    /// Ascending positions of 1-bits in `[range.start, range.end)`. Walks blocks
+    /// sequentially, yielding the lowest set bit of each via `block &= block - 1`.
+    /// The shared per-block residual is why this is an iterator and not a slice.
     pub fn select1_range(&self, range: std::ops::Range<u32>) -> Select1Range<'_> {
         Select1Range::new(self, range)
     }
 }
 
-/// Iterator over the 1-bit positions in a range of a [`DenseBitVec`]. See
-/// [`DenseBitVec::select1_range`].
+/// Iterator over the 1-bit positions in a [`DenseBitVec`] range, ascending.
 pub struct Select1Range<'a> {
     bv: &'a DenseBitVec,
-    /// Current masked block (lowest-set-bit gets yielded next).
+    /// Currently-masked block; the lowest set bit gets yielded next.
     block: bitbuf::Block,
     block_idx: u32,
     end_block: u32,
-    end: u32,
-    last_block_idx: u32,
+    /// Mask applied to the final block to clip bits at or after `range.end`.
+    end_mask: bitbuf::Block,
 }
 
 impl<'a> Select1Range<'a> {
@@ -350,46 +342,44 @@ impl<'a> Select1Range<'a> {
         let start = range.start.min(universe);
         let end = range.end.min(universe);
         if start >= end || bv.buf.num_blocks() == 0 {
-            // empty iterator
             return Self {
                 bv,
                 block: 0,
                 block_idx: 1,
                 end_block: 0,
-                end,
-                last_block_idx: 0,
+                end_mask: 0,
             };
         }
         let block_idx = bitbuf::Block::block_index(start) as u32;
         let end_block = bitbuf::Block::block_index(end - 1) as u32;
-        let last_block_idx = bv.buf.num_blocks() - 1;
+        let end_bit = bitbuf::Block::block_bit_index(end);
+        let end_mask = if end_bit == 0 {
+            bitbuf::Block::MAX
+        } else {
+            one_mask::<bitbuf::Block>(end_bit)
+        };
         let mut iter = Self {
             bv,
             block: 0,
             block_idx,
             end_block,
-            end,
-            last_block_idx,
+            end_mask,
         };
-        iter.block = iter.load_block(block_idx, /*is_first=*/ true, start);
+        // Pre-mask the first block: clip bits below `start`.
+        iter.block = iter.load_block(block_idx)
+            & !one_mask::<bitbuf::Block>(bitbuf::Block::block_bit_index(start));
         iter
     }
 
-    /// Load `block_idx`'s bits, masking off positions outside the active window.
-    fn load_block(&self, block_idx: u32, is_first: bool, start: u32) -> bitbuf::Block {
+    /// Apply the trailing-bits and end-block masks to `block_idx`'s bits.
+    fn load_block(&self, block_idx: u32) -> bitbuf::Block {
         let mut block = self.bv.buf.block(block_idx);
-        if block_idx == self.last_block_idx && self.bv.buf.num_trailing_bits() > 0 {
+        if block_idx + 1 == self.bv.buf.num_blocks() && self.bv.buf.num_trailing_bits() > 0 {
             let num_valid = bitbuf::Block::BITS - self.bv.buf.num_trailing_bits();
             block &= one_mask::<bitbuf::Block>(num_valid);
         }
-        if is_first {
-            block &= !one_mask::<bitbuf::Block>(bitbuf::Block::block_bit_index(start));
-        }
         if block_idx == self.end_block {
-            let bit_offset = bitbuf::Block::block_bit_index(self.end);
-            if bit_offset > 0 {
-                block &= one_mask::<bitbuf::Block>(bit_offset);
-            }
+            block &= self.end_mask;
         }
         block
     }
@@ -401,17 +391,14 @@ impl Iterator for Select1Range<'_> {
         loop {
             if self.block != 0 {
                 let tz = self.block.trailing_zeros();
-                let pos = (self.block_idx << bitbuf::Block::BITS_LOG2) + tz;
                 self.block &= self.block - 1;
-                return Some(pos);
+                return Some((self.block_idx << bitbuf::Block::BITS_LOG2) + tz);
             }
             if self.block_idx >= self.end_block {
                 return None;
             }
             self.block_idx += 1;
-            // Subsequent blocks: not the "first" block (no start mask), but still apply
-            // the trailing-bits mask if applicable and the end-block mask.
-            self.block = self.load_block(self.block_idx, false, 0);
+            self.block = self.load_block(self.block_idx);
         }
     }
 }

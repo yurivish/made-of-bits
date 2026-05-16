@@ -1,17 +1,10 @@
 use crate::bitvec::BitVec;
 use crate::bitvec::BitVecBuilder;
 
-/// `OnePadded<T>` wraps a `BitVec` and extends it with implicit 1-bits on the right.
-/// Positions `[0, inner_len)` are served by the inner BitVec; positions
-/// `[inner_len, universe_size)` are all 1-bits.
-///
-/// Used by the Huffman wavelet matrix to push terminated (short-coded) elements
-/// to the END of each level — the trailing 1-bit padding ensures shorter codes
-/// sort after longer ones at the levels they don't reach. The wrapper has zero
-/// storage overhead for the padding region.
-///
-/// Distinct from `ZeroPadded<T>`, which pads with 0-bits on both ends.
-/// Ported from `madeofbits/onepadded.go`.
+/// Wraps a `BitVec` with implicit 1-bits on the right. Positions `[0, inner_len)` come
+/// from the inner BitVec; positions `[inner_len, universe_size)` are all 1-bits with
+/// no storage cost. Used by the Huffman wavelet matrix so short codes sort to the END
+/// of every level — the opposite of [`ZeroPadded<T>`](super::zeropadded::ZeroPadded).
 #[derive(Clone)]
 pub struct OnePadded<T> {
     bv: T,
@@ -28,13 +21,11 @@ impl<T: BitVec> OnePadded<T> {
         Self { bv, universe_size }
     }
 
-    /// Index of the first padding bit (one past the last inner bit).
-    /// Equals `inner.universe_size()`.
+    /// One past the last inner-region bit; also the start of the implicit-1s region.
     pub fn inner_len(&self) -> u32 {
         self.bv.universe_size()
     }
 
-    /// Borrow of the wrapped bitvec.
     pub fn inner(&self) -> &T {
         &self.bv
     }
@@ -49,10 +40,10 @@ impl<T: BitVec> BitVec for OnePadded<T> {
         }
         let il = self.inner_len();
         if bit_index <= il {
-            return self.bv.rank1(bit_index);
+            self.bv.rank1(bit_index)
+        } else {
+            self.bv.num_ones() + (bit_index - il)
         }
-        // Beyond inner_len: every bit is a 1.
-        self.bv.num_ones() + (bit_index - il)
     }
 
     fn rank0(&self, bit_index: u32) -> u32 {
@@ -61,10 +52,11 @@ impl<T: BitVec> BitVec for OnePadded<T> {
         }
         let il = self.inner_len();
         if bit_index <= il {
-            return self.bv.rank0(bit_index);
+            self.bv.rank0(bit_index)
+        } else {
+            // Padding region has no 0-bits.
+            self.bv.num_zeros()
         }
-        // Padding region has no 0-bits.
-        self.bv.num_zeros()
     }
 
     fn select1(&self, n: u32) -> Option<u32> {
@@ -73,11 +65,7 @@ impl<T: BitVec> BitVec for OnePadded<T> {
             return self.bv.select1(n);
         }
         let pos = self.inner_len() + (n - inner_ones);
-        if pos >= self.universe_size {
-            None
-        } else {
-            Some(pos)
-        }
+        (pos < self.universe_size).then_some(pos)
     }
 
     fn select0(&self, n: u32) -> Option<u32> {
@@ -86,11 +74,7 @@ impl<T: BitVec> BitVec for OnePadded<T> {
     }
 
     fn get(&self, bit_index: u32) -> u32 {
-        if bit_index < self.inner_len() {
-            self.bv.get(bit_index)
-        } else {
-            1
-        }
+        if bit_index < self.inner_len() { self.bv.get(bit_index) } else { 1 }
     }
 
     fn universe_size(&self) -> u32 {
@@ -106,19 +90,15 @@ impl<T: BitVec> BitVec for OnePadded<T> {
     }
 
     fn all_ones_from(&self) -> u32 {
-        // Inner-region end == start of padding region == all-ones-from.
         self.inner_len()
     }
 
     fn rank1_batch(&self, bit_indices: &mut [u32]) {
+        // The underlying rank1_batch wants monotone input. Route inner queries through
+        // a side buffer; compute padding-region answers directly.
         let il = self.inner_len();
         let inner_ones = self.bv.num_ones();
         let total_ones = self.num_ones();
-
-        // DenseBitVec/SparseBitVec rank1_batch optimize for monotone non-decreasing
-        // input — we can't interleave fixup placeholders with real queries without
-        // breaking that contract. So: route inner queries through a side buffer,
-        // compute padding answers directly.
         let mut inner_buf: Vec<u32> =
             bit_indices.iter().copied().filter(|&v| v <= il).collect();
         self.bv.rank1_batch(&mut inner_buf);
@@ -135,11 +115,10 @@ impl<T: BitVec> BitVec for OnePadded<T> {
     }
 }
 
-/// Options for [`OnePaddedBuilder`]. `inner_universe_size` is the universe of the
-/// wrapped bitvec; positions in `[inner_universe_size, universe_size)` are implicit
-/// 1-bits and not part of the inner builder's state.
 #[derive(Default, Clone)]
 pub struct OnePaddedOptions<O: Default + Clone> {
+    /// The universe of the inner bitvec. Positions in
+    /// `[inner_universe_size, universe_size)` are implicit 1-bits.
     pub inner_universe_size: u32,
     pub inner_options: O,
 }
