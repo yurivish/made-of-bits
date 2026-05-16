@@ -1,12 +1,10 @@
 //! `ByteSize` trait reporting total memory footprint (inline + heap) in bytes.
 //!
-//! Rust has no runtime reflection, so each implementation is hand-written. Container
-//! types (`Multi<T>`, `ZeroPadded<T>`, `OnePadded<T>`, `WaveletMatrix<BV>`) are generic
-//! over `T: ByteSize`.
-//!
-//! Several inner buffers are private and not reachable from outside their module; those
-//! impls currently report inline size only — a conservative under-count. Tighten by
-//! adding accessors when more precise accounting matters.
+//! Each implementation is hand-written (no runtime reflection). Container types
+//! (`Multi<T>`, `ZeroPadded<T>`, `OnePadded<T>`, `WaveletMatrix<BV>`) are generic over
+//! `T: ByteSize`. Inner buffers that aren't reachable from outside their module
+//! report inline size only — a conservative under-count, tightenable by adding
+//! accessors.
 
 use crate::bitvec::BitVec;
 use crate::bitvec::MultiBitVec;
@@ -17,9 +15,8 @@ pub trait ByteSize {
     fn byte_size(&self) -> u64;
 }
 
-/// Approximate per-entry overhead for `HashMap<K, V>`. The std hashmap is a Swiss-table
-/// variant; this assumes ~16 bytes of bookkeeping per occupied slot beyond the (K, V)
-/// payload, which is a lower bound at typical load factors.
+/// Approximate `HashMap<K, V>` overhead. Assumes ~16 bytes of Swiss-table bookkeeping
+/// per occupied slot beyond the (K, V) payload — a lower bound at typical load factors.
 fn hashmap_overhead_bytes<K, V>(map: &HashMap<K, V>) -> u64 {
     let per_entry = (mem::size_of::<K>() + mem::size_of::<V>() + 16) as u64;
     map.len() as u64 * per_entry

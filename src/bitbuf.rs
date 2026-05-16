@@ -2,10 +2,10 @@ use crate::bitblock::BitBlock;
 use crate::bits::one_mask;
 use std::ops::Range;
 
-/// Block type for BitBuf blocks. The u64 width matches the native machine word, which
-/// lets the broadword `select64` operate at full register width. All block-level
-/// arithmetic in dense.rs / sparse.rs / waveletmatrix.rs is width-agnostic — it goes
-/// through `bitbuf::Block::BITS`, `block_index`, and `block_bit_index`.
+/// Block type for BitBuf blocks. u64 matches the native machine word, letting
+/// broadword `select64` operate at full register width. Block-level arithmetic
+/// throughout the crate is width-agnostic via `Block::BITS`, `block_index`, and
+/// `block_bit_index`.
 pub(crate) type Block = u64;
 
 #[derive(Clone)]

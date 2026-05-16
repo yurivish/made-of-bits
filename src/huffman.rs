@@ -7,12 +7,11 @@
 
 /// Canonical Huffman codewords for a non-decreasing array of code lengths.
 ///
-/// Each `codes[i]` is the codeword as a bit-pattern of length `lengths[i]`,
-/// right-aligned in the low bits of the u32. Within each length class the codewords
-/// are consecutive integers; the first codeword of length `l + 1` is twice (one past
-/// the last codeword of length `l`). This makes the codes prefix-free and uniquely
-/// decodable. Note that raw u32 values are not monotone across different lengths,
-/// because each code is right-aligned to its own length rather than to `max_len`.
+/// Each `codes[i]` is a bit-pattern of length `lengths[i]`, right-aligned in the low
+/// bits of the u32. Within each length class the codewords are consecutive integers;
+/// the first codeword of length `l + 1` is twice one past the last of length `l`.
+/// Prefix-free and uniquely decodable; raw u32 values are not monotone across
+/// different lengths because each code is right-aligned to its own length.
 ///
 /// See Section 2.5 of Alistair Moffat, "Huffman Coding" (2019).
 pub fn canonical_huffman_codes(lengths: &[u32]) -> Vec<u32> {
@@ -33,14 +32,11 @@ pub fn canonical_huffman_codes(lengths: &[u32]) -> Vec<u32> {
     codes
 }
 
-/// Generate Huffman-like optimal prefix-free codes optimized for a wavelet matrix.
+/// Optimal prefix-free codes shaped for a wavelet matrix: short codes sort to the END
+/// of their lowest level when one-padded with trailing 1-bits, so the "gaps" they
+/// introduce don't appear between longer codes at deeper levels.
 ///
-/// Short codes are positioned such that they sort to the END of their lowest level in the
-/// wavelet matrix when one-padded with trailing 1-bits. This means the "gaps" they introduce
-/// into the full binary tree never appear between longer codes at deeper levels — every short
-/// code is to the right of every longer code that survives it.
-///
-/// `lengths` must be sorted in ascending order (the natural output of [`huffman_code_lengths`]).
+/// `lengths` must be sorted ascending (the natural output of [`huffman_code_lengths`]).
 pub fn wavelet_matrix_codes(lengths: &[u32]) -> Vec<u32> {
     if lengths.is_empty() {
         return Vec::new();
@@ -64,9 +60,9 @@ pub fn wavelet_matrix_codes(lengths: &[u32]) -> Vec<u32> {
         if level == max_len {
             break;
         }
-        // For each remaining code in `current`, append a 0-bit (in-place) and push the
-        // 1-bit variant. The append-1 codes all sort after the append-0 codes, so the
-        // overall slice remains sorted in ascending bit-reversed order.
+        // For each remaining code, append a 0-bit in place and push the 1-bit variant.
+        // The 1-suffixed codes all sort after the 0-suffixed ones, keeping `current`
+        // sorted in ascending bit-reversed order.
         for i in 0..(split as usize) {
             current[i] *= 2;
             let with_one = current[i] + 1;
@@ -77,18 +73,11 @@ pub fn wavelet_matrix_codes(lengths: &[u32]) -> Vec<u32> {
 }
 
 /// Compute Huffman codeword lengths via Moffat's linear-time Algorithm 2 (2019).
-/// The algorithm runs in-place over an internal working array; `weights` is not modified.
+/// Runs in-place over an internal working array; `weights` is not modified.
 ///
-/// `weights` must be sorted in **descending** weight order. Higher-weight symbols get
-/// shorter codes. The returned lengths are sorted in ascending order (`lengths[0]` is the
-/// shortest, `lengths[n-1]` is the longest).
-///
-/// Edge cases:
-/// - `weights.is_empty()` → returns an empty `Vec`.
-/// - Single-symbol input → returns `[0]` (zero-length code).
-///
-/// Variable names follow the Moffat article so the three phases can be cross-referenced
-/// against §2.4.
+/// `weights` must be sorted descending. Returned lengths are sorted ascending — higher
+/// weights get shorter codes. Empty input returns `[]`; single-symbol input returns
+/// `[0]`. Variable names follow §2.4 of the Moffat article for cross-referencing.
 pub fn huffman_code_lengths(weights: &[u32]) -> Vec<u32> {
     if weights.is_empty() {
         return Vec::new();

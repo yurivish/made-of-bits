@@ -18,9 +18,8 @@ pub fn encode(values: &[BicUint]) -> Vec<u8> {
         assert_ne!(v, 0, "BIC encode: values[{i}] is zero; all values must be > 0");
     }
 
-    // Implicit tree in a single buffer of length 2n-1: `t[0..n-1]` are internal nodes,
-    // `t[n-1..2n-1]` are leaves. Build bottom-up so each internal node's value is
-    // available before its parent is computed.
+    // Implicit tree in a `2n-1` buffer: `t[0..n-1]` internal nodes, `t[n-1..]` leaves.
+    // Build bottom-up so each parent sees its children's values.
     let mut t = vec![0 as BicUint; 2 * n - 1];
     t[n - 1..].copy_from_slice(values);
     for p in (0..n - 1).rev() {
@@ -174,20 +173,17 @@ impl BitWriter {
         let byte_offset = (self.bit_pos / 8) as usize;
         let bit_offset = self.bit_pos % 8;
         let avail = 64 - bit_offset;
-        // First window.
         let mut window = u64::from_le_bytes(
             self.data[byte_offset..byte_offset + 8].try_into().unwrap(),
         );
         window |= value << bit_offset;
         self.data[byte_offset..byte_offset + 8].copy_from_slice(&window.to_le_bytes());
         if nbits > avail {
-            // Spill the high bits into the next 64-bit window.
-            let byte_offset2 = byte_offset + 8;
-            let mut window2 = u64::from_le_bytes(
-                self.data[byte_offset2..byte_offset2 + 8].try_into().unwrap(),
-            );
+            // Spill high bits into the next 64-bit window.
+            let off2 = byte_offset + 8;
+            let mut window2 = u64::from_le_bytes(self.data[off2..off2 + 8].try_into().unwrap());
             window2 |= value >> avail;
-            self.data[byte_offset2..byte_offset2 + 8].copy_from_slice(&window2.to_le_bytes());
+            self.data[off2..off2 + 8].copy_from_slice(&window2.to_le_bytes());
         }
         self.bit_pos += nbits;
     }
@@ -201,9 +197,8 @@ impl BitWriter {
 }
 
 struct BitReader {
-    /// Owned copy of the input with 7 trailing pad bytes so that 64-bit window reads
-    /// at any in-bounds bit position are safe. (Go does the same — borrowing would
-    /// require risky bounds-juggling at the tail.)
+    /// Owned copy of the input padded with 7 trailing bytes so 64-bit window reads at
+    /// any in-bounds bit position are safe without tail bounds-juggling.
     data: Vec<u8>,
     bit_pos: u32,
 }

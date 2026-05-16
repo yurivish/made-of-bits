@@ -60,13 +60,12 @@ fn load_xxx_01111(mut val: u32, bit: u32, dm: u32) -> u32 {
     val
 }
 
-/// Largest Morton code in the search rectangle `[min, max]` whose Z-value is strictly
-/// less than `div`. Precondition: `Z(min) < Z(div) < Z(max)`.
+/// Largest Morton code in `[min, max]` strictly less than `div`. Precondition:
+/// `Z(min) < Z(div) < Z(max)`.
 ///
-/// Implements Tropf's LITMAX algorithm for pre-interleaved Morton codes (Tropf & Herzog,
-/// "Multidimensional Range Search in Dynamically Balanced Trees", Angewandte Informatik,
-/// Feb 1981). Useful as a primitive for N-dimensional range queries on Morton-encoded
-/// data — e.g., the future `morton_count_batch` operation.
+/// Tropf's LITMAX algorithm for pre-interleaved Morton codes (Tropf & Herzog,
+/// "Multidimensional Range Search in Dynamically Balanced Trees", Feb 1981). A
+/// primitive for N-dimensional range queries on Morton-encoded data.
 pub fn litmax(min: u32, max: u32, div: u32, ndims: usize) -> u32 {
     let mut litmax = max;
     let mut min = min;
@@ -93,18 +92,16 @@ pub fn litmax(min: u32, max: u32, div: u32, ndims: usize) -> u32 {
                 min = load_xxx_10000(min, bit, dm);
             }
             (true, true, true) => {}                         // same section, continue
-            // (false, true, false): max precedes min in Morton order — invalid precondition.
-            // (true, true, false): same. Treat as no-op to match Go.
+            // (false, true, false) / (true, true, false): max precedes min in Morton
+            // order — violates the precondition. Treat as no-op.
             _ => {}
         }
     }
     litmax
 }
 
-/// Smallest Morton code in the search rectangle `[min, max]` whose Z-value is strictly
-/// greater than `div`. Precondition: `Z(min) < Z(div) < Z(max)`.
-///
-/// Tropf's BIGMIN algorithm. See [`litmax`] for details.
+/// Smallest Morton code in `[min, max]` strictly greater than `div`. Precondition:
+/// `Z(min) < Z(div) < Z(max)`. Tropf's BIGMIN algorithm; see [`litmax`] for details.
 pub fn bigmin(min: u32, max: u32, div: u32, ndims: usize) -> u32 {
     let mut bigmin = min;
     let mut min = min;

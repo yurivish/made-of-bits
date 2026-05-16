@@ -95,10 +95,11 @@ pub trait BitVec: Clone {
         }
     }
 
-    /// Index from which every bit is implicitly 1. For ordinary bitvecs this equals
-    /// [`universe_size`](Self::universe_size); [`OnePadded`](onepadded::OnePadded)
-    /// overrides it to return the inner-region length. The wavelet matrix uses this to
-    /// short-circuit traversals whose range falls entirely in the padding region.
+    /// Index from which every bit is implicitly 1. Equals
+    /// [`universe_size`](Self::universe_size) for ordinary bitvecs;
+    /// [`OnePadded`](onepadded::OnePadded) overrides it to return the inner-region
+    /// length. The wavelet matrix uses this to short-circuit traversals whose range
+    /// falls entirely in the padding region.
     fn all_ones_from(&self) -> u32 {
         self.universe_size()
     }

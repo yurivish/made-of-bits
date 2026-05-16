@@ -39,8 +39,8 @@ impl HuffmanWaveletMatrix {
             freqs[d as usize] += 1;
         }
 
-        // (weight, symbol) pairs for symbols that appear, sorted by descending weight,
-        // ascending symbol for tie-breaking (matches Go).
+        // (weight, symbol) pairs for present symbols, sorted descending by weight then
+        // ascending by symbol for deterministic ties.
         let mut pairs: Vec<(u32, u32)> = freqs
             .iter()
             .enumerate()
@@ -49,7 +49,7 @@ impl HuffmanWaveletMatrix {
             .collect();
         pairs.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
 
-        // Single-symbol case bypasses Huffman entirely: code length 0, no levels.
+        // Single symbol bypasses Huffman entirely: code length 0, no levels.
         if pairs.len() == 1 {
             let sym = pairs[0].1;
             return Self::degenerate(
@@ -65,8 +65,8 @@ impl HuffmanWaveletMatrix {
         let codes = wavelet_matrix_codes(&lengths);
         let max_code_len = *lengths.last().unwrap();
 
-        // Pad each code with trailing 1-bits to max_code_len so short codes occupy the
-        // END of each level — the property OnePadded exploits.
+        // Pad with trailing 1-bits to max_code_len so short codes occupy the end of
+        // each level — the property OnePadded exploits.
         let mut symbol_to_code = HashMap::with_capacity(pairs.len());
         let mut code_to_symbol = HashMap::with_capacity(pairs.len());
         let mut max_padded_code = 0u32;
@@ -78,8 +78,8 @@ impl HuffmanWaveletMatrix {
             max_padded_code = max_padded_code.max(padded);
         }
 
-        // level_lens[l] = number of data elements with code length > l (the elements
-        // still "alive" at level l, before being absorbed by OnePadded's padding).
+        // level_lens[l] = data elements with code length > l (those still active at
+        // level l, before being absorbed by OnePadded's padding region).
         let mut level_lens = vec![0u32; max_code_len as usize];
         for (i, &(weight, _)) in pairs.iter().enumerate() {
             for level in 0..lengths[i] {

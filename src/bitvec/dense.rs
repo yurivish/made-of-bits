@@ -254,25 +254,18 @@ impl DenseBitVec {
     /// sorted queries resume their linear scan instead of re-seeding from the select
     /// sample table. Returns `Some((position, new_hint))` on success.
     ///
-    /// Both the hint-taken and sample-seeded paths go through the same rank-block
-    /// fast-forward loop below — without that, a stale hint would crawl one basic
-    /// block at a time across a large gap, while the sample-seeded path leapt over
-    /// whole rank-sample buckets. (Confirmed by benches: at moderate density on the
-    /// "sparse sorted queries" workload, this fix was the difference between a
-    /// hint-batch slowdown and a 1.4–1.9× speedup.)
+    /// Both the hint-taken and sample-seeded paths share the rank-block fast-forward
+    /// loop below; without it, a stale hint would crawl one block at a time across a
+    /// gap that the sample path leaps over in one rank-bucket step. (Benches showed
+    /// this fix as the difference between a hint-batch slowdown and a 1.4–1.9× win
+    /// on moderate-density sparse-query workloads.)
     ///
     /// Possible future refinements, *not implemented* — measure before adopting:
     ///
-    /// - Skip the hint when it's no fresher than a sample lookup would be: cheap
-    ///   `hint.count >= (n >> samples_pow2) << samples_pow2` check. Helps when the
-    ///   hint is far behind the bucket containing n; pays an extra comparison on
-    ///   every call. Initial bench was promising on the sparse-queries case but
-    ///   noisy; not enough data to commit.
-    ///
-    /// - Split into a `_checked` Option-returning wrapper and a `_unchecked` core,
-    ///   so `select1_batch` can avoid the per-query `Option` match. Initial bench
-    ///   showed a marginal effect; not worth the API split until a workload shows
-    ///   it matters.
+    /// - Skip the hint when no fresher than a fresh sample lookup, via the cheap
+    ///   `hint.count >= (n >> samples_pow2) << samples_pow2` check.
+    /// - Split into `_checked` / `_unchecked` cores so `select1_batch` skips the
+    ///   per-query `Option` match.
     pub fn select1_hinted(
         &self,
         n: u32,
@@ -312,14 +305,13 @@ impl DenseBitVec {
         Some((pos, (count, buf_block_index)))
     }
 
-    /// Run `select1` for every value in `indices`, writing the positions back over
-    /// the inputs in place. Out-of-range indices (`>= num_ones()`) become `u32::MAX`.
+    /// Run `select1` for every value in `indices`, writing the positions back in
+    /// place. Out-of-range indices (`>= num_ones()`) become `u32::MAX`.
     ///
-    /// Threads a `(count, buf_block_idx)` hint through consecutive queries so a
-    /// nearby next query can resume the linear scan instead of re-seeding from the
-    /// select sample. The hint pays off when the input is monotone non-decreasing —
-    /// unsorted input still produces correct results, just without the speedup, as
-    /// the hint check (`hint.count <= n`) silently falls back to a sample lookup.
+    /// Threads a hint between queries so nearby ones can skip the sample lookup. The
+    /// hint pays off when input is monotone non-decreasing; unsorted input still
+    /// produces correct results (the `hint.count <= n` check falls back to a sample
+    /// lookup), just without the speedup.
     pub fn select1_batch(&self, indices: &mut [u32]) {
         let mut hint = None;
         for i in indices {

@@ -286,19 +286,15 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         }
     }
 
-    /// Compute several quantiles of the same range in one wavelet-matrix traversal.
+    /// Compute several quantiles of the same range in one traversal. `ks` must be
+    /// sorted ascending; the returned `(symbol, count)` pairs come out in input order
+    /// (which is also ascending by symbol, since groups split by symbol at each level).
     ///
-    /// `ks` must be sorted in ascending order. Returns one `(symbol, count)` pair per
-    /// input k, in the same order — and because the algorithm partitions ks by symbol
-    /// at each level, the returned symbols come out ascending as well.
+    /// `ks` doubles as scratch space — slots are overwritten during the descent. Clone
+    /// first if the original is needed afterward.
     ///
-    /// `ks` is also used as scratch space: each slot is rewritten as the descent goes
-    /// (the final value is the k used at the deepest level). Callers who need to
-    /// retain the original ks should clone first.
-    ///
-    /// Faster than calling `quantile` once per k because queries that share the same
-    /// node range descend the tree together — one rank pair per level per group, not
-    /// per k.
+    /// Faster than per-k `quantile` because queries sharing a node range descend
+    /// together: one rank pair per level per group, not per k.
     pub fn quantile_batch(&self, range: Range<u32>, ks: &mut [u32]) -> Vec<(u32, u32)> {
         let n = ks.len();
         let mut symbols = vec![0u32; n];
