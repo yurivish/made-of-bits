@@ -1,5 +1,101 @@
 use crate::bitblock::BitBlock;
 
+/// `SELECT_IN_BYTE[k * 256 + b]` = position (0-7) of the `k`-th set bit (zero-indexed)
+/// in byte value `b`. Entries where `b` has fewer than `k+1` set bits are 8 (sentinel).
+/// Used by the broadword `select64` algorithm to look up the final byte's bit position.
+///
+/// 2 KiB total, computed at compile time.
+const SELECT_IN_BYTE: [u8; 2048] = {
+    let mut table = [8u8; 2048];
+    let mut b = 0usize;
+    while b < 256 {
+        let mut rank = 0usize;
+        let mut i = 0u8;
+        while i < 8 {
+            if b & (1 << i) != 0 {
+                table[rank * 256 + b] = i;
+                rank += 1;
+            }
+            i += 1;
+        }
+        b += 1;
+    }
+    table
+};
+
+/// Vigna's broadword `select` for 64-bit words: returns the position of the `k`-th
+/// (zero-indexed) set bit in `x`. Assumes `x` has at least `k + 1` set bits;
+/// behavior on insufficient inputs is unspecified (callers should bounds-check first
+/// or use [`select64_checked`]).
+///
+/// O(1) — uses byte-level SWAR popcount, broadword parallel comparison to locate the
+/// target byte, then [`SELECT_IN_BYTE`] for the in-byte position.
+///
+/// Reference: <https://vigna.di.unimi.it/ftp/papers/Broadword.pdf>.
+/// Ported from `Select64` in `madeofbits/bits.go`.
+#[inline]
+pub(crate) fn select64(x: u64, k: u32) -> u32 {
+    debug_assert!(
+        (k as u64) < x.count_ones() as u64,
+        "select64: k={k} but x has {} set bits",
+        x.count_ones(),
+    );
+
+    const ONES: u64 = 0x0101010101010101;
+    const MSBS: u64 = 0x8080808080808080;
+
+    // Byte-level popcount via SWAR (sideways addition).
+    let mut s = x - ((x >> 1) & 0x5555555555555555);
+    s = (s & 0x3333333333333333) + ((s >> 2) & 0x3333333333333333);
+    s = (s + (s >> 4)) & 0x0F0F0F0F0F0F0F0F;
+
+    // Prefix-sum the byte popcounts: byte i of byte_sums = popcount(x[0:i+1]).
+    let byte_sums = s.wrapping_mul(ONES);
+
+    // Broadword parallel comparison: byte i has MSB set iff k >= cumulative_sum[i].
+    // count_ones of the MSB pattern is the index of the first byte whose cumulative
+    // sum exceeds k.
+    let k64 = k as u64;
+    let geq = ((k64 * ONES) | MSBS).wrapping_sub(byte_sums) & MSBS;
+
+    // Bit offset of the target byte within the word (multiple of 8).
+    let place = (geq.count_ones() as u64) << 3;
+
+    // Adjust k to be relative within the target byte:
+    //   k -= cumulative count of 1-bits *before* the target byte.
+    let local_k = k64 - (((byte_sums << 8) >> place) & 0xFF);
+
+    place as u32
+        + SELECT_IN_BYTE[(local_k as usize) * 256 + (((x >> place) & 0xFF) as usize)] as u32
+}
+
+/// Safe variant: returns `Some(pos)` if `x` has at least `k + 1` set bits, else `None`.
+#[inline]
+pub(crate) fn select64_checked(x: u64, k: u32) -> Option<u32> {
+    if (k as u64) < x.count_ones() as u64 {
+        Some(select64(x, k))
+    } else {
+        None
+    }
+}
+
+/// `floor(log2(x))`. Panics if `x == 0`.
+#[inline]
+pub(crate) fn ilog2(x: u64) -> u32 {
+    x.ilog2()
+}
+
+/// Linear O(popcount) reference implementation of [`select64`], kept as ground truth for
+/// the broadword version's tests. Returns `Some(pos)` if found, `None` otherwise.
+/// Ported from `Select64Simple` in `madeofbits/bits.go`.
+pub(crate) fn select64_simple(x: u64, k: u32) -> Option<u32> {
+    let mut x = x;
+    for _ in 0..k {
+        x &= x.wrapping_sub(1);
+    }
+    if x == 0 { None } else { Some(x.trailing_zeros()) }
+}
+
 /// Return the position of the k-th least significant set bit.
 /// Assumes that x has at least k set Bits.
 /// E.g. select1(0b1100, 0) === 2 and select1(0b1100, 1) === 3
@@ -7,16 +103,7 @@ use crate::bitblock::BitBlock;
 /// Will panic due to overflow if the requested bit does not exist,
 /// eg. select1(0b1100, 2)
 ///
-/// As an aside, if we're interested in potentially more efficient approaches,
-/// there is a broadword select1 implementation in the `succinct` package by
-/// Jesse A. Tov, provided under an MIT license: https://github.com/tov/succinct-rs
-///
-/// An updated version of the paper is here: https://vigna.di.unimi.it/ftp/papers/Broadword.pdf
-/// If we use this, here are some items for future work:
-/// - Benchmark comparisons with the iterative select1 below
-/// - Use simd128 to accelerate u_le8, le8, and u_nz8
-/// - Implement 32-bit, 16-bit, and 8-bit select1
-/// - Write my own tests (the original file had tests, but I'd like to practice writing my own)
+/// Generic across u32/u64/u128. For u64 specifically, [`select64`] is much faster.
 pub(crate) fn select1<T: BitBlock>(x: T, k: u32) -> Option<u32> {
     // Unset the k-1 preceding 1-bits
     let mut x = x;
@@ -90,6 +177,57 @@ mod tests {
         for n in 0..64 {
             assert_eq!(one_mask::<u64>(n), 2u64.pow(n) - 1);
             assert_eq!(one_mask::<u64>(64), u64::MAX);
+        }
+    }
+
+    #[test]
+    fn test_select64_vs_simple_exhaustive_low_popcount() {
+        // Exhaustive cross-check for all u64 values with popcount <= 4 — covers every
+        // bit position pattern up to small popcount, ~600k cases. Runs in ~milliseconds.
+        for popcount in 0..=4u32 {
+            for mask in low_popcount_words(popcount, 64) {
+                for k in 0..popcount {
+                    assert_eq!(
+                        select64_checked(mask, k),
+                        select64_simple(mask, k),
+                        "select64({mask:016x}, {k})",
+                    );
+                }
+                // One past the last is None.
+                assert_eq!(select64_checked(mask, popcount), None);
+            }
+        }
+    }
+
+    /// Generate every u64 with exactly `popcount` set bits, restricted to the lowest
+    /// `width` positions. For popcount <= 4 and width = 64 this is ~635k values.
+    fn low_popcount_words(popcount: u32, width: u32) -> Vec<u64> {
+        fn rec(popcount: u32, width: u32, base: u64, out: &mut Vec<u64>) {
+            if popcount == 0 {
+                out.push(base);
+                return;
+            }
+            if popcount > width {
+                return;
+            }
+            // Choose where the highest remaining bit lives.
+            for hi in (popcount - 1)..width {
+                rec(popcount - 1, hi, base | (1u64 << hi), out);
+            }
+        }
+        let mut out = Vec::new();
+        rec(popcount, width, 0, &mut out);
+        out
+    }
+
+    #[test]
+    fn test_select64_boundary_positions() {
+        // Single bit at each of {0,1,30,31,32,33,62,63}: select64(_, 0) returns that
+        // position. Pins down off-by-ones at byte and u32 boundaries.
+        for pos in [0u32, 1, 30, 31, 32, 33, 62, 63] {
+            let x = 1u64 << pos;
+            assert_eq!(select64(x, 0), pos, "select64(1 << {pos}, 0)");
+            assert_eq!(select64_checked(x, 1), None);
         }
     }
 

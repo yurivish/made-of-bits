@@ -3,7 +3,7 @@ use crate::{
     bitbuf,
     bitbuf::BitBuf,
     bits,
-    bits::{one_mask, select1},
+    bits::{one_mask, select64_checked},
     bitvec::{BitVec, BitVecBuilder},
 };
 
@@ -301,7 +301,7 @@ impl BitVec for DenseBitVec {
 
         // Compute and return its bit index
         let buf_block_bit_index = buf_block_index << bitbuf::Block::BITS_LOG2;
-        let bit_offset = select1(buf_block, n - count).unwrap_or(0);
+        let bit_offset = select64_checked(buf_block, n - count).unwrap_or(0);
         Some(buf_block_bit_index + bit_offset)
     }
 
@@ -352,7 +352,7 @@ impl BitVec for DenseBitVec {
 
         // Compute and return its bit index
         let buf_block_bit_index = buf_block_index << bitbuf::Block::BITS_LOG2;
-        let bit_offset = select1(!buf_block, n - count).unwrap_or(0);
+        let bit_offset = select64_checked(!buf_block, n - count).unwrap_or(0);
         Some(buf_block_bit_index + bit_offset)
     }
 
