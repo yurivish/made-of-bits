@@ -33,7 +33,6 @@ const SELECT_IN_BYTE: [u8; 2048] = {
 ///
 /// Reference: <https://vigna.di.unimi.it/ftp/papers/Broadword.pdf>.
 /// Ported from `Select64` in `madeofbits/bits.go`.
-#[inline]
 pub(crate) fn select64(x: u64, k: u32) -> u32 {
     debug_assert!(
         (k as u64) < x.count_ones() as u64,
@@ -70,7 +69,6 @@ pub(crate) fn select64(x: u64, k: u32) -> u32 {
 }
 
 /// Safe variant: returns `Some(pos)` if `x` has at least `k + 1` set bits, else `None`.
-#[inline]
 pub(crate) fn select64_checked(x: u64, k: u32) -> Option<u32> {
     if (k as u64) < x.count_ones() as u64 {
         Some(select64(x, k))
@@ -80,7 +78,6 @@ pub(crate) fn select64_checked(x: u64, k: u32) -> Option<u32> {
 }
 
 /// `floor(log2(x))`. Panics if `x == 0`.
-#[inline]
 pub(crate) fn ilog2(x: u64) -> u32 {
     x.ilog2()
 }

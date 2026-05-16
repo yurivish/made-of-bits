@@ -46,7 +46,6 @@ pub fn dim_mask(dim: usize, ndims: usize) -> u32 {
 
 /// Set `bit` in `val` and clear every lower bit belonging to the same dimension
 /// (identified by `dm`). Tropf's `LOAD_xxx10000` for interleaved Morton codes.
-#[inline]
 fn load_xxx_10000(mut val: u32, bit: u32, dm: u32) -> u32 {
     val |= bit;
     val &= !((bit - 1) & dm);
@@ -55,7 +54,6 @@ fn load_xxx_10000(mut val: u32, bit: u32, dm: u32) -> u32 {
 
 /// Clear `bit` in `val` and set every lower bit belonging to the same dimension.
 /// Tropf's `LOAD_xxx01111`.
-#[inline]
 fn load_xxx_01111(mut val: u32, bit: u32, dm: u32) -> u32 {
     val &= !bit;
     val |= (bit - 1) & dm;
