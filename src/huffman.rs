@@ -7,8 +7,11 @@
 //!
 //! Ported from `madeofbits/huffman.go`.
 
-/// Generate lexicographically-ordered codewords from a non-decreasing array of Huffman codeword
-/// lengths. The returned codes are of increasing value and non-decreasing code length.
+/// Generate canonical codewords from a non-decreasing array of Huffman code lengths.
+/// Each returned code is right-aligned to its code length; viewed as bit-prefixes of
+/// length `max_len`, consecutive codes are strictly increasing (the "lexicographic"
+/// property), but the raw u32 values are not necessarily monotone across different
+/// code lengths.
 ///
 /// See Section 2.5 of Alistair Moffat, "Huffman Coding" (2019).
 pub fn canonical_huffman_codes(lengths: &[u32]) -> Vec<u32> {
@@ -74,7 +77,8 @@ pub fn wavelet_matrix_codes(lengths: &[u32]) -> Vec<u32> {
     codes
 }
 
-/// Compute Huffman codeword lengths via Moffat's in-place linear-time Algorithm 2 (2019).
+/// Compute Huffman codeword lengths via Moffat's linear-time Algorithm 2 (2019).
+/// The algorithm runs in-place over an internal working array; `weights` is not modified.
 ///
 /// `weights` must be sorted in **descending** weight order. Higher-weight symbols get
 /// shorter codes. The returned lengths are sorted in ascending order (`lengths[0]` is the
