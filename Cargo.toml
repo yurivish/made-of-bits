@@ -59,6 +59,14 @@ harness = false
 name = "bic"
 harness = false
 
+[[bench]]
+name = "bitvec"
+harness = false
+
+[[bench]]
+name = "wavelet_matrix"
+harness = false
+
 [profile.dev]
 opt-level = 3 # all optimizations
 
