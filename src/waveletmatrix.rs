@@ -1101,4 +1101,22 @@ mod tests {
             );
         }
     }
+
+    /// `SymbolSequence` property suite against `WaveletMatrix`. Cross-validates
+    /// `get`, `count`, `select`, `select_last` against naive linear-scan references
+    /// for arbitrarily-generated short sequences with small alphabets. Lives in the
+    /// WaveletMatrix module (rather than a separate `tests/` integration test) so
+    /// that the harness has access to the `DenseBitVec` builder type.
+    #[test]
+    fn symbol_sequence_props() {
+        crate::symbol_sequence::run_symbol_sequence_props(|data: &[u32]| {
+            let max = data.iter().copied().max().unwrap_or(0).max(1);
+            WaveletMatrix::<DenseBitVec>::new(
+                data.to_vec(),
+                max,
+                Default::default(),
+                None,
+            )
+        });
+    }
 }

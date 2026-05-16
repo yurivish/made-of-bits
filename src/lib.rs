@@ -17,6 +17,9 @@ mod bitvec;
 mod intbuf;
 #[cfg(feature = "js")]
 mod js;
+pub mod symbol_sequence;
+#[cfg(test)]
+mod test_support;
 mod waveletmatrix;
 mod waveletmatrix_support;
 mod zorder;

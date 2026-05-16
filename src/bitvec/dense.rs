@@ -425,9 +425,40 @@ impl BitVecBuilder for DenseBitVecBuilder {
 mod tests {
     use super::*;
     use crate::bitvec::test::*;
+    use expect_test::expect;
 
     #[test]
     fn bitvec_interface() {
         test_bitvec_builder::<DenseBitVecBuilder>();
+    }
+
+    /// Snapshot the bit-pattern + sample-table layout of a small DenseBitVec.
+    /// Acts as a golden test for the on-disk-equivalent representation: any
+    /// change in the rank/select sample emission strategy or block layout shows
+    /// up here. Update with `UPDATE_EXPECT=1 cargo test snapshot_layout`.
+    #[test]
+    fn snapshot_layout() {
+        let mut b = DenseBitVecBuilder::new(70, Default::default());
+        for i in [0, 31, 32, 68] {
+            b.one(i);
+        }
+        let bv = b.build();
+        let snapshot = format!(
+            "universe_size={}\nnum_ones={}\nblocks={:?}\nrank1_samples={:?}\nselect1_samples={:?}\nselect0_samples={:?}",
+            bv.universe_size(),
+            bv.num_ones(),
+            bv.buf.blocks(),
+            bv.rank1_samples,
+            bv.select1_samples,
+            bv.select0_samples,
+        );
+        expect![[r#"
+            universe_size=70
+            num_ones=4
+            blocks=[2147483649, 1, 16]
+            rank1_samples=[0]
+            select1_samples=[0]
+            select0_samples=[0]"#]]
+        .assert_eq(&snapshot);
     }
 }
