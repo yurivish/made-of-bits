@@ -24,7 +24,7 @@ pub mod huffmanwaveletmatrix;
 pub mod symbol_sequence;
 #[cfg(test)]
 mod test_support;
-mod waveletmatrix;
+pub mod waveletmatrix;
 mod waveletmatrix_support;
 mod zorder;
 

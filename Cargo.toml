@@ -50,6 +50,14 @@ hegeltest = "0.12.7"
 name = "rank1"
 harness = false
 
+[[bench]]
+name = "huffman_vs_wm"
+harness = false
+
+[[bench]]
+name = "bic"
+harness = false
+
 [profile.dev]
 opt-level = 3 # all optimizations
 
