@@ -286,7 +286,117 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         }
     }
 
-    // todo: fn k_majority(&self, k, range) { ... }
+    /// Like `quantile`, but for multiple ks in a single traversal.
+    ///
+    /// `ks` must be sorted ascending. Returns parallel `(symbol, count)` pairs in input
+    /// order; symbols come out in ascending order because the algorithm partitions ks
+    /// at each level (low ks go left, high ks go right). Modifies `ks` in place — at
+    /// the end, ks[i] is the k value used at the deepest level.
+    ///
+    /// Mirrors `waveletmatrix.go:QuantileBatch`. The algorithm groups queries by the
+    /// (start, end) range they share; at every level a group splits at the first
+    /// query whose k exceeds the left subtree's count, saving rank queries vs. running
+    /// `quantile` once per k.
+    pub fn quantile_batch(&self, range: Range<u32>, ks: &mut [u32]) -> Vec<(u32, u32)> {
+        if ks.is_empty() {
+            return Vec::new();
+        }
+        let mut symbols = vec![0u32; ks.len()];
+        let mut counts = vec![0u32; ks.len()];
+
+        struct Group {
+            range: Range<u32>,
+            from: usize,
+            to: usize,
+        }
+        let mut groups = vec![Group { range, from: 0, to: ks.len() }];
+
+        for level in self.levels(0) {
+            let mut next_groups = Vec::with_capacity(groups.len() * 2);
+            for g in &groups {
+                // OnePadded short-circuit: every remaining bit is 1, set them all and
+                // skip the rank queries.
+                if g.range.start >= level.all_ones_from {
+                    let mask = (level.bit << 1) - 1;
+                    for i in g.from..g.to {
+                        symbols[i] |= mask;
+                    }
+                    continue;
+                }
+                let start = level.bv.ranks(g.range.start);
+                let end = level.bv.ranks(g.range.end);
+                let left_count = end.0 - start.0;
+
+                // Split queries: ks[..split] go left, ks[split..] go right.
+                let mut split = g.from;
+                while split < g.to && ks[split] < left_count {
+                    split += 1;
+                }
+                if split > g.from {
+                    next_groups.push(Group {
+                        range: start.0..end.0,
+                        from: g.from,
+                        to: split,
+                    });
+                }
+                if split < g.to {
+                    for i in split..g.to {
+                        ks[i] -= left_count;
+                        symbols[i] += level.bit;
+                    }
+                    next_groups.push(Group {
+                        range: level.nz + start.1..level.nz + end.1,
+                        from: split,
+                        to: g.to,
+                    });
+                }
+            }
+            groups = next_groups;
+        }
+
+        // Fill counts from each final group's range size.
+        for g in &groups {
+            let count = g.range.end - g.range.start;
+            for i in g.from..g.to {
+                counts[i] = count;
+            }
+        }
+
+        symbols.into_iter().zip(counts).collect()
+    }
+
+    /// Symbols with frequency strictly greater than `range.len() / k` in `range`.
+    /// `k=2` is equivalent to `simple_majority` (>50% threshold). `k=4` finds elements
+    /// with >25% frequency, etc.
+    ///
+    /// Returns `(symbol, count)` pairs sorted by symbol. Driven by a single
+    /// `quantile_batch` over k-1 quantile indices.
+    pub fn majority(&self, range: Range<u32>, k: u32) -> Vec<(u32, u32)> {
+        assert!(k >= 1, "k must be at least 1");
+        let total = range.end - range.start;
+        if total == 0 {
+            return Vec::new();
+        }
+        let threshold = total / k;
+        let mut ks: Vec<u32> = (1..k).map(|i| total * i / k).filter(|&x| x < total).collect();
+        if ks.is_empty() {
+            return Vec::new();
+        }
+        let results = self.quantile_batch(range, &mut ks);
+
+        // Dedup adjacent symbols and filter by threshold. Symbols are ascending out of
+        // quantile_batch, so simple "different from previous" dedup suffices.
+        let mut out: Vec<(u32, u32)> = Vec::new();
+        for (sym, count) in results {
+            if out.last().is_some_and(|&(s, _)| s == sym) {
+                continue;
+            }
+            if count > threshold {
+                out.push((sym, count));
+            }
+        }
+        out
+    }
 
     /// Count the number of occurrences of each symbol in the given index ranges.
     /// Returns a vec of (input_index, symbol, start, end) tuples. [todo: no longer true; now returns Counts]
@@ -1133,6 +1243,89 @@ mod tests {
                 vec![2, 2, 1]
             );
         }
+    }
+
+    /// `quantile_batch(range, ks)` must agree element-wise with repeated single-k
+    /// `quantile(range, k)` calls. Property-tests over arbitrary data + range + ks.
+    #[test]
+    fn quantile_batch_agrees_with_single_quantile() {
+        use arbtest::arbtest;
+        arbtest(|u| {
+            let len = u.int_in_range(1u32..=32)?;
+            let max_sym = u.int_in_range(1u32..=8)?;
+            let mut data: Vec<u32> = Vec::with_capacity(len as usize);
+            for _ in 0..len {
+                data.push(u.int_in_range(0u32..=max_sym)?);
+            }
+            let wm = WaveletMatrix::<DenseBitVec>::new(data, max_sym, Default::default(), None);
+
+            let a = u.int_in_range(0u32..=len)?;
+            let b = u.int_in_range(0u32..=len)?;
+            let range = a.min(b)..a.max(b);
+            if range.start == range.end {
+                return Ok(());
+            }
+            let span = range.end - range.start;
+            // Sorted ks within [0, span).
+            let mut ks: Vec<u32> = Vec::new();
+            for _ in 0..u.int_in_range(0u32..=8)? {
+                ks.push(u.int_in_range(0..=span - 1)?);
+            }
+            ks.sort_unstable();
+
+            let mut ks_for_batch = ks.clone();
+            let batched = wm.quantile_batch(range.clone(), &mut ks_for_batch);
+            for (i, &k) in ks.iter().enumerate() {
+                assert_eq!(batched[i], wm.quantile(range.clone(), k));
+            }
+            Ok(())
+        });
+    }
+
+    /// `majority(range, k)` returns elements with frequency > range.len()/k. Cross-check
+    /// against a naive count of every distinct symbol in the range.
+    #[test]
+    fn majority_vs_naive() {
+        use arbtest::arbtest;
+        arbtest(|u| {
+            let len = u.int_in_range(1u32..=32)?;
+            let max_sym = u.int_in_range(1u32..=6)?;
+            let mut data: Vec<u32> = Vec::with_capacity(len as usize);
+            for _ in 0..len {
+                data.push(u.int_in_range(0u32..=max_sym)?);
+            }
+            let wm = WaveletMatrix::<DenseBitVec>::new(
+                data.clone(),
+                max_sym,
+                Default::default(),
+                None,
+            );
+            let k = u.int_in_range(2u32..=5)?;
+            let a = u.int_in_range(0u32..=len)?;
+            let b = u.int_in_range(0u32..=len)?;
+            let range = a.min(b)..a.max(b);
+            if range.start == range.end {
+                return Ok(());
+            }
+            let total = range.end - range.start;
+            let threshold = total / k;
+
+            let mut naive: Vec<(u32, u32)> = (0..=max_sym)
+                .map(|s| {
+                    let c = data[range.start as usize..range.end as usize]
+                        .iter()
+                        .filter(|&&x| x == s)
+                        .count() as u32;
+                    (s, c)
+                })
+                .filter(|&(_, c)| c > threshold)
+                .collect();
+            naive.sort();
+
+            let computed = wm.majority(range, k);
+            assert_eq!(computed, naive);
+            Ok(())
+        });
     }
 
     /// `SymbolSequence` property suite against `WaveletMatrix`. Cross-validates
