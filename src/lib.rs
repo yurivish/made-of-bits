@@ -17,6 +17,7 @@ mod bitvec;
 mod intbuf;
 #[cfg(feature = "js")]
 mod js;
+pub mod bic;
 pub mod huffman;
 pub mod huffmanwaveletmatrix;
 pub mod symbol_sequence;
