@@ -15,7 +15,7 @@ use crate::{
 /// depends on the number of elements and the universe size.
 /// Implements MultiBitVec. Multiplicity is encoded via repetition, ie.
 /// each additional repetition of a 1-bit takes additional space,
-/// as it does in the case of the ArrayBitVec but not Multi<T>,
+/// as it does in the case of the ArrayBitVec but not `Multi<T>`,
 /// which represents counts explicitly.
 #[derive(Clone)]
 pub struct SparseBitVec {

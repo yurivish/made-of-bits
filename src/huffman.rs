@@ -77,8 +77,8 @@ pub fn wavelet_matrix_codes(lengths: &[u32]) -> Vec<u32> {
 /// Compute Huffman codeword lengths via Moffat's in-place linear-time Algorithm 2 (2019).
 ///
 /// `weights` must be sorted in **descending** weight order. Higher-weight symbols get
-/// shorter codes. The returned lengths are sorted in ascending order (lengths[0] is the
-/// shortest, lengths[n-1] is the longest).
+/// shorter codes. The returned lengths are sorted in ascending order (`lengths[0]` is the
+/// shortest, `lengths[n-1]` is the longest).
 ///
 /// Edge cases:
 /// - `weights.is_empty()` → returns an empty `Vec`.

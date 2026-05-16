@@ -51,7 +51,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
     }
 
     /// Construct a wavelet matrix directly from an array of pre-built level bitvectors.
-    /// Used by both `WaveletMatrix::new` and by [`HuffmanWaveletMatrix`] (which wraps each
+    /// Used by both `WaveletMatrix::new` and by `HuffmanWaveletMatrix` (which wraps each
     /// level in [`crate::bitvec::onepadded::OnePadded`] to make ragged Huffman trees
     /// representable uniformly).
     pub(crate) fn from_bitvecs(

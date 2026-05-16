@@ -135,7 +135,7 @@ pub(crate) fn one_mask<T: BitBlock>(n: u32) -> T {
 }
 
 /// Perform binary search over a 0..n using bitwise binary search.
-/// See: https://orlp.net/blog/bitwise-binary-search/
+/// See: <https://orlp.net/blog/bitwise-binary-search/>
 pub(crate) fn partition_point(n: usize, pred: impl Fn(usize) -> bool) -> usize {
     let mut b = 0;
     let mut bit = bit_floor(n);

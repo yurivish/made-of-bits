@@ -10,14 +10,14 @@ use std::collections::HashSet;
 /// of bits. Internally represented by two sparse bit vectors.
 #[derive(Clone)]
 pub struct RLEBitVec {
-    /// z[i]: cumulative number of zeros before the start of the i-th 1-run;
+    /// `z[i]`: cumulative number of zeros before the start of the i-th 1-run;
     /// can be thought of as pointing to the index of the first 1 in a 01-run.
     /// Since we coalesce runs there are no zero-length runs, and therefore we
     /// can use a bitvector type without multiplicity here and for `zo` (though
     /// this isn't strictly required and is done for clarity and to enforce the
     /// invariant with the quick runtime check in `BitVecOf` construction).
     z: BitVecOf<SparseBitVec>,
-    /// zo[i]: cumulative number of ones and zeros at the end of the i-th 01-run;
+    /// `zo[i]`: cumulative number of ones and zeros at the end of the i-th 01-run;
     /// can be thought of as pointing just beyond the index of the last 1 in a 01-run.
     zo: BitVecOf<SparseBitVec>,
     num_zeros: u32,
