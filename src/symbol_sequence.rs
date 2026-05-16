@@ -1,6 +1,6 @@
 //! `SymbolSequence` — the common query contract shared by `WaveletMatrix` and
 //! `HuffmanWaveletMatrix`. Property tests against this trait validate both
-//! implementations with one body of code, mirroring `madeofbits/symbolsequence_test.go`.
+//! implementations with one body of code.
 //!
 //! The trait is intentionally a *subset* of `WaveletMatrix`'s public API — the methods
 //! both structures support and that are meaningful to cross-validate. Implementations

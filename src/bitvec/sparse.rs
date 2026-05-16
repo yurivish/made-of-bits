@@ -29,8 +29,7 @@ pub struct SparseBitVec {
     /// Constant subtracted from every input before Elias-Fano encoding, so the
     /// effective universe is `[0, universe_size - offset)` rather than `[0,
     /// universe_size)`. For sparse vectors whose first 1-bit sits far from 0, this
-    /// shrinks the high-bits dense storage and the low-bits width. Ported from
-    /// madeofbits/sparse.go.
+    /// shrinks the high-bits dense storage and the low-bits width.
     offset: u32,
 }
 

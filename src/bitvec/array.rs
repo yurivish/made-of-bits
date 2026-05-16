@@ -60,7 +60,7 @@ impl MultiBitVec for ArrayBitVec {
     }
 
     /// Two-pointer walk over sorted `ones` and (monotone non-decreasing) `bit_indices`.
-    /// O(n + m) instead of the default O(m log n). Ported from `array.go:Rank1Batch`.
+    /// O(n + m) instead of the default O(m log n).
     ///
     /// Preconditions:
     /// - `self.ones` is sorted (invariant of `ArrayBitVec`).

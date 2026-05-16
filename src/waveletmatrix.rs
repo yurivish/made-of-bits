@@ -298,7 +298,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
     ///
     /// Faster than calling `quantile` once per k because queries that share the same
     /// node range descend the tree together — one rank pair per level per group, not
-    /// per k. Mirrors `waveletmatrix.go:QuantileBatch`.
+    /// per k.
     pub fn quantile_batch(&self, range: Range<u32>, ks: &mut [u32]) -> Vec<(u32, u32)> {
         let n = ks.len();
         let mut symbols = vec![0u32; n];

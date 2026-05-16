@@ -8,7 +8,7 @@ use crate::bits::one_mask;
 /// Byte-addressable storage with 64-bit little-endian read/write windows. Bit widths up to 56 are
 /// supported — a value of up to 56 bits, plus up to 7 bits of byte-alignment offset, fits in a
 /// single 64-bit window. Storage is padded with 7 trailing bytes so tail reads never run off
-/// the end. Ported from `madeofbits/intbuf.go`.
+/// the end.
 #[derive(Clone)]
 pub struct IntBuf {
     data: Box<[u8]>,

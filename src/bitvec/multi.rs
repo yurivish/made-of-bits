@@ -84,8 +84,8 @@ impl<T: BitVec> MultiBitVec for Multi<T> {
     /// Phase 1: batch-rank into the occupancy bitvec.
     /// Phase 2: for each occupancy rank, look up the multiplicity. Adjacent equal
     ///          ranks share the same result, so we only call `select1` when the
-    ///          rank changes — this is the dedup that Go's
-    ///          `multi.go:Rank1Batch` does explicitly via a side map.
+    ///          rank changes, deduplicating the multiplicity lookups across queries
+    ///          that land in the same occupancy bucket.
     ///
     /// Preconditions: `bit_indices` is monotone non-decreasing (the underlying
     /// occupancy bitvec's `rank1_batch` typically assumes this; DenseBitVec

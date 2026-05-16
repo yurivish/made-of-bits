@@ -245,8 +245,7 @@ pub(crate) fn prop_test_bitvec_builder<T: BitVecBuilder>(
 }
 
 /// Boundary-universe-size sweep: powers-of-2 boundaries and the values immediately
-/// adjacent, crossed with a small set of density patterns. Ports the Go
-/// `TestAdversarial_BoundaryUniverseSizes` discipline (see madeofbits/adversarial_test.go).
+/// adjacent, crossed with a small set of density patterns.
 pub(crate) fn boundary_sweep_test_bitvec_builder<T: BitVecBuilder>() {
     // Sizes that exercise the block/sample-boundary arithmetic. Keep this list short —
     // each (size, pattern) pair runs the full cross-check.

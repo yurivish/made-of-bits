@@ -1,8 +1,6 @@
 //! Huffman-shaped wavelet matrix. Variable-length Huffman codes per symbol; shorter
 //! codes sort to the end of each level via [`OnePadded`] wrapping, compressing the
 //! structure towards first-order entropy.
-//!
-//! Ported from `madeofbits/huffmanwaveletmatrix.go`.
 
 use std::collections::HashMap;
 
@@ -210,8 +208,7 @@ impl HuffmanWaveletMatrix {
 
 /// Stable-partition Huffman bitvec builder. Each level processes only the
 /// `level_lens[l]` prefix (elements with code length > l); the rest is absorbed by the
-/// surrounding OnePadded wrapper. Mirrors `buildBitvecsPartition(..., huffmanLevelLens)`
-/// in `madeofbits/waveletmatrix.go`.
+/// surrounding `OnePadded` wrapper.
 fn build_huffman_bitvecs(
     padded_data: &[u32],
     level_lens: &[u32],

@@ -15,7 +15,7 @@ const X_MASK_2D: u32 = 0b01010101010101010101010101010101;
 const Y_MASK_2D: u32 = !X_MASK_2D;
 
 // 3D dimension masks. In a 3D Morton code each dimension's bits occupy every 3rd
-// position; the masks below pick those bits out. Matches madeofbits/zorder.go.
+// position; the masks below pick those bits out.
 const X_MASK_3D: u32 = 0b01001001001001001001001001001001;
 const Y_MASK_3D: u32 = 0b10010010010010010010010010010010;
 const Z_MASK_3D: u32 = 0b00100100100100100100100100100100;
@@ -27,7 +27,7 @@ const DIM_MASKS_3D: [u32; 3] = [X_MASK_3D, Y_MASK_3D, Z_MASK_3D];
 /// `ndims`-dimensional Morton code.
 ///
 /// Fast path for 2D and 3D (the only widths Morton encoding currently supports); for
-/// other widths, computes the mask via a loop. Ported from `madeofbits/zorder.go`.
+/// other widths, computes the mask via a loop.
 pub fn dim_mask(dim: usize, ndims: usize) -> u32 {
     if ndims == 2 {
         return DIM_MASKS_2D[dim];

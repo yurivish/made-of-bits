@@ -32,7 +32,6 @@ const SELECT_IN_BYTE: [u8; 2048] = {
 /// target byte, then [`SELECT_IN_BYTE`] for the in-byte position.
 ///
 /// Reference: <https://vigna.di.unimi.it/ftp/papers/Broadword.pdf>.
-/// Ported from `Select64` in `madeofbits/bits.go`.
 pub(crate) fn select64(x: u64, k: u32) -> u32 {
     debug_assert!(
         (k as u64) < x.count_ones() as u64,
@@ -84,7 +83,6 @@ pub(crate) fn ilog2(x: u64) -> u32 {
 
 /// Linear O(popcount) reference implementation of [`select64`], kept as ground truth for
 /// the broadword version's tests. Returns `Some(pos)` if found, `None` otherwise.
-/// Ported from `Select64Simple` in `madeofbits/bits.go`.
 pub(crate) fn select64_simple(x: u64, k: u32) -> Option<u32> {
     let mut x = x;
     for _ in 0..k {

@@ -2,9 +2,8 @@
 //!
 //! Wire format: `[gamma(n)] [gamma(T[0])] [bsbin splits...]`
 //!
-//! Ported from `madeofbits/bic.go` (which implements Algorithm 1 of Moffat 2024).
-//! All values must be strictly positive; zero values panic. The sum of all values
-//! must fit in [`BicUint`].
+//! Implements Algorithm 1 of Moffat 2024. All values must be strictly positive; zero
+//! values panic. The sum of all values must fit in [`BicUint`].
 
 /// Value type for BIC encoding. Switch to `u64` if larger sums are needed.
 pub type BicUint = u32;

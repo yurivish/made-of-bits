@@ -4,8 +4,6 @@
 //! - [`canonical_huffman_codes`] — standard canonical codes (lex-ordered, non-decreasing length).
 //! - [`wavelet_matrix_codes`] — wavelet-matrix-flavoured codes (short codes sort to the END of
 //!   each level via bit-reversed ordering, so one-padding doesn't introduce gaps).
-//!
-//! Ported from `madeofbits/huffman.go`.
 
 /// Canonical Huffman codewords for a non-decreasing array of code lengths.
 ///
@@ -43,8 +41,6 @@ pub fn canonical_huffman_codes(lengths: &[u32]) -> Vec<u32> {
 /// code is to the right of every longer code that survives it.
 ///
 /// `lengths` must be sorted in ascending order (the natural output of [`huffman_code_lengths`]).
-///
-/// Ported from `WaveletMatrixCodes` in `madeofbits/huffman.go`.
 pub fn wavelet_matrix_codes(lengths: &[u32]) -> Vec<u32> {
     if lengths.is_empty() {
         return Vec::new();
@@ -91,8 +87,8 @@ pub fn wavelet_matrix_codes(lengths: &[u32]) -> Vec<u32> {
 /// - `weights.is_empty()` → returns an empty `Vec`.
 /// - Single-symbol input → returns `[0]` (zero-length code).
 ///
-/// Ported from `HuffmanCodeLengths` in `madeofbits/huffman.go`. Variable names match the
-/// Go source so the algorithm can be cross-referenced against §2.4 of the Moffat article.
+/// Variable names follow the Moffat article so the three phases can be cross-referenced
+/// against §2.4.
 pub fn huffman_code_lengths(weights: &[u32]) -> Vec<u32> {
     if weights.is_empty() {
         return Vec::new();
