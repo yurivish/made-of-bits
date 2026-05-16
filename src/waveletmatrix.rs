@@ -413,6 +413,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         &self,
         ranges: &[Range<u32>],
         symbol_extent: RangeInclusive<u32>,
+        ignore_bits: usize,
     ) -> Traversal<usize, Counts> {
         for range in ranges {
             assert!(range.end <= self.len());
@@ -425,7 +426,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                 end: range.end,
             }),
         );
-        for level in &self.levels {
+        for level in self.levels(ignore_bits) {
             traversal.traverse(|xs, go| {
                 let mut rank_cache = RangedRankCache::new();
                 for x in xs {
@@ -502,7 +503,11 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         traversal
     }
 
-    pub fn counts_faster_maybe(&self, ranges: &[Range<u32>]) -> Traversal<(), Counts> {
+    pub fn counts_faster_maybe(
+        &self,
+        ranges: &[Range<u32>],
+        ignore_bits: usize,
+    ) -> Traversal<(), Counts> {
         for range in ranges {
             assert!(range.end <= self.len());
         }
@@ -517,7 +522,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
             }),
         );
 
-        for level in self.levels.iter() {
+        for level in self.levels(ignore_bits) {
             traversal.traverse(|xs, go| {
                 // compute all rank1s in a batch
                 ranks.clear();
@@ -802,6 +807,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
         &self,
         ranges: &[Range<u32>],
         symbols: &[u32],
+        ignore_bits: usize,
     ) -> Traversal<usize, LocateBatch> {
         let mut traversal = Traversal::new(
             0..,
@@ -815,7 +821,7 @@ impl<BV: BitVec> WaveletMatrix<BV> {
                 })
             }),
         );
-        for level in &self.levels {
+        for level in self.levels(ignore_bits) {
             traversal.traverse(|xs, go| {
                 for x in xs {
                     let (symbol, preceding_count) = (x.v.symbol, x.v.preceding_count);
