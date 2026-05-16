@@ -1,23 +1,6 @@
 # Made of Bits
 
-This library is the product of my explorations into [succinct data structures](https://en.wikipedia.org/wiki/Succinct_data_structure) for data visualization. It implements bit vectors with [rank and select operations](https://en.wikipedia.org/wiki/Succinct_data_structure#Succinct_indexable_dictionaries), the [wavelet matrix](https://users.dcc.uchile.cl/~gnavarro/ps/spire12.4.pdf) generalising rank/select to larger alphabets, a Huffman-shaped variant of it for skewed data, and a few supporting pieces: Z-order primitives, Sequential Binary Interpolative Coding, and a memory-accounting trait.
-
-## Design notes
-
-A handful of principles shaped how the library is put together. Some of them are worth stating explicitly because they are easy to violate in good faith:
-
-- **Iterators earn their return type by sharing state across yields.** A block-walking `ones()` that reuses the masked block on every iteration is worth its weight; a loop that calls `select1(n)` and discards everything except the position is not — return a slice or take `&mut [u32]` instead. API symmetry on its own is not a reason to allocate generators.
-- **Faithful expression of a known idea over clever variation.** The goal is to make beautiful algorithms (Vigna's broadword `select64`, Elias-Fano, Moffat-Huffman, Tropf-Herzog LITMAX/BIGMIN, Sequential Binary Interpolative Coding) read clearly in Rust, not to invent new ones. A refinement that isn't backed by strong measurement stays in a comment for the next reader to evaluate.
-- **One well-measured change over three speculative ones.** When a benchmark surfaces multiple plausible improvements, ship the unambiguous one and demote the rest to inline notes. Measurement is harder than it looks and a single bench run is rarely enough signal.
-- **Cross-implementation validation is the test spine.** Every BitVec impl is checked against the slow `ArrayBitVec` reference; every overlapping query on `HuffmanWaveletMatrix` is checked against plain `WaveletMatrix` on identical data via the [SymbolSequence](src/symbol_sequence.rs) trait. When two independent implementations agree on a hundred arbitrary inputs, that is the test.
-- **Descriptive `assert!` messages on user-facing preconditions; bare asserts for internal invariants** the surrounding code already makes obvious. Failure messages are signal, not noise.
-- **Comments explain WHY, not WHAT.** A formula stays on one line, a precondition lives in the contract, a non-obvious order-of-operations gets the paragraph it deserves. Nothing else does.
-- **Trust the compiler.** No `#[inline]` hints on small, single-use functions; `rustc` handles those.
-- **Implementation first, tests at the bottom** in every file with both.
-
-## Bit vectors
-
-Several bit vector types, each specialised to a particular data pattern:
+This library is the product of my explorations into [succinct data structures](https://en.wikipedia.org/wiki/Succinct_data_structure) for data visualization. It implements several bit vector types with [rank and select operations](https://en.wikipedia.org/wiki/Succinct_data_structure#Succinct_indexable_dictionaries), each specialized to a particular data pattern:
 
 - The [dense](src/bitvec/dense.rs) bit vector is based on the approach proposed in [Fast, Small, Simple Rank/Select on Bitmaps](https://www.dcc.uchile.cl/~gnavarro/ps/sea12.1.pdf). In-block selection uses [Vigna's broadword `select64`](https://vigna.di.unimi.it/ftp/papers/Broadword.pdf).
 - The [sparse](src/bitvec/sparse.rs) bit vector is implemented using [Elias-Fano encoding](https://www.antoniomallia.it/sorted-integers-compression-with-elias-fano-encoding.html), with a static offset that shrinks the effective universe when the first 1-bit sits far from 0.
