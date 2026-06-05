@@ -1,6 +1,6 @@
 # Made of Bits
 
-This library is the product of my explorations into [succinct data structures](https://en.wikipedia.org/wiki/Succinct_data_structure) for data visualization. It implements bit vectors with [rank and select operations](https://en.wikipedia.org/wiki/Succinct_data_structure#Succinct_indexable_dictionaries), the [wavelet matrix](https://users.dcc.uchile.cl/~gnavarro/ps/spire12.4.pdf) generalising rank/select to larger alphabets, a Huffman-shaped variant of it for skewed data, and a few supporting pieces: Z-order primitives, Sequential Binary Interpolative Coding, and a memory-accounting trait.
+This library is the product of my explorations into [succinct data structures](https://en.wikipedia.org/wiki/Succinct_data_structure) for data visualization. It implements bit vectors with [rank and select operations](https://en.wikipedia.org/wiki/Succinct_data_structure#Succinct_indexable_dictionaries), the [wavelet matrix](https://users.dcc.uchile.cl/~gnavarro/ps/spire12.4.pdf) generalising rank/select to larger alphabets, a Huffman-shaped variant of it for skewed data, and a few supporting pieces.
 
 ## Bit vectors
 
